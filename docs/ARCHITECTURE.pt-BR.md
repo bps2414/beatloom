@@ -48,7 +48,10 @@ Antes de tudo, a música é convertida para o formato que o jogo usa (`song.egg`
 - **Ataques.** Um ataque é o instante em que um som começa (uma batida de caixa, uma nota de guitarra). Para cada casa da grade fica anotado se ali tem ataque forte, fraco ou nenhum, e a força dele.
 - **Energia por compasso.** Um número de 0 a 1 que diz o quanto cada compasso é intenso. É isso que faz o refrão ter mais notas que o verso.
 - **Compassos repetidos.** Compara o som dos compassos entre si. Quando um é igual a outro que já passou (o refrão voltando), fica anotado de qual ele é cópia.
-- **Notas longas.** Quando a voz ou a melodia ataca e segura a mesma nota por pelo menos uma batida e meia (o "ahhh"), sem outro ataque forte no meio, o trecho fica anotado para virar nota segurada.
+- **Partes da música.** Compassos vizinhos parecidos em timbre e harmonia são juntados em trechos, e cada compasso ganha um rótulo: introdução, verso, subida (os compassos que levam ao trecho cheio), queda (o trecho cheio: refrão ou drop) ou pausa (quase silêncio e sem ataques).
+- **Voz cantada.** Na faixa de voz separada, o Beatloom segue a altura cantada (pYIN, do librosa). Daí saem as sílabas (onde começa nota nova), a altura de cada uma e as notas longas.
+- **Peças da bateria.** Na faixa de bateria separada, o ataque é classificado pela faixa de frequência: bumbo (grave), caixa (médio), prato (agudo) e prato de ataque (o agudo que continua soando).
+- **Notas longas.** Nota cantada segurada por pelo menos uma batida e meia (o "ahhh") fica anotada para virar nota segurada. Na melodia vale quando o instrumento ataca e segura a mesma nota, sem outro ataque forte no meio.
 - **Instrumentos separados.** Um programa chamado Demucs separa a música em bateria, baixo, voz e resto. É a parte demorada (alguns minutos). Medimos que os ataques da bateria isolada acertam mais que os da música inteira, então eles valem mais.
 
 Tudo isso fica guardado em `.cache\`, então gerar de novo a mesma música leva segundos em vez de minutos.
@@ -57,13 +60,13 @@ Tudo isso fica guardado em `.cache\`, então gerar de novo a mesma música leva 
 
 Cada dificuldade tem um **orçamento**: quantos instantes com nota por segundo ela mira (Easy 1,25; Normal 1,8; Hard 2,45; Expert 3,3; Expert+ 4,1) e o menor intervalo permitido entre duas notas. Os números ficam perto do quarto mais leve dos mapas humanos de cada dificuldade.
 
-1. **Candidatas.** Toda casa com ataque é candidata, menos as dos primeiros 2 segundos e dos últimos 3 (folga para você se preparar e para a música acabar).
+1. **Candidatas.** Toda casa com ataque é candidata, menos as dos primeiros 2 segundos e dos últimos 3 (folga para você se preparar e para a música acabar). Onde começa uma sílaba cantada também é candidata, com peso entre o do ataque forte e o do fraco.
 2. **Prioridade.** Cada candidata ganha uma nota de prioridade: força do ataque × posição na batida. Em cima da batida vale mais; no meio vale um pouco menos; nas casas de 1/4 vale pouco no Expert e zero no Easy, no Normal e no Hard. É por isso que eles não têm notas rápidas.
-3. **Orçamento por compasso.** O orçamento total é repartido entre os compassos conforme a energia de cada um. Dentro do compasso, as candidatas de maior prioridade entram primeiro, respeitando o intervalo mínimo.
+3. **Orçamento por compasso.** O orçamento total é repartido entre os compassos conforme a energia de cada um e a parte da música: a queda leva 10% a mais, a subida começa com 20% a menos e chega nela com 20% a mais, e a pausa fica sem nota. Dentro do compasso, as candidatas de maior prioridade entram primeiro, respeitando o intervalo mínimo.
 4. **Refrão repetido.** Um compasso marcado como cópia de outro recebe o mesmo ritmo do original, em vez de sortear de novo. Se ele tiver ataques que o original não tinha, completa até o orçamento dele.
 5. **Trecho vazio.** Se sobra um trecho de 2 batidas ou mais sem nota (4 no Normal) com pelo menos 3 ataques fortes dentro, o ataque mais forte ganha nota, até não sobrar trecho assim.
 6. **Respiro antes do refrão.** Quando a energia sobe de um compasso para o outro, a batida anterior fica sem nota e a primeira batida do trecho forte entra com nota dupla.
-7. **Notas duplas.** Os ataques mais fortes em cima da batida, com espaço antes e depois, viram dupla (as duas mãos juntas). Se a música é lenta e não chega à densidade mínima da dificuldade, a proporção de duplas sobe, em vez de inventar nota onde não há som.
+7. **Notas duplas.** Os ataques mais fortes em cima da batida, com espaço antes e depois, viram dupla (as duas mãos juntas); o prato de ataque passa na frente. Se a música é lenta e não chega à densidade mínima da dificuldade, a proporção de duplas sobe, em vez de inventar nota onde não há som.
 
 O resultado desta etapa é só uma lista: "nestas casas tem nota; nestas, dupla".
 
@@ -80,13 +83,15 @@ O motor anda pela música batida a batida:
 
 **Refrão igual, desenho igual.** Em compasso repetido, o motor tenta reusar o desenho que usou no original. Há um detalhe: cada nota inverte o lado do braço, então metade das vezes você chega ao refrão "pelo outro lado" e o desenho idêntico seria impossível. Nesses casos ele usa o mesmo desenho espelhado de cima para baixo: mesmo ritmo, mesmas mãos, mesmas colunas.
 
-**Altura por instrumento.** Entre padrões equivalentes, bateria tende a ficar embaixo e voz e melodia em cima.
+**Altura por instrumento.** Entre padrões equivalentes, bateria tende a ficar embaixo (bumbo na linha de baixo, caixa na do meio) e voz e melodia em cima. Onde começa uma sílaba cantada sem batida forte da bateria junto, quem escolhe é a voz: nota mais aguda que a frase em volta vai para cima, mais grave vai para baixo, e melodia subindo prefere corte para cima. É uma preferência, não uma regra: a paridade e os defeitos vêm antes, então só parte das notas segue a voz.
+
+**Tamanho do golpe.** O quarto mais forte dos ataques do mapa prefere a nota longe de onde a mão estava (braço largo); o quarto mais fraco prefere perto (golpe curto).
 
 **Verso diferente de refrão.** Trecho intenso prefere desenhos abertos (linhas de cima, pontas, diagonais); trecho calmo prefere sobe e desce simples embaixo. Um desenho que já saiu muitas vezes perde pontos, para não repetir sempre o mesmo.
 
 **Velocidade do braço.** Cada dificuldade tem um teto para a distância que a mesma mão percorre entre duas notas (6, 8, 10 e 12 casas por segundo), tirado do 1% mais rápido dos mapas humanos. No Normal e no Hard os braços nunca cruzam; no Expert e no Expert+ cruzar perde pontos. O Normal também evita diagonais.
 
-**Notas seguradas.** Onde há nota longa na música, as duas mãos cortam juntas no começo (de baixo para cima, ou o inverso se o braço estiver do outro lado), um arco liga cada nota à nota do fim, cortada no sentido contrário, e não há nada no meio. O Normal não usa.
+**Notas seguradas.** Onde há nota longa na música, as duas mãos cortam juntas no começo (de baixo para cima, ou o inverso se o braço estiver do outro lado), um arco liga cada nota à nota do fim, cortada no sentido contrário, e não há nada no meio. O Normal não usa. Entram das mais longas para as mais curtas, no máximo uma a cada 20 segundos de música.
 
 **Rede de segurança.** No fim, uma passada conserta sobras raras mexendo só na posição das notas (isso nunca altera a paridade).
 
@@ -105,6 +110,8 @@ Os defeitos evitados:
 ## 5. Empacotar (`generate.py`)
 
 Durante todo o processo o tempo é contado em segundos. Só na hora de escrever o arquivo ele é convertido para a unidade do jogo (batidas). Isso evita erros de arredondamento.
+
+**Andamento que varia.** Quando o BPM não é fixo, o arquivo de cada dificuldade leva eventos de BPM: um a cada trecho em que o andamento muda, com os inícios de compasso a até 10 milésimos de segundo da grade. Assim o jogo e os editores desenham a grade no lugar certo. O BPM do `Info.dat` continua sendo o mediano.
 
 O zip leva: `Info.dat` (nome, BPM, dificuldades), um arquivo por dificuldade (formato v3, que é o que aceita arcos), `song.egg` e a capa. A prévia que toca no menu do jogo começa no trecho mais intenso da música. A velocidade das notas é 10, 12, 14, 16 e 18 (o valor típico dos mapas humanos da biblioteca).
 

@@ -48,7 +48,10 @@ First the song is converted to the format the game uses (`song.egg`). The analys
 - **Onsets.** An onset is the moment a sound starts (a snare hit, a guitar note). For each slot we record whether there is a strong onset, a weak one or none, and how strong it is.
 - **Energy per bar.** A number from 0 to 1 that says how intense each bar is. This is what gives the chorus more notes than the verse.
 - **Repeated bars.** The sound of each bar is compared with the others. When a bar matches an earlier one (the chorus coming back), we record which bar it copies.
-- **Long notes.** When the vocals or the melody hit and hold the same note for at least a beat and a half (the "ahhh"), with no other strong onset in between, the stretch is marked to become a held note.
+- **Song parts.** Neighbouring bars that sound alike in timbre and harmony are grouped into sections, and each bar gets a label: intro, verse, build-up (the bars leading into the full part), drop (the full part: chorus or drop) or break (near silence with no onsets).
+- **Sung voice.** On the separated vocal track, Beatloom follows the sung pitch (pYIN, from librosa). That gives the syllables (where a new note starts), the pitch of each one and the long notes.
+- **Drum pieces.** On the separated drum track, each onset is classified by frequency band: kick (low), snare (mid), cymbal (high) and crash (highs that keep ringing).
+- **Long notes.** A sung note held for at least a beat and a half (the "ahhh") is marked to become a held note. For the melody it counts when the instrument hits and holds the same note, with no other strong onset in between.
 - **Separated instruments.** A program called Demucs splits the song into drums, bass, vocals and the rest. This is the slow part (a few minutes). We measured that onsets from the isolated drums are more accurate than onsets from the full mix, so they count for more.
 
 All of this is stored in `.cache\`, so generating the same song again takes seconds instead of minutes.
@@ -57,13 +60,13 @@ All of this is stored in `.cache\`, so generating the same song again takes seco
 
 Each difficulty has a **budget**: how many note moments per second it aims for (Easy 1.25, Normal 1.8, Hard 2.45, Expert 3.3, Expert+ 4.1) and the smallest gap allowed between two notes. The numbers sit near the lightest quarter of the human maps of each difficulty.
 
-1. **Candidates.** Every slot with an onset is a candidate, except in the first 2 seconds and the last 3 (room for you to get ready and for the song to end).
+1. **Candidates.** Every slot with an onset is a candidate, except in the first 2 seconds and the last 3 (room for you to get ready and for the song to end). The start of a sung syllable is also a candidate, weighted between a strong onset and a weak one.
 2. **Priority.** Each candidate gets a priority: onset strength × position in the beat. On the beat counts most, halfway counts a little less, and quarter slots count little on Expert and zero on Easy, Normal and Hard. That is why they have no fast notes.
-3. **Budget per bar.** The total budget is shared among the bars according to their energy. Inside a bar, the highest-priority candidates go in first, respecting the minimum gap.
+3. **Budget per bar.** The total budget is shared among the bars according to their energy and the part of the song: the drop gets 10% more, the build-up starts 20% lower and reaches the drop 20% higher, and a break gets no notes. Inside a bar, the highest-priority candidates go in first, respecting the minimum gap.
 4. **Repeated chorus.** A bar marked as a copy of another gets the same rhythm as the original instead of being chosen again. If it has onsets the original did not have, it is topped up to its own budget.
 5. **Empty stretch.** If a stretch of 2 beats or more (4 on Normal) is left without notes and has at least 3 strong onsets inside, the strongest onset gets a note, until no such stretch is left.
 6. **A breath before the chorus.** When the energy jumps from one bar to the next, the beat before is left empty and the first beat of the strong part comes in with a double note.
-7. **Double notes.** The strongest onsets on the beat, with space before and after, become doubles (both hands together). If the song is slow and does not reach the minimum density for the difficulty, the share of doubles goes up, instead of inventing notes where there is no sound.
+7. **Double notes.** The strongest onsets on the beat, with space before and after, become doubles (both hands together); crash cymbals go first. If the song is slow and does not reach the minimum density for the difficulty, the share of doubles goes up, instead of inventing notes where there is no sound.
 
 The output of this step is just a list: "these slots get a note; these get a double".
 
@@ -80,13 +83,15 @@ The engine walks through the song beat by beat:
 
 **Same chorus, same layout.** In a repeated bar, the engine tries to reuse the layout it used the first time. There is a catch: every note flips the side your arm is on, so about half the time you arrive at the chorus "from the other side" and the identical layout would be impossible. In that case it uses the same layout flipped top to bottom: same rhythm, same hands, same columns.
 
-**Height by instrument.** Among equivalent patterns, drums tend to go low and vocals and melody go high.
+**Height by instrument.** Among equivalent patterns, drums tend to go low (kick on the bottom row, snare on the middle one) and vocals and melody go high. Where a sung syllable starts with no strong drum hit on it, the voice decides: a note higher than the phrase around it goes up, a lower one goes down, and a rising melody prefers an upward cut. This is a preference, not a rule: parity and defects come first, so only part of the notes follow the voice.
+
+**Swing size.** The strongest quarter of the onsets in the map prefers a note far from where the hand was (wide arm); the weakest quarter prefers a near one (short swing).
 
 **Verse differs from chorus.** An intense part prefers open layouts (upper rows, outer columns, diagonals); a calm part prefers simple up and down swings low. A layout that has already been used many times loses points, so the same one does not keep coming back.
 
 **Arm speed.** Each difficulty has a cap on how far the same hand travels between two notes (6, 8, 10 and 12 slots per second), taken from the fastest 1% of the human maps. On Normal and Hard the arms never cross; on Expert and Expert+ crossing loses points. Normal also avoids diagonals.
 
-**Held notes.** Where the song has a long note, both hands cut together at the start (upward from the bottom, or the reverse if the arm is on the other side), an arc links each note to the end note, which is cut the opposite way, and there is nothing in between. Normal does not use them.
+**Held notes.** Where the song has a long note, both hands cut together at the start (upward from the bottom, or the reverse if the arm is on the other side), an arc links each note to the end note, which is cut the opposite way, and there is nothing in between. Normal does not use them. They go in from longest to shortest, at most one for every 20 seconds of song.
 
 **Safety net.** At the end, one pass fixes rare leftovers by changing only note positions (this never changes parity).
 
@@ -105,6 +110,8 @@ The defects it avoids:
 ## 5. Pack (`generate.py`)
 
 Through the whole process time is counted in seconds. Only when the file is written is it converted to the game's unit (beats). This avoids rounding errors.
+
+**Changing tempo.** When the BPM is not fixed, each difficulty file carries BPM events: one for each stretch where the tempo changes, keeping bar starts within 10 milliseconds of the grid. That way the game and the editors draw the grid in the right place. The BPM in `Info.dat` is still the median one.
 
 The zip contains `Info.dat` (name, BPM, difficulties), one file per difficulty (v3 format, the one that accepts arcs), `song.egg` and the cover. The preview that plays in the game menu starts at the most intense part of the song. Note speed is 10, 12, 14, 16 and 18 (the typical value in the human maps of the library).
 

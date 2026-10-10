@@ -6,7 +6,7 @@ Escrito em 10/10/2026, depois das quatro fatias do redesenho ([plan/README.md](p
 
 Pedido do dono: detector melhor, mapa mais humano, mais intenso e mais realista; vocais melhor detectados; "sentir" a música; notas mais coerentes.
 
-Como está hoje, para saber de onde se parte: batidas pelo beat_this, ataques pelo librosa na música inteira e em cada uma das quatro faixas do Demucs (bateria, baixo, voz, resto), intensidade por compasso, compassos repetidos reaproveitam o desenho, a altura da nota só distingue "voz/melodia" de "bateria/baixo", e os golpes vêm de trechos de 1, 2 ou 4 batidas tirados de mapas humanos.
+Como está hoje (depois do bloco 1.1), para saber de onde se parte: batidas pelo beat_this, ataques pelo librosa na música inteira e em cada uma das quatro faixas do Demucs (bateria, baixo, voz, resto), altura cantada pelo pYIN, peças da bateria por faixa de frequência, partes da música (intro, verso, subida, queda, pausa), intensidade por compasso, compassos repetidos reaproveitam o desenho, e os golpes vêm de trechos de 1, 2 ou 4 batidas tirados de mapas humanos.
 
 **Ordem.** O 1.0 vem primeiro, porque os outros medem com ele. O 1.4 (pesquisa) pode vir a qualquer hora e rende mais antes do 1.1, porque pode poupar trabalho. O 1.1 vem antes do 1.2 e de parte do 1.3: as luzes (1.3 item 1) usam as partes da música (1.1 item 3) e os arcos (1.3 item 6) usam a voz (1.1 item 1). Do 1.3, os itens 2, 3, 7 e 8 não dependem de nada. Os blocos 2, 3 e 4 são livres.
 
@@ -35,12 +35,52 @@ Sem isto qualquer mudança vira gosto. Ferramentas que já existem: `tools/blind
 
 ### 1.1 Detector
 
+**Feito em 10/10/2026**, um commit por item. Medido em 18 músicas (o zip mais novo de cada uma em `saida\`, regerado do `song.egg` com o código de antes e de depois; a análise sai do cache). Os números do `tools/medir.py`, antes → depois:
+
+| Dificuldade | Notas | Cobertura | Precisão | Correlação |
+|---|---|---|---|---|
+| Easy | 262 → 259 | 47% → 47% | 73% → 73% | 0,83 → 0,88 |
+| Normal | 389 → 390 | 62% → 62% | 67% → 66% | 0,87 → 0,91 |
+| Hard | 540 → 534 | 72% → 70% | 62% → 61% | 0,76 → 0,82 |
+| Expert | 747 → 748 | 85% → 83% | 55% → 53% | 0,78 → 0,83 |
+| Expert+ | 910 → 917 | 90% → 88% | 51% → 49% | 0,68 → 0,75 |
+
+Passam em todas as conferências: 16 de 18 → 18 de 18 (1am-freestyle e past-won-t-leave-my-bed caíam do piso de notas do Expert+).
+
+O que os números dizem e o que não dizem:
+
+- A cobertura e a precisão do `medir.py` só conhecem os ataques fortes da mixagem. Nota posta numa sílaba cantada sem ataque forte conta contra as duas. A queda de 2 pontos no Hard, Expert e Expert+ vem do item 1 (voz) e é esse efeito; nas músicas de voz longa ela é maior (in-joy-and-sorrow, Expert: 95% → 86%; back-to-you: 94% → 86%). É a troca que o item pedia, mas é uma perda no número do 1.0 e fica registrada como tal.
+- A correlação subiu em todas as dificuldades, quase toda pelo item 3 (partes) e um pouco pelo 2 (prato de ataque vira dupla).
+- A correlação por trecho mudou de conta no meio do caminho (`report.py`: 5 ms de folga na barra do compasso, porque a nota em cima da barra caía num trecho ou no outro pelo arredondamento). O "antes" da tabela já foi medido com a conta nova. Com a antiga, o ponto de partida era 0,81 / 0,85 / 0,74 / 0,77 / 0,67.
+- Nenhum mapa foi jogado. O teste cego do dono e o conjunto com mapa humano (item 1.0) continuam faltando.
+
+O que cada item mudou, com a medida própria dele (scripts de bancada, fora do repositório; mesmas 18 músicas; "antes" é o código de antes do bloco):
+
+| Item | Medida | Antes | Depois |
+|---|---|---|---|
+| 1 Voz | sílabas cantadas que viraram nota (Hard / Expert / Expert+) | 47% / 60% / 67% | 49% / 66% / 76% |
+| 1 Voz | notas em sílaba na linha que a altura da voz pede | 30 a 33% | 40 a 44% |
+| 1 Voz | notas em sílaba cortando no sentido da melodia | 46 a 49% | 50 a 55% |
+| 1 Voz | notas seguradas por mapa (Hard, Expert, Expert+) | 8 | 17 |
+| 2 Bateria | notas de caixa na linha do meio | 16 a 28% | 36 a 44% |
+| 2 Bateria | pratos de ataque com nota que saíram dupla (Hard / Expert / Expert+) | 25% / 36% / 38% | 68% / 50% / 48% |
+| 4 Força | tamanho do golpe no quarto mais forte contra o mais fraco (Hard, em casas) | 1,44 contra 1,41 | 1,54 contra 1,37 |
+| 5 BPM | maior distância entre a nota e a grade, com o tempo calculado pelo bsmap a partir dos eventos | – | 0,07 ms |
+
+Limites conhecidos:
+
+- **Voz.** A altura e o sentido são preferência na escolha do padrão; a paridade, os defeitos e o compasso repetido vêm antes. Por isso só 4 em cada 10 notas de sílaba ficam na linha pedida (ao acaso seriam 3). Para a voz mandar mais é preciso mexer na escolha do padrão, que é o bloco 1.2.
+- **Bateria.** "Prato de ataque" é só os 10% de agudo que mais continuam soando; caixa aberta entra junto. Não há gabarito para conferir; o que confere é o bumbo cair nas batidas 1 e 3 e a caixa nas 2 e 4 nas músicas de rock, e cai.
+- **Partes.** Refrão e drop são o mesmo rótulo ("queda"). Em música alta do começo ao fim quase tudo vira queda e o item não muda nada (take-a-bite, sojourn).
+- **BPM.** Em 17 das 18 músicas o BPM não é fixo e a grade de um BPM só fugia de 0,06 a 56 s até o fim. Os mapas saem com 7 a 73 eventos de BPM. **Não conferido no jogo nem no ArcViewer**: só pelo bsmap. Onde o detector de batidas lê um trecho em tempo dobrado, o evento sai com o BPM dobrado (joseph vai de 117 a 326).
+- A análise nova (voz, bateria, partes) acrescenta uns 5 a 25 s por música na primeira vez e fica em cache, um arquivo por camada (`voz.json`, `bateria.json`, `partes.json`), ao lado dos instrumentos separados. As partes e os eventos de BPM valem também no modo rápido; voz e bateria precisam dos instrumentos separados.
+
 1. **Voz de verdade.** Na faixa de voz, seguir a altura cantada (pYIN do librosa) em vez de só o ataque: sílaba nova vira nota, melodia subindo ou descendo decide a altura e a direção do corte, nota longa cantada vira nota segurada.
 2. **Bateria por peça.** Separar bumbo, caixa e pratos dentro da faixa de bateria (por faixa de frequência). Bumbo embaixo, caixa no meio, prato forte vira dupla.
 3. **Partes da música.** Reconhecer introdução, verso, refrão, subida e queda. Subida vira sequência que acelera, queda vira o trecho mais cheio, pausa vira respiro de verdade. Hoje a intensidade é só por compasso.
 4. **Força de cada ataque.** Ataque forte ganha dupla ou golpe largo; ataque fraco, golpe curto. Hoje a força decide se há nota, não como ela é.
 5. **BPM variável.** Músicas que mudam de andamento saem sem eventos de BPM no mapa; o jogo e os editores mostram a grade errada.
-6. Avaliar o modelo de seis faixas do Demucs (guitarra e piano separados). Custa mais tempo; só vale se o item 1.0 mostrar ganho.
+6. Avaliar o modelo de seis faixas do Demucs (guitarra e piano separados). Custa mais tempo; só vale se o item 1.0 mostrar ganho. **Avaliado em 10/10/2026 e não adotado.** Em três músicas (koro-disco, sk8er-boi, born-to-die), com guitarra e piano entrando como candidatos: a cobertura ficou igual ou pior (born-to-die, Expert: 93% → 88%), a guitarra e o piano trouxeram só 2 a 3% de ataques fortes que as quatro faixas ainda não tinham (13 a 29 por música) e a faixa de voz do modelo de seis rendeu menos sílabas (5 a 9% a menos). O tempo de separação foi parecido (49, 72 e 94 s contra 40, 81 e 106 s, no processador, com outra carga rodando junto). O próprio Demucs avisa que a faixa de piano desse modelo é fraca.
 
 ### 1.2 Golpes mais humanos
 
@@ -89,11 +129,7 @@ Um por sessão, para colar como está, na ordem sugerida. Todos em Opus 5.5, esf
 
 1.0: feito em 10/10/2026 (`tools/medir.py`), não precisa rodar de novo.
 
-1.1 inteira (o detector):
-
-```text
-Execute o bloco 1.1 do roadmap inteiro, um item por vez. A cada item: meça antes e depois com tools/medir.py, desfaça se piorar, e faça commit. Não pare para aprovar entre itens. No fim, atualize o roadmap com o que foi feito, push, e me diga duas músicas para eu testar.
-```
+1.1: feito em 10/10/2026, não precisa rodar de novo. Resultados no bloco 1.1.
 
 Atualizar os mapas antigos de uma vez, bloco 3 item 9 (bom logo depois do 1.1, antes de refazer a lista toda):
 

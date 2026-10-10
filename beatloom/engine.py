@@ -328,3 +328,19 @@ def golpes(tempos, an, dif, reacao, etapa, njs=16, arcos=(), prefs=()):
         resumo += (f" | notas em silaba cantada: {len(na_voz)}, das quais {stats['voz_linha']} na linha que a altura da voz pede"
                    f" e {stats['voz_sentido']} de {len(com_sentido)} cortando no sentido da melodia")
     return sorted(notas_todas), resumo, seguradas, stats
+
+
+def demo():
+    # frase de 5 silabas, uma por batida: do, do, sol (7 semitons acima), do, e uma bem grave; a ultima silaba esta longe das outras
+    alt = [None] * 80
+    for i, m in ((0, 60), (4, 60), (8, 67), (12, 60), (16, 50), (70, 64)):
+        alt[i] = m
+    linha, sentido = alvos_da_voz({"altura": alt, "silaba": [0, 4, 8, 12, 16, 70]})
+    assert linha == {0: 1, 4: 1, 8: 2, 12: 1, 16: 0, 70: 1}, linha
+    assert sentido == {8: 1, 12: -1, 16: -1}, sentido  # nota igual a anterior e silaba isolada nao tem sentido
+    print("engine ok")
+
+
+if __name__ == "__main__":
+    import sys
+    sys.exit(demo() if sys.argv[1:] == ["--demo"] else "uso: python -m beatloom.engine --demo")

@@ -32,7 +32,8 @@ def medir(audio, etapa=4, threads=None, difs=None):
     soma = defaultdict(lambda: [0.0, 0])
     for obj, nome, rotulo in ((au, "ffmpeg", "conversao (ffmpeg, na analise)"), (generate, "ffmpeg", "song.egg e capa (ffmpeg)"), 
                               (librosa, "load", "ler audio a 22 kHz (librosa.load)"), (au, "_ataques", "ataques"), (au, "_compassos", "compassos"), (au, "_separar", "separacao de instrumentos"),
-                              (generate, "sustentados", "notas longas"), (engine, "golpes", "golpes (motor)"), (generate, "escolher_tempos", "escolha dos tempos"),
+                              (generate, "voz", "voz cantada (pYIN)"), (generate, "bateria", "pecas da bateria"), (generate, "partes", "partes da musica"),
+                              (generate, "sustentados", "notas longas"),(engine, "golpes", "golpes (motor)"), (generate, "escolher_tempos", "escolha dos tempos"),
                               (report, "bsmap", "conferencia: Node (bsmap)"), (report, "conferir", "conferencia inteira")):
         cronometrar(obj, nome, rotulo, soma)
     F2B = beat_this.inference.File2Beats
