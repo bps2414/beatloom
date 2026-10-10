@@ -8,7 +8,7 @@ Pedido do dono: detector melhor, mapa mais humano, mais intenso e mais realista;
 
 Como está hoje, para saber de onde se parte: batidas pelo beat_this, ataques pelo librosa na música inteira e em cada uma das quatro faixas do Demucs (bateria, baixo, voz, resto), intensidade por compasso, compassos repetidos reaproveitam o desenho, a altura da nota só distingue "voz/melodia" de "bateria/baixo", e os golpes vêm de trechos de 1, 2 ou 4 batidas tirados de mapas humanos.
 
-**Ordem.** O 1.0 vem primeiro, porque os outros medem com ele. O 1.4 (pesquisa) pode vir a qualquer hora e rende mais antes do 1.1, porque pode poupar trabalho. O 1.1 vem antes do 1.2 e de parte do 1.3: as luzes (1.3 item 1) usam as partes da música (1.1 item 3) e os arcos (1.3 item 4) usam a voz (1.1 item 1). Do 1.3, os itens 2, 5 e 6 não dependem de nada. Os blocos 2, 3 e 4 são livres.
+**Ordem.** O 1.0 vem primeiro, porque os outros medem com ele. O 1.4 (pesquisa) pode vir a qualquer hora e rende mais antes do 1.1, porque pode poupar trabalho. O 1.1 vem antes do 1.2 e de parte do 1.3: as luzes (1.3 item 1) usam as partes da música (1.1 item 3) e os arcos (1.3 item 6) usam a voz (1.1 item 1). Do 1.3, os itens 2, 3, 7 e 8 não dependem de nada. Os blocos 2, 3 e 4 são livres.
 
 **Modelo sugerido por bloco** (opinião de quem escreveu, 10/10/2026): Opus 5.5 em esforço médio para 1.1 e 1.2, onde o erro sai como mapa esquisito que nenhum teste pega; Sonnet 5.5 em esforço alto para 1.0, 1.3 e 1.4 e para os blocos 3 e 4, que são trabalho mais direto.
 
@@ -46,7 +46,7 @@ Sem isto qualquer mudança vira gosto. Ferramentas que já existem: `tools/blind
 
 1. **Contexto maior.** Escolher o trecho olhando 8 batidas e o que vem depois, não só o encaixe com o estado atual dos braços.
 2. **Motivo e variação.** Refrão repete o desenho (já faz), mas a segunda vez pode vir espelhada ou com um acento a mais, como mapper faz.
-3. **Vocabulário que falta.** Torres e pilhas em acento; correntes, bombas e paredes estão no item 1.3.
+3. **Vocabulário que falta.** Torres e pilhas em acento; correntes, bombas e paredes estão no bloco 1.3.
 4. **Braços cruzados sob controle.** Com as preferências ligadas eles dobram no Expert+ (medido). Virar um botão: nunca, pouco, livre.
 5. **Peso por qualidade.** Na biblioteca, trecho de mapa mais bem avaliado pesa mais; hoje pesa a frequência.
 
@@ -55,15 +55,21 @@ Sem isto qualquer mudança vira gosto. Ferramentas que já existem: `tools/blind
 Pedido do dono: melhorar o mapa, deixar mais bonito, usar mais recursos do próprio Beat Saber. Hoje o mapa usa notas, arcos, paredes de enfeite e luzes básicas, num ambiente só.
 
 1. **Luzes de verdade.** Seguir as partes da música (item 1.1.3): cor por seção, pulso no bumbo, clarão no acento, apagar na pausa, anéis girando e abrindo na queda, velocidade dos lasers conforme a intensidade. É o que mais muda a cara do mapa.
-2. **Ambiente por música.** Escolher o cenário do jogo conforme o clima (calmo, pesado, eletrônico) em vez de um fixo, e gravar um esquema de cores próprio (sabres, luzes, paredes) tirado da capa.
-3. **Luzes novas (v3).** Os ambientes recentes usam grupos de luzes com eventos de cor, rotação e translação; sem eles esses cenários ficam apagados.
-4. **Correntes e arcos melhores.** Correntes (burst sliders) em ataque seco e arcos seguindo a nota cantada (item 1.1.1), com curva que acompanha o braço.
-5. **Bombas e paredes com função.** Bomba para forçar o reset do braço, parede para fazer desviar e agachar no ritmo, com parcimônia e respeitando as preferências.
-6. **Um Braço, 360 e 90 graus.** Modos do próprio jogo que o gerador ainda não faz. O de um braço é o mais barato.
-7. **Velocidade por trecho.** NJS e distância de salto ajustados à dificuldade (já faz) e eventos de BPM para a grade acompanhar (item 1.1.5).
-8. Fora do jogo puro, só se o dono quiser: Chroma (cores livres) e Noodle Extensions pedem mods; no Quest nem sempre existem.
-9. **Escolher o que vai no mapa** (pedido do dono, a partir da tela do Beat Sage). No diálogo de mapa novo, além das dificuldades:
-   - Modos de jogo: Padrão (já faz), Sem Setas, Um Sabre, 90 Graus, 360 Graus. Cada modo marcado sai como mais um conjunto de dificuldades no mesmo mapa. Sem Setas é o mais barato (as mesmas notas, sem direção); Um Sabre e os de giro são os do item 6.
+2. **Cores da música** (pedido do dono). Tirar da capa (ou da miniatura do vídeo) as duas cores dominantes que mais contrastam entre si e gravar como cores do mapa. Hoje toda luz sai vermelha e azul.
+   - Luzes sempre com as cores da capa; sabres e notas com elas só se a pessoa ligar (opção na Configuração e no diálogo de mapa novo), porque cor de sabre é gosto e precisa de contraste para ler a nota.
+   - Sem mod o jogo dá mais do que duas cores de luz: as duas do ambiente, as duas do modo "boost" (trocadas por evento) e o branco. Usar o boost no refrão e na queda com um segundo par tirado da capa; o branco fica para o clarão do acento.
+   - Garantias: as duas cores nunca parecidas demais entre si nem escuras demais; capa cinza ou de uma cor só cai nas cores padrão.
+   - A conferir antes: se o SongCore do Quest respeita as cores gravadas no mapa e se o jogador precisa ligar algo nas opções do jogo.
+3. **Ambiente por música.** Escolher o cenário do jogo conforme o clima (calmo, pesado, eletrônico) em vez de um fixo.
+4. **O mapa reage à música** (pedido do dono: mais bonito, mais "interativo", mais a ver com a música). O que já agrada fica e cresce: escuro na parte lenta, luz caindo na queda. Somar: subida que vai acendendo aos poucos até estourar na queda, apagão seco no silêncio antes dela, paredes abrindo um corredor no refrão, anéis e lasers no pulso do bumbo, e cada parte da música com uma cara própria que volta quando a parte volta.
+5. **Luzes novas (v3).** Os ambientes recentes usam grupos de luzes com eventos de cor, rotação e translação; sem eles esses cenários ficam apagados.
+6. **Correntes e arcos melhores.** Correntes (burst sliders) em ataque seco e arcos seguindo a nota cantada (item 1.1.1), com curva que acompanha o braço.
+7. **Bombas e paredes com função.** Bomba para forçar o reset do braço, parede para fazer desviar e agachar no ritmo, com parcimônia e respeitando as preferências.
+8. **Um Braço, 360 e 90 graus.** Modos do próprio jogo que o gerador ainda não faz. O de um braço é o mais barato.
+9. **Velocidade por trecho.** NJS e distância de salto ajustados à dificuldade (já faz) e eventos de BPM para a grade acompanhar (item 1.1.5).
+10. Fora do jogo puro, só se o dono quiser: Chroma (cores livres) e Noodle Extensions pedem mods; no Quest nem sempre existem.
+11. **Escolher o que vai no mapa** (pedido do dono, a partir da tela do Beat Sage). No diálogo de mapa novo, além das dificuldades:
+   - Modos de jogo: Padrão (já faz), Sem Setas, Um Sabre, 90 Graus, 360 Graus. Cada modo marcado sai como mais um conjunto de dificuldades no mesmo mapa. Sem Setas é o mais barato (as mesmas notas, sem direção); Um Sabre e os de giro são os do item 8.
    - O que entra: bombas, notas sem direção (ponto), paredes, luzes dinâmicas. Cada um liga e desliga; o padrão de cada um fica guardado na Configuração, junto das preferências, e vale também no "Refazer as notas".
    - Só aparece na tela o que o gerador já sabe fazer; nada de opção cinza prometendo o que não existe.
 
@@ -94,13 +100,13 @@ Execute o bloco 1.2 do roadmap inteiro, um item por vez. A cada item: meça ante
 1.3 inteira (Sonnet 5.5 alto):
 
 ```text
-Execute o bloco 1.3 do roadmap inteiro, um item por vez, menos o item 8 (mods). A cada item: confira que o mapa passa na conferência e faça commit. Não pare para aprovar entre itens. No fim, push e me diga duas músicas para eu ver.
+Execute o bloco 1.3 do roadmap inteiro, um item por vez, menos o item 10 (mods). A cada item: confira que o mapa passa na conferência e faça commit. Não pare para aprovar entre itens. No fim, push e me diga duas músicas para eu ver.
 ```
 
-Só as opções do mapa, 1.3 item 9 (Sonnet 5.5 alto):
+Só as opções do mapa, 1.3 item 11 (Sonnet 5.5 alto):
 
 ```text
-Roadmap 1.3 item 9 (escolher o que vai no mapa): comece por Sem Setas e pelos liga e desliga de bombas, pontos e paredes; os modos que o gerador ainda não faz ficam de fora da tela. Commit e push ao final.
+Roadmap 1.3 item 11 (escolher o que vai no mapa): comece por Sem Setas e pelos liga e desliga de bombas, pontos e paredes; os modos que o gerador ainda não faz ficam de fora da tela. Commit e push ao final.
 ```
 
 1.4 (Sonnet 5.5 alto):
