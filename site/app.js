@@ -199,11 +199,11 @@ function pintarLote() {
 }
 $("lote-limpar").onclick = () => { marcados.clear(); pintarLista(); };
 $("marcar-todos").onclick = () => { if (marcados.size === estado.mapas.length) marcados.clear(); else for (const m of estado.mapas) marcados.add(m.zip); pintarLista(); };
-$("lote-regerar").onclick = async () => {  // refaz as notas dos marcados com as regras e os gostos de agora; entra na fila
+$("lote-regerar").onclick = async () => {  // refaz os marcados por inteiro com o gerador e os gostos de agora; entra na fila
   if (!await confirmar("confirma_regerar", "regerar_marcados")) return;
   try { await api("/api/regerar", { zips: [...marcados] }); marcados.clear(); pintarLista(); atualizar(); } catch (x) { falhou(x); }
 };
-$("refazer-todos").onclick = async () => {  // depois de uma melhoria do gerador: todos os mapas da lista entram na fila para ter as notas refeitas
+$("refazer-todos").onclick = async () => {  // depois de uma melhoria do gerador: todos os mapas da lista entram na fila para serem refeitos por inteiro
   if (!await confirmar("confirma_refazer_todos", "refazer_todos")) return;
   try { await api("/api/regerar", { zips: estado.mapas.map((m) => m.zip) }); atualizar(); } catch (x) { falhou(x); }
 };

@@ -18,6 +18,10 @@ import numpy as np
 SR, HOP = 22050, 64
 CASAS = 4  # casas por batida
 INSTRUMENTOS = ("drums", "bass", "other", "vocals")
+# Suba este numero quando mudar a conta de batidas, ataques ou compassos: a analise guardada com outro numero deixa de servir e e refeita (com as
+# camadas que saem dela). As batidas do modelo e os instrumentos separados, que sao a parte demorada, ficam: so somem se a pasta for apagada.
+VERSAO = 1
+CAMADAS = ("voz.json", "bateria.json", "partes.json", "clima.json", "sustentados2.json")  # o que se calcula por cima da analise, um arquivo cada
 
 
 def ffmpeg(*args):
@@ -164,10 +168,11 @@ def analisar(caminho, instrumentos=False):
     if not wav.exists():
         ffmpeg("-i", caminho, "-ac", "2", "-ar", "44100", wav)
     arq = pasta / ("analise_inst.json" if instrumentos else "analise.json")
-    if not instrumentos and not arq.exists() and (pasta / "analise_inst.json").exists():
-        arq = pasta / "analise_inst.json"  # a analise com instrumentos tem tudo o que a sem tem: a conferencia nao precisa ouvir a musica de novo
-    if arq.exists():
-        return {k: np.array(v) if isinstance(v, list) else v for k, v in json.loads(arq.read_text()).items()}
+    # a analise com instrumentos tem tudo o que a sem tem: a conferencia nao precisa ouvir a musica de novo.
+    # Sem numero = versao 1 (conferido: as 25 guardadas antes de o numero existir sao iguais as que o codigo da versao 1 calcula)
+    for a in (arq, pasta / "analise_inst.json"):
+        if a.exists() and (res := json.loads(a.read_text())).get("versao", 1) == VERSAO:
+            return {k: np.array(v) if isinstance(v, list) else v for k, v in res.items()}
 
     import librosa
     y, _ = librosa.load(wav, sr=SR, mono=True)
@@ -203,7 +208,7 @@ def analisar(caminho, instrumentos=False):
     grade = fazer_grade(batidas)
     forca, nivel, _ = _ataques(y, grade, 0.03)
     intens, rep = _compassos(y, batidas, ini_comp, forca)
-    res = {"hash": h, "dur": dur, "bpm": bpm, "bpm_fixo": bool(fixo), "ajuste_fase_ms": round(fase_ms * 1000, 1), "batidas_por_compasso": tam,
+    res = {"versao": VERSAO, "hash": h, "dur": dur, "bpm": bpm, "bpm_fixo": bool(fixo), "ajuste_fase_ms": round(fase_ms * 1000, 1), "batidas_por_compasso": tam,
            "batidas": batidas, "ini_comp": ini_comp, "grade": grade, "forca": forca, "nivel": nivel,
            "intens": intens, "rep": rep}
     if instrumentos:
@@ -216,6 +221,8 @@ def analisar(caminho, instrumentos=False):
             f_inst.append(f * min(1.0, escala * 2))
             res[f"nivel_{nome}"] = n
         res["forca_inst"] = np.array(f_inst)  # [instrumento, casa], na ordem de INSTRUMENTOS
+    for f in CAMADAS:  # analise nova: o que foi calculado em cima da antiga nao vale mais
+        (pasta / f).unlink(missing_ok=True)
     arq.write_text(json.dumps({k: v.tolist() if isinstance(v, np.ndarray) else v for k, v in res.items()}))
     return res
 
