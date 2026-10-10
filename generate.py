@@ -386,14 +386,37 @@ def corredor(pontas, bat, entradas, ocupado=()):
     return out
 
 
-def paredes(notas, an, bt, arcos=()):
-    """Paredes que nao pedem movimento, na coluna da ponta: uma de enfeite nas pausas de 1,6 s ou mais e um corredor na entrada de cada queda
-    (uma parede de cada lado, cada uma onde o seu lado estiver livre: em mapa cheio os dois lados quase nunca estao livres ao mesmo tempo)."""
+def desvios(a, b, bat, quantos, agacha=False):
+    """Paredes que pedem movimento num respiro sem notas de `a` a `b` (s) -> [(inicio, fim, "esq" | "dir" | "agacha")], no maximo `quantos` e 4.
+
+    No ritmo: cada uma comeca numa batida (`bat` = as batidas da musica), um passo de 0,75 s ou mais depois da anterior (1, 2 ou 4 batidas), dura meio
+    passo e troca de lado. A primeira vem 0,4 s depois da ultima nota e a ultima acaba 0,8 s antes da proxima (a nota que nasce atras da parede fica
+    escondida). Com `agacha`, a ultima de uma fila de 2 ou mais e de agachar."""
+    j = int(np.searchsorted(bat, a + 0.4))
+    if j + 1 >= len(bat):
+        return []
+    passo = next(k * float(bat[j + 1] - bat[j]) for k in (1, 2, 4, 8) if k * (bat[j + 1] - bat[j]) >= 0.75 or k == 8)
+    n = min(int((b - 0.8 - bat[j]) / passo + 0.5 + 1e-6), 4, quantos)  # a ultima dura meio passo, entao cabe com meio passo de sobra
+    return [(float(bat[j] + i * passo), float(bat[j] + (i + 0.5) * passo), "agacha" if agacha and i == n - 1 > 0 else ("esq", "dir")[i % 2]) for i in range(max(n, 0))]
+
+
+def paredes(notas, an, bt, arcos=(), bombas=(), agacha=True):
+    """Nos respiros de 1,6 s ou mais sem nota: paredes de desviar no ritmo (e ate 2 de agachar por mapa, se `agacha`), nos mais longos primeiro e ate uma
+    a cada 45 s de musica (em mapa humano parede de desviar e rara: 9 em cada 10 tem ate 6); nos outros respiros, uma de enfeite na coluna da ponta, que nao pede movimento. Respiro com bomba fica so com a de enfeite.
+    Na entrada de cada queda, um corredor: uma parede em cada ponta, cada uma onde o seu lado estiver livre (em mapa cheio os dois lados quase nunca
+    estao livres ao mesmo tempo)."""
     ts = sorted({n[0] for n in notas})
     segurando = {round(a[0], 4) for a in arcos}  # durante uma nota segurada a mao esta ocupada: sem parede
-    out, lado = [], 0
-    for a, b in zip(ts[:-1], ts[1:]):
-        if b - a >= 1.6 and round(a, 4) not in segurando:
+    vaos = [(a, b) for a, b in zip(ts[:-1], ts[1:]) if b - a >= 1.6 and round(a, 4) not in segurando]
+    out, lado, cota, baixar, funcao = [], 0, int(an["dur"] / 45), 2 if agacha else 0, {}
+    for a, b in sorted(vaos, key=lambda v: v[0] - v[1]):
+        if cota > 0 and not any(a < t < b for t, *_ in bombas):
+            funcao[a] = desvios(a, b, np.asarray(an["batidas"], float), cota, baixar > 0)
+            cota -= len(funcao[a]); baixar -= any(q == "agacha" for *_, q in funcao[a])
+    for a, b in vaos:
+        for i, f, q in funcao.get(a) or ():  # parede de desviar: a coluna do meio de um lado, de cima a baixo; de agachar: as quatro colunas, da linha de cima para o alto
+            out.append({"b": round(bt(i), 3), "d": round(bt(f) - bt(i), 3), **({"x": 0, "y": 2, "w": 4, "h": 3} if q == "agacha" else {"x": 1 if q == "esq" else 2, "y": 0, "w": 1, "h": 5})})
+        if not funcao.get(a):
             ini, fim = a + 0.4, b - 0.6
             for x in (0, 3) if b - a >= 4.0 else ((0, 3)[lado],):
                 out.append({"b": round(bt(ini), 3), "x": x, "y": 0, "d": round(bt(fim) - bt(ini), 3), "w": 1, "h": 5})
@@ -537,7 +560,7 @@ def gerar(audio, nome=None, artista=None, etapa=4, tag="", saida=None, capa=None
         off = salto_offset(cfg["njs"], bpm, cfg["salto"])
         reacao = 60 / bpm * checks.meio_salto(cfg["njs"], bpm, off)
         tempos = escolher_tempos(an, cfg, etapa)
-        extra, arcos, elos = "", [], []
+        extra, arcos, elos, bombas = "", [], [], []
         if etapa <= 2:
             notas = consertar(golpes_beatkenja(tempos, bpm, an["grade"], dif), dif, reacao)
             if etapa == 2:
@@ -546,7 +569,7 @@ def gerar(audio, nome=None, artista=None, etapa=4, tag="", saida=None, capa=None
         else:
             from beatloom import engine
             pedidos = reservar_arcos(tempos, an, cfg["piso"] * 1.06 * an["dur"]) if etapa >= 4 and cfg["arcos"] else []
-            notas, extra, seg, ger["difs"][dif] = engine.golpes(tempos, an, dif, reacao, etapa, cfg["njs"], pedidos, prefs)
+            notas, extra, seg, ger["difs"][dif], bombas = engine.golpes(tempos, an, dif, reacao, etapa, cfg["njs"], pedidos, prefs)
             notas = consertar(notas, dif, reacao, prefs)  # rede de seguranca: sobra rara do motor (so muda posicao)
             if etapa >= 4:  # vocabulario: pilha (e uma torre) nos acentos; o prato de ataque passa na frente, como nas duplas
                 fz = np.maximum(an["forca"], an["forca_inst"].max(0)) + (bateria(an) == 4) if "forca_inst" in an else an["forca"]
@@ -564,12 +587,15 @@ def gerar(audio, nome=None, artista=None, etapa=4, tag="", saida=None, capa=None
                 elos = acorrentar(notas, lambda t: fz[casa_de[round(t, 4)]], lambda t: seco[casa_de[round(t, 4)]], dif, reacao, {(n[0], n[3]) for a in arcos for n in a}, 1 if "sem_topo" in prefs else 2)
                 ger["difs"][dif].update(arcos_frase=len(frase), correntes=len(elos))
                 extra += f" | arcos seguindo a voz: {len(frase)} | correntes em ataque seco: {len(elos)}"
-        par = paredes(notas, an, bt, [a for a, _ in arcos]) if etapa >= 4 else []
+        par = paredes(notas, an, bt, [a for a, _ in arcos], bombas, "sem_topo" not in prefs) if etapa >= 4 else []  # quem nao quer nada na linha de cima tambem nao agacha
+        if etapa >= 4:
+            ger["difs"][dif].update(desvios=sum(o["x"] in (1, 2) for o in par), agachar=sum(o["y"] == 2 for o in par))
+            extra += f" | paredes de desviar: {ger['difs'][dif]['desvios']}, de agachar: {ger['difs'][dif]['agachar']}"
         arq = f"{dif}Standard.dat"
         (pasta / arq).write_text(json.dumps({
             "version": "3.2.0", "bpmEvents": bpm_ev, "rotationEvents": [],
             "colorNotes": [{"b": bt(t), "x": x, "y": y, "c": c, "d": d, "a": 0} for t, x, y, c, d in sorted(notas)],
-            "bombNotes": [], "obstacles": par,
+            "bombNotes": [{"b": bt(t), "x": x, "y": y} for t, x, y in bombas], "obstacles": par,
             # arco (nota segurada): sai da nota da cabeca e chega na nota da cauda, as duas da mesma cor
             "sliders": [{"c": a[3], "b": bt(a[0]), "x": a[1], "y": a[2], "d": a[4], "mu": 1, "tb": bt(z[0]), "tx": z[1], "ty": z[2], "tc": z[4], "tmu": 1, "m": 0}
                         for a, z in arcos],
@@ -636,6 +662,9 @@ def demo():
     # corredor: batidas de 0,5 s; a nota na ponta em 1,0 s barra o comeco e o trecho livre vai de 1,5 a 3,5 s (4 batidas). Com uma parede de 2,5 a 3,0 s, para nela
     assert corredor([1.0, 4.5], np.arange(0, 20, 0.5), [(0, 16)]) == [(1.5, 3.5)] and corredor([1.0, 4.5], np.arange(0, 20, 0.5), [(0, 16)], [(2.5, 3.0)]) == [(1.5, 2.5)]
     assert corredor(list(np.arange(0, 20, 0.5)), np.arange(0, 20, 0.5), [(0, 16)]) == []
+    # desvios: respiro de 10,1 a 14 s, batida de 0,5 s -> passo de 1 s a partir da batida 10,5; cabem 3 (a ultima acaba em 13,0, a mais de 0,8 s da nota), a terceira de agachar
+    assert desvios(10.1, 14.0, np.arange(0, 20, 0.5), 9, True) == [(10.5, 11.0, "esq"), (11.5, 12.0, "dir"), (12.5, 13.0, "agacha")]
+    assert desvios(10.1, 14.0, np.arange(0, 20, 0.5), 1) == [(10.5, 11.0, "esq")] and desvios(10.1, 11.7, np.arange(0, 20, 0.5), 9) == []
     print("gerar ok")
 
 

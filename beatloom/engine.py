@@ -26,6 +26,7 @@ EMENDA_RARA = 2.5  # pontos que perde o padrao que emenda no anterior com uma tr
 OLHAR, HORIZONTE, AMOSTRA_ADIANTE = 5, 8, 16  # dos melhores encaixes, quantos sao seguidos adiante; ate quantas batidas a frente; padroes provados por janela nesse ensaio
 VIRA = {0: 1, 1: 0, 2: 2, 3: 3, 4: 6, 6: 4, 5: 7, 7: 5}  # inverte o corte na vertical
 SOBE, DESCE = (0, 4, 5), (1, 6, 7)  # cortes para cima e para baixo
+REINICIA = ("Hard", "Expert", "ExpertPlus")  # dificuldades que podem ter bomba de reinicio; nos mapas humanos a mediana e 0 a 4 bombas a cada mil notas
 
 
 def alvos_da_voz(vz):
@@ -125,11 +126,30 @@ class Maos:
         return True
 
 
+def reiniciar(maos, t, bat, ultimas):
+    """Bomba de reinicio: depois de um respiro, a volta num ataque forte merece corte para baixo. A mao que desceu por ultimo e iria subir ganha uma
+    bomba embaixo, na coluna do meio dela (onde o sabre descansa): a pessoa ergue o braco para fugir e o proximo golpe desce de novo.
+
+    maos = estado dos sabres (e mexido); t = quando vem a proxima nota; bat = duracao da batida (s); ultimas = as ultimas notas postas.
+    So a mao parada ha 2 batidas e 1,2 s ou mais, e so se nenhuma mao bateu no meio segundo antes da bomba, que vem 1 batida (0,5 s no minimo)
+    antes da nota. E a mesma regra que o bsmap usa para conferir a paridade com bomba. -> [(t, x, y)] das bombas"""
+    tb = t - max(bat, 0.5)
+    if any(n[0] > tb - 0.5 for n in ultimas):
+        return []
+    out = []
+    for c in (0, 1):
+        u = maos.ult[c]
+        if u and maos.est[c][0] == "f" and t - u[0] >= max(2 * bat, 1.2):
+            maos.est[c], maos.ult[c] = ("b", 0), None  # como no comeco da musica: proximo golpe e de ida, de qualquer lugar
+            out.append((tb, 1 + c, 0))
+    return out
+
+
 def golpes(tempos, an, dif, reacao, etapa, njs=16, arcos=(), prefs=()):
     """tempos = {casa: 1|2}; arcos = [(casa_ini, casa_fim)] das notas seguradas pedidas.
     prefs = gostos de quem joga: "sem_topo" (nenhuma nota na linha de cima), "sem_fila" (nenhuma nota logo atras de outra na mesma casa)
     e os bracos cruzados: "cruzar_nunca", "cruzar_livre" ou, sem nenhum dos dois, pouco (checks.teto_cruzadas).
-    Devolve (notas [(t_s, x, y, cor, dir)], texto de resumo, seguradas [(t_ini, t_fim, cor)], contagens do resumo)."""
+    Devolve (notas [(t_s, x, y, cor, dir)], texto de resumo, seguradas [(t_ini, t_fim, cor)], contagens do resumo, bombas de reinicio [(t_s, x, y)])."""
     lib, grade, humanas = biblioteca(dif), an["grade"], _trocas(dif)
     rng = random.Random(f"{an['hash']}-{dif}")
     min_mao, vel_mao, qual = MIN_MAO[dif], VEL_MAO[dif], QUALIDADE.get(dif, 0)
@@ -362,7 +382,7 @@ def golpes(tempos, an, dif, reacao, etapa, njs=16, arcos=(), prefs=()):
                 stats["descartadas"] += 1
 
     n_bat = (len(grade) - 1) // CASAS
-    b = 0
+    b, bombas = 0, []
     while b < n_bat:
         if b in fim_arco:
             terminar_arco(*fim_arco.pop(b))
@@ -374,6 +394,10 @@ def golpes(tempos, an, dif, reacao, etapa, njs=16, arcos=(), prefs=()):
         if not any((b * CASAS + i) in tempos for i in range(CASAS)):
             b += 1
             continue
+        # bomba de reinicio: volta de um respiro em ataque forte, uma a cada 30 s de musica no maximo
+        casa = next(b * CASAS + i for i in range(CASAS) if (b * CASAS + i) in tempos)
+        if dif in REINICIA and etapa >= 4 and forca[casa] >= forte and len(bombas) < an["dur"] / 30:
+            bombas += reiniciar(maos_atual[0], float(grade[casa]), float(grade[casa] - grade[casa - CASAS]) if casa >= CASAS else 9, notas_todas[-4:])
         k = comp_de.get(b)
         pos = (b - ini_comp[k]) if k is not None else 0
         feito = False
@@ -415,9 +439,9 @@ def golpes(tempos, an, dif, reacao, etapa, njs=16, arcos=(), prefs=()):
         if not feito:
             regra([b * CASAS + i for i in range(CASAS) if (b * CASAS + i) in tempos])
             b += 1
-    tot = stats["padrao4"] + stats["padrao2"] + stats["padrao1"] + stats["regra"]
+    stats["reinicios"] = len(bombas)
     resumo = (f" | janelas: {stats['padrao4']} de 4 batidas, {stats['padrao2']} de 2, {stats['padrao1']} de 1, {stats['regra']} por regra simples"
-              f" ({stats['descartadas']} notas descartadas) | janelas de compasso repetido: {stats['rep_tentou']}, das quais {stats['rep_igual']} com desenho identico, {stats['rep_esp']} espelhado, {stats['rep_acento']} com um acento a mais e {stats['rep_inv']} invertido na vertical")
+              f" ({stats['descartadas']} notas descartadas) | janelas de compasso repetido: {stats['rep_tentou']}, das quais {stats['rep_igual']} com desenho identico, {stats['rep_esp']} espelhado, {stats['rep_acento']} com um acento a mais e {stats['rep_inv']} invertido na vertical | bombas de reinicio: {len(bombas)}")
     if alto is not None and notas_todas:
         casa_de = {round(float(t), 4): i for i, t in enumerate(grade)}
         mel = [n[2] >= 1 for n in notas_todas if alto[casa_de[round(n[0], 4)]]]
@@ -430,7 +454,7 @@ def golpes(tempos, an, dif, reacao, etapa, njs=16, arcos=(), prefs=()):
                      voz_sentido_notas=len(com_sentido), voz_sentido=sum(n[4] in (SOBE if s > 0 else DESCE) for n, s in com_sentido))
         resumo += (f" | notas em silaba cantada: {len(na_voz)}, das quais {stats['voz_linha']} na linha que a altura da voz pede"
                    f" e {stats['voz_sentido']} de {len(com_sentido)} cortando no sentido da melodia")
-    return sorted(notas_todas), resumo, seguradas, stats
+    return sorted(notas_todas), resumo, seguradas, stats, bombas
 
 
 def demo():
@@ -450,6 +474,11 @@ def demo():
     assert espelhar(pad) == ((0, 2, 0, 1, 7), (2, 1, 0, 0, 1), (4, 2, 2, 1, 0)) and espelhar(espelhar(pad)) == pad
     assert com_acento(pad, lambda off: 1) == ((0, 1, 0, 0, 6), (2, 2, 0, 1, 1), (4, 1, 2, 0, 0), (4, 2, 2, 1, 0)), com_acento(pad, lambda off: 1)
     assert com_acento(((0, 1, 0, 0, 1), (0, 2, 0, 1, 1)), lambda off: 1) is None  # ja e dupla
+    # reinicio: a azul desce em 0,8 s e sobe em 1,2 s, a vermelha desce em 1,0 s; a nota forte vem no segundo 4, batida de 0,5 s. So a vermelha (que iria subir)
+    # ganha bomba (3,5 s, coluna 1, embaixo) e volta a poder descer; com uma nota em 3,2 s (menos de meio segundo antes da bomba) nao sai nada
+    m = Maos()
+    assert m.bate(0.8, 6, 2, 0, 1, 1, 0.1) and m.bate(1.0, 8, 1, 0, 0, 1, 0.1) and m.bate(1.2, 10, 2, 2, 1, 0, 0.1) and not m.copia().bate(4.0, 32, 1, 0, 0, 1, 0.1)
+    assert reiniciar(m.copia(), 4.0, 0.5, [(3.2, 2, 0, 1, 1)]) == [] and reiniciar(m, 4.0, 0.5, [(1.2, 2, 2, 1, 0)]) == [(3.5, 1, 0)] and m.bate(4.0, 32, 1, 0, 0, 1, 0.1)
     print("engine ok")
 
 
