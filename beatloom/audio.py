@@ -320,6 +320,53 @@ def bateria(an):
     return peca
 
 
+def _rotular(intens, cortes, ataques):
+    """Intensidade de cada compasso, os compassos onde comeca cada trecho e quantos ataques fortes cada compasso tem -> a parte de cada compasso.
+
+    "queda" e o trecho cheio (refrao ou drop): intensidade media de 0,6 para cima e perto da do trecho mais forte. "subida" sao os
+    ate 4 compassos que levam a uma queda vindo de pelo menos 0,15 mais baixo. "pausa" e compasso quase em silencio (ate 0,1) e com um ataque forte no maximo:
+    introducao baixinha de piano tem ataques, nao e pausa.
+    O primeiro trecho, se nao for queda, e "intro"; o resto e "verso".
+    """
+    intens = np.asarray(intens, float)
+    n, cortes = len(intens), sorted({0, *[int(c) for c in cortes if 0 < c < len(intens)]})
+    trechos = list(zip(cortes, cortes[1:] + [n]))
+    media = [float(intens[a:b].mean()) for a, b in trechos]
+    partes = ["verso"] * n
+    for k, ((a, b), e) in enumerate(zip(trechos, media)):
+        if e >= 0.6 and e >= 0.8 * max(media):
+            partes[a:b] = ["queda"] * (b - a)
+            antes = range(max(a - 4, trechos[k - 1][0]), a) if k and partes[a - 1] != "queda" else ()
+            if len(antes) and e - float(intens[list(antes)].mean()) >= 0.15:
+                for j in antes:
+                    partes[j] = "subida"
+        elif k == 0:
+            partes[a:b] = ["intro"] * (b - a)
+    return ["pausa" if v <= 0.1 and a <= 1 and q != "queda" else q for v, a, q in zip(intens, ataques, partes)]
+
+
+def partes(an):
+    """A parte da musica em que cada compasso esta: "intro", "verso", "subida", "queda" ou "pausa" (ver _rotular).
+
+    Os trechos saem de juntar compassos vizinhos parecidos em timbre e harmonia (um trecho a cada 25 s, em media)."""
+    pasta = CACHE / "analise" / an["hash"]
+    arq = pasta / "partes.json"
+    if arq.exists():
+        return json.loads(arq.read_text())
+    import librosa
+    y, _ = librosa.load(pasta / "audio.wav", sr=SR, mono=True)
+    F = np.vstack([librosa.feature.mfcc(y=y, sr=SR, n_mfcc=13, hop_length=512), librosa.feature.chroma_stft(y=y, sr=SR, hop_length=512)])
+    bat, ic = np.asarray(an["batidas"]), np.asarray(an["ini_comp"])
+    fr = np.clip((bat[ic] * SR / 512).astype(int), 0, F.shape[1] - 1)
+    C = np.array([F[:, a:max(b, a + 1)].mean(1) for a, b in zip(fr[:-1], fr[1:])]).T  # [caracteristica, compasso]
+    C = np.vstack([(C - C.mean(1, keepdims=True)) / (C.std(1, keepdims=True) + 1e-9), 4 * np.asarray(an["intens"])[None, :C.shape[1]]])
+    k = int(np.clip(round(an["dur"] / 25), 2, max(C.shape[1] // 2, 2)))
+    forte, ic4 = np.asarray(an["nivel"]) == 2, ic * CASAS
+    res = _rotular(an["intens"], librosa.segment.agglomerative(C, k) if C.shape[1] > k else [0], [int(forte[a:b].sum()) for a, b in zip(ic4[:-1], ic4[1:])])
+    arq.write_text(json.dumps(res))
+    return res
+
+
 def sustentados(an):
     """Notas longas de voz ou melodia (o "ahhh" segurado) -> [(casa_ini, casa_fim)]. Precisa dos instrumentos separados.
 
@@ -370,6 +417,10 @@ def demo():
     # bumbo, caixa, chimbal, prato de ataque junto com bumbo (o agudo continua soando), nada
     f = lambda *v: np.array(v, float)
     assert _pecas(f(1, .1, 0, .9, 0), f(.3, 1, 0, .2, .1), f(.2, .4, .8, 1, 0), f(.1, .1, .2, 5, 0)).tolist() == [1, 2, 3, 4, 0]
+    #        intro    | verso         | sobe      | queda           | pausa no meio do verso
+    intens = [.2, .2, .3, .4, .4, .4, .4, .5, .6, .65, .9, 1, .9, 1, .9, .4, .05, .4]
+    assert _rotular(intens, [3, 10, 15], [4] * 16 + [1, 4]) == ["intro"] * 3 + ["verso"] * 3 + ["subida"] * 4 + ["queda"] * 5 + ["verso", "pausa", "verso"]
+    assert _rotular([.5, .05, .05], [], [3, 3, 0]) == ["intro", "intro", "pausa"]  # musica sem trecho forte nao tem queda nem subida
     print("audio ok")
 
 

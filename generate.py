@@ -17,7 +17,7 @@ from pathlib import Path
 import numpy as np
 
 from beatloom import checks
-from beatloom.audio import CACHE, CASAS, RAIZ, analisar, bateria, ffmpeg, sustentados, voz
+from beatloom.audio import CACHE, CASAS, RAIZ, analisar, bateria, ffmpeg, partes, sustentados, voz
 
 # tps = tempos de nota por segundo que a dificuldade mira (as duplas entram por cima disso)
 # gap = menor intervalo entre dois tempos (s) | w4 = peso das casas de 1/4 de batida | duplas = fracao de tempos com nota dupla
@@ -78,6 +78,15 @@ def escolher_tempos(an, cfg, etapa):
         ic = an["ini_comp"] * CASAS
         intens, rep = np.asarray(an["intens"]), an["rep"]
         fator = 0.45 + 1.1 * intens
+        if etapa >= 3:  # a parte da musica pesa junto: a queda e o trecho mais cheio, a subida vem acelerando ate ela, a pausa e respiro de verdade
+            pt = partes(an)
+            fator = fator * np.array([{"queda": 1.1, "pausa": 0.0}.get(q, 1.0) for q in pt])
+            for k in range(len(pt)):
+                if pt[k] == "subida" and (k == 0 or pt[k - 1] != "subida"):
+                    m = next((j for j in range(k, len(pt)) if pt[j] != "subida"), len(pt)) - k
+                    fator[k:k + m] *= np.linspace(0.8, 1.2, m) if m > 1 else 1.0
+            for k in np.flatnonzero(np.array(pt) == "pausa"):
+                cand[ic[k]:ic[k + 1]] = False
         durs = np.array([g[min(b, n - 1)] - g[a] for a, b in zip(ic[:-1], ic[1:])])
         fator = fator * total / max(float(np.sum(fator * durs * cfg["tps"])), 1e-9)
         for k, (a, b) in enumerate(zip(ic[:-1], ic[1:])):
