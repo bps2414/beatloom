@@ -10,7 +10,7 @@ Como está hoje, para saber de onde se parte: batidas pelo beat_this, ataques pe
 
 **Ordem.** O 1.0 vem primeiro, porque os outros medem com ele. O 1.4 (pesquisa) pode vir a qualquer hora e rende mais antes do 1.1, porque pode poupar trabalho. O 1.1 vem antes do 1.2 e de parte do 1.3: as luzes (1.3 item 1) usam as partes da música (1.1 item 3) e os arcos (1.3 item 6) usam a voz (1.1 item 1). Do 1.3, os itens 2, 3, 7 e 8 não dependem de nada. Os blocos 2, 3 e 4 são livres.
 
-**Modelo sugerido por bloco** (opinião de quem escreveu, 10/10/2026): Opus 5.5 em esforço médio para 1.1 e 1.2, onde o erro sai como mapa esquisito que nenhum teste pega; Sonnet 5.5 em esforço alto para 1.0, 1.3 e 1.4 e para os blocos 3 e 4, que são trabalho mais direto.
+**Modelo.** O dono decidiu rodar tudo em Opus 5.5, esforço médio (10/10/2026).
 
 ### 1.0 Antes de mexer: saber medir "melhor"
 
@@ -85,57 +85,71 @@ Pedido do dono: melhorar o mapa, deixar mais bonito, usar mais recursos do próp
 
 ### Pedidos prontos
 
-Um por sessão, para colar como está. Entre parênteses, o modelo sugerido.
+Um por sessão, para colar como está, na ordem sugerida. Todos em Opus 5.5, esforço médio (escolha do dono, 10/10/2026).
 
-1.0: feito em 10/10/2026 (`tools/medir.py`), não precisa rodar de novo. Falta só a parte opcional, comparar com o Beat Sage e o TopMapper.
+1.0: feito em 10/10/2026 (`tools/medir.py`), não precisa rodar de novo.
 
-1.1 inteira (Opus 5.5 médio):
-
-```text
-Execute o bloco 1.1 do roadmap inteiro, um item por vez. A cada item: meça antes e depois com o script do 1.0, desfaça se piorar, e faça commit. Não pare para aprovar entre itens. No fim, push e me diga duas músicas para eu testar.
-```
-
-1.2 inteira (Opus 5.5 médio):
+1.1 inteira (o detector):
 
 ```text
-Execute o bloco 1.2 do roadmap inteiro, um item por vez. A cada item: meça antes e depois com o script do 1.0, desfaça se piorar, e faça commit. Não pare para aprovar entre itens. No fim, push e me diga duas músicas para eu testar.
+Execute o bloco 1.1 do roadmap inteiro, um item por vez. A cada item: meça antes e depois com tools/medir.py, desfaça se piorar, e faça commit. Não pare para aprovar entre itens. No fim, atualize o roadmap com o que foi feito, push, e me diga duas músicas para eu testar.
 ```
 
-1.3 inteira (Sonnet 5.5 alto):
+Atualizar os mapas antigos de uma vez, bloco 3 item 9 (bom logo depois do 1.1, antes de refazer a lista toda):
 
 ```text
-Execute o bloco 1.3 do roadmap inteiro, um item por vez, menos o item 10 (mods). A cada item: confira que o mapa passa na conferência e faça commit. Não pare para aprovar entre itens. No fim, push e me diga duas músicas para eu ver.
+Roadmap bloco 3 item 9 (atualizar os mapas antigos de uma vez, análise em camadas, só as luzes, mapa travado): meça primeiro com tools/timing.py o que o cache guarda e o que roda de novo, depois faça. Atualize o roadmap, commit e push ao final.
 ```
 
-Só as opções do mapa, 1.3 item 11 (Sonnet 5.5 alto):
+1.2 inteira (golpes mais humanos):
 
 ```text
-Roadmap 1.3 item 11 (escolher o que vai no mapa): comece por Sem Setas e pelos liga e desliga de bombas, pontos e paredes; os modos que o gerador ainda não faz ficam de fora da tela. Commit e push ao final.
+Execute o bloco 1.2 do roadmap inteiro, um item por vez. A cada item: meça antes e depois com tools/medir.py, desfaça se piorar, e faça commit. Não pare para aprovar entre itens. No fim, atualize o roadmap com o que foi feito, push, e me diga duas músicas para eu testar.
 ```
 
-1.4 (Sonnet 5.5 alto):
+1.3, primeira parte (luzes, cores da capa, ambiente, o mapa reagindo à música: itens 1 a 5):
 
 ```text
-Roadmap 1.4: pesquise as ferramentas de terceiros da lista e diga quais valem a pena. Sem código, só atualize o roadmap, commit e push.
+Execute os itens 1 a 5 do bloco 1.3 do roadmap, um por vez. Antes do item 2, confira se o Beat Saber do Quest respeita as cores gravadas no mapa. A cada item: confira que o mapa passa na conferência e faça commit. Não pare para aprovar entre itens. No fim, atualize o roadmap, push, e me diga duas músicas para eu ver.
 ```
 
-Versões de um mapa, bloco 3 item 8 (Sonnet 5.5 alto):
+1.3, segunda parte (correntes e arcos, bombas e paredes, modos de jogo, opções do mapa: itens 6 a 9 e 11):
 
 ```text
-Roadmap bloco 3 item 8 (versões de um mapa): confira primeiro como o envio ao Quest nomeia a pasta, depois faça. Commit e push ao final.
+Execute os itens 6, 7, 8, 9 e 11 do bloco 1.3 do roadmap, um por vez. No item 11 só aparece na tela o que o gerador já sabe fazer. A cada item: meça com tools/medir.py, confira que o mapa passa na conferência e faça commit. Não pare para aprovar entre itens. No fim, atualize o roadmap, push, e me diga duas músicas para eu testar.
 ```
 
-Atualizar os mapas antigos de uma vez, bloco 3 item 9 (Sonnet 5.5 alto):
+1.3 item 10, Chroma (depois da primeira parte do 1.3):
 
 ```text
-Roadmap bloco 3 item 9 (atualizar os mapas antigos de uma vez): meça primeiro com tools/timing.py o que o cache guarda e o que roda de novo, depois faça. Commit e push ao final.
+Roadmap 1.3 item 10, só o Chroma como sugestão: chave "Tenho Chroma" na Configuração, desligada por padrão; ligada, o mapa usa a paleta da capa, degradê e cor por parte da música; desligada, o mapa sai igual ao de hoje. Confira antes que versão do Chroma o Quest tem. Atualize o roadmap, commit e push ao final.
 ```
 
-Mods, 1.3 item 10, depois dos itens 1 e 2 do mesmo bloco (Sonnet 5.5 alto):
+1.3 item 10, Noodle Extensions (por último, e só se o Chroma tiver agradado):
 
 ```text
-Roadmap 1.3 item 10 (mods): faça só a parte do Chroma como sugestão (paleta da capa, degradê, cor por parte da música), desligada por padrão. Noodle fica para depois. Commit e push ao final.
+Roadmap 1.3 item 10, só o Noodle Extensions leve: chave "Tenho Noodle Extensions" na Configuração, desligada por padrão; ligada, o mapa ganha um conjunto de dificuldades a mais com os efeitos leves do roadmap, sem tocar nas dificuldades normais. Nada de arte de parede nem nota falsa. Atualize o roadmap, commit e push ao final.
 ```
+
+1.4 (pesquisa, a qualquer hora):
+
+```text
+Roadmap 1.4: pesquise as ferramentas de terceiros da lista e diga quais valem a pena e para qual item. Sem código, só atualize o roadmap, commit e push.
+```
+
+Versões de um mapa, bloco 3 item 8:
+
+```text
+Roadmap bloco 3 item 8 (versões de um mapa): confira primeiro como o envio ao Quest nomeia a pasta e se o jogo mantém a pontuação quando o mapa muda, depois faça. Atualize o roadmap, commit e push ao final.
+```
+
+Comparar com os outros geradores (opcional; o dono põe antes os zips do Beat Sage e do TopMapper numa pasta):
+
+```text
+Roadmap 1.0, comparar com os outros geradores: os zips deles estão em <pasta>. Passe pela conferência e pelo tools/medir.py ao lado dos nossos das mesmas músicas e me mostre a tabela. Sem mudar o gerador. Atualize o roadmap, commit e push.
+```
+
+Para proteger as músicas que já ficaram boas, acrescente a qualquer pedido: "Estas músicas ficaram perfeitas: <nomes>. Se o mapa delas mudar muito, me mostre antes de manter."
 
 ## 2. Pendências do que já foi feito
 
