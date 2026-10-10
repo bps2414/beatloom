@@ -1,0 +1,30 @@
+# Ao subir uma tag v*, monta o instalador (Inno Setup) e publica a release com as notas tiradas dos commits desde a tag anterior.
+#   git tag v1.0.1 && git push origin v1.0.1
+name: release
+on:
+  push:
+    tags: ["v*"]
+permissions:
+  contents: write
+jobs:
+  instalador:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Instalador
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress }
+          & $iscc "/DVersao=$($env:GITHUB_REF_NAME.TrimStart('v'))" installer\beatloom.iss
+          if ($LASTEXITCODE) { exit 1 }
+      - name: Notas e release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ant=$(git describe --tags --abbrev=0 "$GITHUB_REF_NAME^" 2>/dev/null || true)
+          git log --pretty='- %s' ${ant:+$ant..}"$GITHUB_REF_NAME" > notas.md
+          gh release create "$GITHUB_REF_NAME" .cache/beatloom-setup.exe --title "Beatloom $GITHUB_REF_NAME" --notes-file notas.md
