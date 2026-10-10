@@ -16,6 +16,18 @@ Sem isto qualquer mudança vira gosto. Ferramentas que já existem: `tools/blind
 - Números por mudança: quantos ataques fortes viraram nota, quantas notas caem em ataque, parecido com o humano em densidade por trecho, e o teste cego do dono jogando.
 - Cada item abaixo só entra se ganhar nesse conjunto.
 
+**Medição mínima (feita em 10/10/2026):** `tools/medir.py` confere de novo, sem mapa humano, o zip mais novo de cada música em `saida\` e mostra por dificuldade as notas por segundo, a cobertura (ataques fortes que viraram nota), a precisão (notas que caem num ataque forte, 50 ms) e a correlação entre intensidade e notas por trecho. Rode antes e depois de cada mudança. Ponto de partida, 15 músicas (6 em Easy, 12 em Normal, 15 nas demais):
+
+| Dificuldade | Notas | NPS | Cobertura | Precisão | Correlação |
+|---|---|---|---|---|---|
+| Easy | 229 | 1,16 | 38% | 68% | 0,75 |
+| Normal | 416 | 1,80 | 62% | 68% | 0,84 |
+| Hard | 545 | 2,50 | 72% | 59% | 0,73 |
+| Expert | 755 | 3,48 | 84% | 52% | 0,75 |
+| Expert+ | 917 | 4,26 | 89% | 48% | 0,65 |
+
+13 de 15 passam em todas as conferências (falham: 1am-freestyle, NPS do Expert+; sk8er-boi-gerado, sabre atravessando a outra nota no Expert e Expert+). Pontos fora da curva: sk8er-boi tem precisão de 16 a 29% (ou o detector de ataques erra nela, ou o mapa foi gerado de outro áudio) e when-love-and-death-embrace tem correlação 0,12 no Expert+. Falta o resto do item: o conjunto fixo de 10 músicas com mapa humano e o teste cego.
+
 ### 1.1 Detector
 
 1. **Voz de verdade.** Na faixa de voz, seguir a altura cantada (pYIN do librosa) em vez de só o ataque: sílaba nova vira nota, melodia subindo ou descendo decide a altura e a direção do corte, nota longa cantada vira nota segurada.
