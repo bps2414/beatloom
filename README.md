@@ -4,6 +4,8 @@
 
 **Paste a YouTube link and get a Beat Saber map ready to play.**
 
+![The Beatloom page: the map list on the left and a map open in the 3D viewer](docs/tela.jpg)
+
 Beatloom listens to the song and builds the map (Easy, Normal, Hard, Expert and Expert+) with rules and with patterns taken from well-rated human maps. No model is trained. Everything runs on your own computer, in a local web page: you watch the map in 3D, read the report and send it to your Quest over Wi-Fi.
 
 An unofficial hobby project, not affiliated with Beat Games.

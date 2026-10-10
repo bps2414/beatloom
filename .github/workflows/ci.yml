@@ -1,0 +1,23 @@
+# A cada push: os testes minimos de cada modulo (--demo) e a conferencia das frases nos dois idiomas. So precisam do numpy.
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+jobs:
+  demos:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install numpy
+      - name: Demos
+        shell: bash
+        run: |
+          set -e
+          for c in generate.py report.py tools/extract_patterns.py tools/timing.py "-m beatloom.preparo" "-m beatloom.checks" "-m beatloom.audio" "-m beatloom.engine" "-m beatloom.luzes" "-m beatloom.mods" "-m beatloom.quest"; do
+            echo "== $c"; python $c --demo
+          done
+          python tools/check_i18n.py

@@ -1,4 +1,4 @@
-# Ao subir uma tag v*, monta o instalador (Inno Setup) e publica a release com as notas tiradas dos commits desde a tag anterior.
+# Ao subir uma tag v*, monta o instalador (Inno Setup) e publica a release com as notas do CHANGELOG.md e a lista dos commits desde a tag anterior.
 #   git tag v1.0.1 && git push origin v1.0.1
 name: release
 on:
@@ -26,5 +26,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           ant=$(git describe --tags --abbrev=0 "$GITHUB_REF_NAME^" 2>/dev/null || true)
-          git log --pretty='- %s' ${ant:+$ant..}"$GITHUB_REF_NAME" > notas.md
+          # o resumo escrito a mao vem do CHANGELOG.md (a secao "## vX.Y.Z"); a lista crua dos commits fica recolhida embaixo
+          awk -v t="## $GITHUB_REF_NAME" '$0==t{p=1;next} /^## /{p=0} p' CHANGELOG.md > notas.md
+          { echo; echo "<details><summary>Commits</summary>"; echo; git log --pretty='- %s' ${ant:+$ant..}"$GITHUB_REF_NAME"; echo; echo "</details>"; } >> notas.md
           gh release create "$GITHUB_REF_NAME" .cache/beatloom-setup.exe --title "Beatloom $GITHUB_REF_NAME" --notes-file notas.md
