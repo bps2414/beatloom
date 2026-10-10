@@ -480,8 +480,8 @@ class H(BaseHTTPRequestHandler):
             for p in DESCARTAVEL:
                 shutil.rmtree(RAIZ / ".cache" / p, ignore_errors=True)
             return self.manda({"ok": True})
-        if u.path == "/api/quest/parear":  # com o cabo USB ligado
-            ip, erro = quest.parear()
+        if u.path in ("/api/quest/parear", "/api/quest/procurar"):  # com o cabo USB ligado, ou varrendo a rede atras do Quest que ja esta com o Wi-Fi ligado
+            ip, erro = quest.parear() if u.path.endswith("parear") else quest.procurar()
             if erro:
                 return self.manda({"erro": erro}, cod=400)
             gravar_config({"quest_ip": ip})

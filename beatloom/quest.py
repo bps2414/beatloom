@@ -1,5 +1,6 @@
 """Manda mapas ao Quest por Wi-Fi (ADB). Quem guarda o IP e o beatloom.json; aqui so se fala com o aparelho."""
-import re, shlex, shutil, subprocess, tempfile, zipfile
+import re, shlex, shutil, socket, subprocess, sys, tempfile, zipfile
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 # Beat Saber 1.40.8 (SongCore). Versoes antigas usavam .../Mods/SongLoader/CustomLevels
@@ -36,6 +37,32 @@ def parear():
     return m[1], None
 
 
+def abertos(ips, porta=5555, espera=0.5):
+    """Quais desses enderecos aceitam conexao na porta."""
+    def tenta(ip):
+        try:
+            socket.create_connection((ip, porta), espera).close(); return ip
+        except OSError:
+            return None
+    with ThreadPoolExecutor(64) as p:
+        return [ip for ip in p.map(tenta, ips) if ip]
+
+
+def procurar():
+    """Sem cabo: varre a rede do PC atras de quem tem o ADB por Wi-Fi ligado e fica com o primeiro que conecta. So acha o Quest que ja foi ligado pelo cabo desde que reiniciou. -> (ip, None) ou (None, codigo do erro)"""
+    if not shutil.which("adb"):
+        return None, "sem_adb"
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM); s.connect(("192.0.2.1", 9)); meu = s.getsockname()[0]; s.close()  # nao manda nada: so pergunta ao sistema por qual placa sairia
+    except OSError:
+        return None, "sem_rede"
+    base = meu.rsplit(".", 1)[0]  # ponytail: so a faixa /24 do PC; rede maior ou Quest em outra faixa pede o IP escrito a mao
+    for ip in abertos([f"{base}.{i}" for i in range(1, 255) if f"{base}.{i}" != meu]):
+        if conectado(ip):
+            return ip, None
+    return None, "nao_achou"
+
+
 def no_quest(ip):
     """Nomes (sem .zip) dos mapas nossos que estao no Quest."""
     saida = adb("-s", f"{ip}:5555", "shell", "ls", DEST).stdout
@@ -57,3 +84,14 @@ def enviar(ip, zp):
 def apagar(ip, nome):
     r = adb("-s", f"{ip}:5555", "shell", f"rm -rf {shlex.quote(f'{DEST}/{PREFIXO}{nome}')}")
     return None if r.returncode == 0 else (r.stderr or r.stdout).strip()[-300:] or "adb"
+
+
+def demo():
+    s = socket.socket(); s.bind(("127.0.0.1", 0)); s.listen()
+    assert abertos(["127.0.0.1", "127.0.0.2"], s.getsockname()[1]) == ["127.0.0.1"]
+    s.close()
+    print("demo ok")
+
+
+if __name__ == "__main__" and "--demo" in sys.argv:
+    demo()

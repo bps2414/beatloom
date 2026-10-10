@@ -29,6 +29,7 @@ start.bat                                   Windows: instala o que falta e abre 
 python generate.py --demo
 python -m beatloom.preparo --demo
 python -m beatloom.checks --demo
+python -m beatloom.quest --demo
 python tools/extract_patterns.py --demo
 python report.py --demo
 python tools/timing.py --demo               (tools/timing.py <audio> mede cada etapa da geração)

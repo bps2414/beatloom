@@ -372,7 +372,7 @@ $("p-tudo").onclick = async () => { await api("/api/preparo", { item: "tudo" });
 function pintarQuest() {
   $("q-estado").textContent = t(quest.conectado ? "q_on" : quest.ip ? "q_off" : "q_configurar"); $("q-estado").classList.toggle("ok", !!quest.conectado);
   $("q-texto").textContent = t(!quest.adb ? "q_sem_adb" : quest.conectado ? "q_conectado" : quest.ip ? "q_nao_responde" : "q_sem_ip") + (quest.conectado ? " (" + quest.ip + ")" : "");
-  $("q-parear").disabled = $("q-testar").disabled = !quest.adb;
+  $("q-parear").disabled = $("q-procurar").disabled = $("q-testar").disabled = !quest.adb;
   document.body.classList.toggle("com-quest", !!quest.conectado);
 }
 async function verQuest() {
@@ -387,6 +387,7 @@ async function comQuest(botao, pedido) {  // os dois botoes do Quest: trava, ten
   await verQuest();
 }
 $("q-parear").onclick = () => comQuest($("q-parear"), () => api("/api/quest/parear", {}));
+$("q-procurar").onclick = () => comQuest($("q-procurar"), () => api("/api/quest/procurar", {}));
 $("q-testar").onclick = () => comQuest($("q-testar"), async () => {
   const ip = $("q-ip").value.trim(); await salvar({ quest_ip: ip });
   if (cfg.quest_ip !== ip) throw new Error(t("ip_ruim"));

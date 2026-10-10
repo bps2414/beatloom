@@ -178,6 +178,7 @@
   "s_quest": "Quest",
   "s_quest_sub": "Optional. The first time, plug the Quest into the PC with a USB cable (developer mode on), accept the prompt inside the headset and click the button. After that the cable is no longer needed.",
   "q_parear": "Find the Quest over USB",
+  "q_procurar": "Search the network",
   "q_ip": "Quest IP (e.g. 192.168.1.50)",
   "q_testar": "Save and test",
   "q_sem_adb": "Install “Quest connection” from the list of items first.",
@@ -211,6 +212,8 @@
   "erro_sem_adb": "The Quest connection (ADB) is not installed.",
   "erro_sem_cabo": "No Quest found on USB. Check the cable and that developer mode is on.",
   "erro_sem_permissao": "The Quest is plugged in, but you still need to accept “Allow USB debugging” inside the headset.",
+  "erro_nao_achou": "No Quest answered on the network. It must be on, awake and on the same Wi-Fi; if it restarted, the wireless connection turns off and the USB cable is needed again.",
+  "erro_sem_rede": "This computer is not on any network.",
   "erro_sem_wifi": "The Quest is not connected to any Wi-Fi.",
   "erro_adb": "The Quest refused the request."
 }
