@@ -146,7 +146,7 @@ function pintarTrabalhos() {
     barra.append(el("span", "", t(estado.pausada ? "fila_pausada" : "fila_n", { n: esperam })), p, v); $("trabalhos").append(barra);
   }
   for (const tr of vivos) {
-    const ruim = tr.estado === "erro", c = el("div", "trabalho" + (ruim ? " ruim" : "")), capa = tr.capa ? el("img", "capa") : el("div", "sem-capa");
+    const ruim = tr.estado === "erro", c = el("div", "trabalho" + (ruim ? " ruim" : tr.estado === "rodando" ? " vivo" : "")), capa = tr.capa ? el("img", "capa") : el("div", "sem-capa");
     if (tr.capa) { capa.src = tr.capa; capa.alt = ""; }
     const [passo, qual] = (tr.passos.at(-1) || "comecando").split("|");  // "golpes|Hard (2/4)"
     const e = ruim ? lerErro(tr.erro) : null;

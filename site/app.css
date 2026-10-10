@@ -49,6 +49,7 @@ p { margin: 0; }
 
 .casca { display: grid; grid-template-columns: 372px minmax(0, 1fr); min-height: 0; }
 .biblioteca { overflow-y: auto; padding: 14px 14px 20px; background: rgba(18, 17, 31, .6); border-right: 1px solid var(--borda); display: flex; flex-direction: column; gap: 10px; }
+.biblioteca, .detalhe, .caixa { scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, .18) transparent; }  /* a barra clara do navegador destoava do palco */
 .detalhe { overflow-y: auto; padding: clamp(16px, 2.6vw, 34px); min-width: 0; }
 
 /* lista no jeito da lista de musicas do jogo: capa, nome, artista, e a direita BPM e duracao empilhados */
@@ -68,21 +69,35 @@ p { margin: 0; }
 input[type="checkbox"] { appearance: none; flex: none; width: 20px; height: 20px; margin: 0; border-radius: 5px; background: rgba(11, 10, 20, .8); box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, .45); transform: var(--inclina); cursor: pointer; transition: background .12s, box-shadow .12s; }
 input[type="checkbox"]:hover { box-shadow: inset 0 0 0 1.5px #fff; }
 input[type="checkbox"]:checked { background: var(--dir) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23fff' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3.5 8.5l3 3L12.5 5'/%3E%3C/svg%3E") center / 14px no-repeat; box-shadow: 0 0 14px -3px var(--dir); }
-.marcar { position: absolute; z-index: 1; left: 13px; top: 10px; opacity: 0; }  /* no canto da capa */
+/* na lista a caixa de marcar e a propria capa: escurece com um quadro ao passar o mouse e fica azul com o visto quando marcada (a caixinha no canto brigava com a imagem) */
+.linha .marcar { position: absolute; z-index: 1; left: 10px; top: 50%; margin-top: -26px; width: 52px; height: 52px; transform: none; opacity: 0; box-shadow: none; background: rgba(11, 10, 20, .45) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='1.8'%3E%3Crect x='4' y='4' width='16' height='16' rx='4' transform='translate(1.7) skewX(-8)'/%3E%3C/svg%3E") center / 26px no-repeat; }
+.linha .marcar:hover { box-shadow: none; background-color: rgba(11, 10, 20, .7); }
+.linha .marcar:checked { box-shadow: none; background: rgba(47, 143, 255, .82) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23fff' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3.5 8.5l3 3L12.5 5'/%3E%3C/svg%3E") center / 26px no-repeat; }
+.linha:has(.marcar:checked) .abre::before { background: rgba(47, 143, 255, .1); }
 .barra { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-bottom: 6px; font-size: 13px; } .barra span { flex: 1; color: var(--texto-2); padding-left: 4px; } .barra .quieto { padding: 6px 8px; }
 .linha:hover .marcar, .marcar:focus-visible, .marcar:checked, .marcando .marcar { opacity: 1; }
-@media (hover: none) { .marcar { opacity: 1; } }
-.lote { position: sticky; bottom: 0; margin-top: auto; display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: var(--painel); border: 1px solid var(--borda); border-radius: 10px; }
-.lote { flex-wrap: wrap; } .lote span { flex: 1; font-weight: 600; } .lote .sec, .lote .acao { padding: 8px 14px; }
+@media (hover: none) { .linha .marcar { opacity: 1; } }
+/* z-index acima das caixas de marcar, que passavam por cima da barra presa no pe da lista */
+.lote { position: sticky; bottom: 0; z-index: 2; margin-top: auto; display: grid; gap: 6px; padding: 8px 8px 12px 14px; background: var(--painel); border: 1px solid var(--borda); border-radius: 10px; box-shadow: inset 3px 0 0 var(--dir), 0 -14px 30px -14px #000; }
+.lote div { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; } .lote span { flex: 1; font-weight: 600; }
+.lote .sec, .lote .acao { padding: 7px 14px; font-size: 14px; } .lote .quieto { padding: 6px 8px; font-size: 14px; } #lote-apagar:hover { color: var(--erro); }
 
-.trabalho { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 2px 12px; padding: 10px; background: var(--painel); border: 1px solid var(--borda); border-radius: 10px; margin-bottom: 6px; }
+.trabalho { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 2px 12px; padding: 12px;background: var(--painel); border: 1px solid var(--borda); border-radius: 10px; margin-bottom: 6px; }
 .trabalho .capa, .trabalho .sem-capa { grid-row: 1 / 3; }
 .trabalho b { font: 600 16px/1.2 var(--titulo); font-stretch: 85%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; align-self: end; }
 .trabalho .etapa { font-size: 13px; color: var(--texto-2); }
-.trabalho progress { grid-column: 1 / -1; width: 100%; margin-top: 6px; }
-.trabalho.ruim { border-color: rgba(255, 92, 122, .5); } .trabalho.ruim .etapa { color: var(--erro); }
+.trabalho progress { grid-column: 1 / -1; width: 100%; margin-top: 10px; }
+.trabalho.vivo { box-shadow: inset 3px 0 0 var(--dir), 0 0 26px -14px var(--dir); } .trabalho:not(.vivo, .ruim) { opacity: .75; }  /* o que esta rodando acende; o que espera na fila recua */
+.trabalho.ruim { border-color: rgba(255, 92, 122, .5); box-shadow: inset 3px 0 0 var(--erro); } .trabalho.ruim .etapa { color: var(--erro); }
 .trabalho .fim { grid-column: 1 / -1; display: flex; align-items: start; justify-content: space-between; gap: 8px; margin-top: 4px; }
-progress { accent-color: var(--dir); height: 8px; vertical-align: middle; }
+/* barra propria: a do navegador era cinza e grossa. Sem valor (etapa sem medida) um brilho azul corre pelo trilho */
+progress { appearance: none; height: 5px; border: 0; border-radius: 3px; overflow: hidden; background: rgba(255, 255, 255, .1); vertical-align: middle; }
+progress::-webkit-progress-bar { background: none; }
+progress::-webkit-progress-value { background: var(--dir); border-radius: 3px; transition: width .4s; }
+progress::-moz-progress-bar { background: var(--dir); border-radius: 3px; }
+progress:indeterminate { background: linear-gradient(90deg, transparent, var(--dir), transparent) 0 0 / 40% 100% no-repeat, rgba(255, 255, 255, .1); animation: corre 1.5s ease-in-out infinite; }
+progress:indeterminate::-moz-progress-bar { background: none; }
+@keyframes corre { from { background-position: -67% 0, 0 0; } to { background-position: 167% 0, 0 0; } }
 details summary { color: var(--texto-2); font-size: 14px; }
 details pre { font: 12px/1.5 ui-monospace, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; margin: 6px 0 0; color: var(--texto-2); max-height: 160px; overflow: auto; }
 
