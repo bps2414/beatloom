@@ -218,6 +218,55 @@ def consertar(notas, dif, reacao, topo=2):
     return notas
 
 
+PASSO = {0: (0, 1), 1: (0, -1), 2: (-1, 0), 3: (1, 0), 4: (-1, 1), 5: (1, 1), 6: (-1, -1), 7: (1, -1)}  # para onde o corte anda (coluna, linha)
+# pilhas a cada mil notas. Nos mapas humanos da biblioteca a mediana e 6 (Hard), 16 (Expert) e 30 (Expert+) e o quarto mais leve 0, 3 e 11;
+# torre (tres notas) quase nao existe neles: 0,1 a 0,2 a cada mil notas. Easy e Normal ficam sem.
+PILHAS = {"Hard": 3, "Expert": 8, "ExpertPlus": 15}
+
+
+def empilhar(notas, peso, dif, reacao, topo=2, fila=False, presas=()):
+    """Pilha em acento: nos ataques mais fortes a nota ganha outra da mesma cor na casa vizinha, na linha do corte, e um golpe so passa pelas duas.
+
+    peso(t) = forca do ataque no instante t; presas = {(t, cor)} das notas que nao podem ganhar par (pontas de nota segurada).
+    Do acento mais forte para o mais fraco, ate a cota da dificuldade, com 2 s entre uma pilha e outra. So onde a mao tem 0,25 s livres antes e
+    depois e a nota a mais nao cria defeito nem esforco. Dupla ganha pilha nas duas maos ou em nenhuma. No Expert e no Expert+, a primeira
+    pilha de corte reto para cima ou para baixo que tiver a coluna livre vira torre: uma por mapa. -> (notas, pilhas, torres)"""
+    notas = sorted(notas)
+    cota, feitas, torres, onde = round(PILHAS.get(dif, 0) * len(notas) / 1000), 0, 0, []
+    ruim = lambda ns: (defeitos(ns, dif, reacao), esforco(ns, dif), len(checks.enfileiradas(ns)) if fila else 0)
+    por_t = {}
+    for n in notas:
+        por_t.setdefault(n[0], []).append(n)
+    for t in sorted(por_t, key=lambda t: -peso(t)):
+        grupo = por_t[t]
+        if feitas + len(grupo) > cota:
+            break
+        perto = [m for m in notas if abs(m[0] - t) <= reacao + 1]
+        if (any(abs(t - u) < 2 for u in onde) or len({n[3] for n in grupo}) < len(grupo) or any((t, n[3]) in presas for n in grupo)
+                or any(m[3] == n[3] and 0 < abs(m[0] - t) < 0.25 for m in perto for n in grupo)):
+            continue
+        teste, base = perto, ruim(perto)
+        cabe = lambda ns: all(a <= b for a, b in zip(ruim(ns), base))
+        for n in grupo:
+            dx, dy = PASSO[n[4]]
+            for x, y in ((n[1] - dx, n[2] - dy), (n[1] + dx, n[2] + dy)):  # primeiro atras da nota (o sabre chega nela antes), depois na frente
+                if 0 <= x <= 3 and 0 <= y <= topo and cabe(novo := sorted(teste + [(t, x, y, n[3], n[4])])):
+                    teste = novo
+                    break
+            else:
+                teste = None
+                break
+        if teste is None:
+            continue
+        if not torres and len(grupo) == 1 and dif in ("Expert", "ExpertPlus") and grupo[0][4] in (0, 1) and topo == 2:
+            livre = ({0, 1, 2} - {m[2] for m in teste if m[0] == t and m[3] == grupo[0][3]}).pop()
+            if cabe(novo := sorted(teste + [(t, grupo[0][1], livre, grupo[0][3], grupo[0][4])])):
+                teste, torres = novo, 1
+        notas = sorted([m for m in notas if abs(m[0] - t) > reacao + 1] + teste)
+        feitas += len(grupo); onde.append(t)
+    return notas, feitas - torres, torres
+
+
 def repetir_golpes(notas, an, dif, reacao):
     """Etapa 2: compasso repetido recebe o mesmo desenho do original, quando isso nao cria erro. -> (notas, iguais, repetidos)"""
     g, ic = an["grade"], an["ini_comp"] * CASAS
@@ -407,6 +456,8 @@ def gerar(audio, nome=None, artista=None, etapa=4, tag="", saida=None, capa=None
         sys.exit("Musica curta demais (menos de 20 s).")
 
     bpm_ev, bt_ = relogio(an, bpm)
+    casa_de = {round(float(t), 4): i for i, t in enumerate(an["grade"])}
+    it_casa = np.asarray(an["intens"])[np.clip(np.searchsorted(an["ini_comp"] * CASAS, np.arange(len(an["grade"])), "right") - 1, 0, len(an["intens"]) - 1)]  # intensidade do compasso de cada casa
     bt = lambda t: round(bt_(t), 4)
     ev = luzes(an, bt)
     mapas, resumo = [], [f"capa {origem_capa} | densidade x{densidade:g}"]
@@ -428,6 +479,12 @@ def gerar(audio, nome=None, artista=None, etapa=4, tag="", saida=None, capa=None
             pedidos = reservar_arcos(tempos, an, cfg["piso"] * 1.06 * an["dur"]) if etapa >= 4 and cfg["arcos"] else []
             notas, extra, seg, ger["difs"][dif] = engine.golpes(tempos, an, dif, reacao, etapa, cfg["njs"], pedidos, prefs)
             notas = consertar(notas, dif, reacao, 1 if "sem_topo" in prefs else 2)  # rede de seguranca: sobra rara do motor (so muda posicao)
+            if etapa >= 4:  # vocabulario: pilha (e uma torre) nos acentos; o prato de ataque passa na frente, como nas duplas
+                fz = np.maximum(an["forca"], an["forca_inst"].max(0)) + (bateria(an) == 4) if "forca_inst" in an else an["forca"]
+                fz = fz * it_casa  # acento de trecho calmo vale menos: e nele que a mao esta livre, e as pilhas iam todas parar la
+                notas, np_, nt = empilhar(notas, lambda t: fz[casa_de[round(t, 4)]], dif, reacao, 1 if "sem_topo" in prefs else 2, "sem_fila" in prefs, {(t, c) for a, z, c in seg for t in (a, z)})
+                ger["difs"][dif].update(pilhas=np_, torres=nt)
+                extra += f" | pilhas em acento: {np_}" + (f" e {nt} torre" if nt else "")
             # arco = (nota da cabeca, nota da cauda); procura as duas depois do conserto, que pode ter mudado a posicao
             achar = lambda t, c: next(n for n in notas if abs(n[0] - t) < 0.001 and n[3] == c)
             arcos = [(achar(t0, c), achar(t1, c)) for t0, t1, c in seg]
@@ -485,6 +542,11 @@ def demo():
     volta = lambda b: sum((min(b, z["b"]) - a["b"]) * 60 / a["m"] for a, z in zip(ev, ev[1:] + [{"b": 9e9}]) if b > a["b"])
     assert all(abs(volta(bt(t)) - t) < 0.001 for t in (0.25, 3.0, 4.25, 6.65, 9.05)), [volta(bt(t)) for t in (0.25, 4.25, 9.05)]
     assert relogio({"bpm_fixo": True}, 120)[1](2.0) == 4 and relogio({"bpm_fixo": True}, 120)[0] == []
+    # 200 notas, uma por segundo, vermelha desce embaixo e sobe em cima; a do segundo 50 e a mais forte, depois a do 100. Expert: cota de 2 pilhas, a primeira vira torre
+    ns = [(float(t), 1, 0 if t % 2 == 0 else 2, 0, 1 if t % 2 == 0 else 0) for t in range(200)]
+    com, p, tr = empilhar(ns, lambda t: {50: 9, 100: 8}.get(t, 0), "Expert", 0.5)
+    assert (p, tr) == (1, 1) and [n[1:] for n in com if n[0] == 50] == [(1, 0, 0, 1), (1, 1, 0, 1), (1, 2, 0, 1)] and [n[1:] for n in com if n[0] == 100] == [(1, 0, 0, 1), (1, 1, 0, 1)], (p, tr)
+    assert empilhar(ns, lambda t: t, "Normal", 0.5) == (ns, 0, 0) and sum(n[0] == 50 for n in empilhar(ns, lambda t: -abs(t - 50), "Expert", 0.5, presas={(50.0, 0)})[0]) == 1
     print("gerar ok")
 
 
