@@ -16,7 +16,7 @@ from pathlib import Path
 
 import numpy as np
 
-from beatloom import checks
+from beatloom import checks, luzes
 from beatloom.audio import CACHE, CASAS, RAIZ, analisar, bateria, ffmpeg, partes, sustentados, voz
 
 # tps = tempos de nota por segundo que a dificuldade mira (as duplas entram por cima disso)
@@ -322,25 +322,6 @@ def relogio(an, bpm, tol=0.010):
     return ev, lambda t: float(np.interp(t, T, B))
 
 
-def luzes(an, bt):
-    """Luzes simples: nunca fica escuro, pisca na batida e muda de cor conforme a intensidade do compasso."""
-    bat, ic, intens = an["batidas"], an["ini_comp"], an["intens"]
-    ev = [(0.0, t, 1) for t in (0, 1, 4)]  # liga azul no comeco
-    for k, (a, b) in enumerate(zip(ic[:-1], ic[1:])):
-        forte = intens[k] >= 0.6
-        cor = 4 if (forte and k % 2 == 0) else 0  # +4 = vermelho
-        t0 = float(bat[a])
-        ev += [(t0, 8, 0), (t0, 4, (2 if forte else 3) + cor), (t0, 0, 3 + cor)]
-        ev += [(t0, 12, 1 + round(intens[k] * 5)), (t0, 13, 1 + round(intens[k] * 5))]
-        ev += [(t0, 2, (1 if forte else 0) + (cor if forte else 0)), (t0, 3, (1 if forte else 0) + (cor if forte else 0))]
-        for j in range(a, b):
-            if intens[k] >= 0.25:
-                ev.append((float(bat[j]), 1, 3 + (4 if (j - a) % 2 else 0)))
-            if forte and (j - a) % 2 == 1:
-                ev.append((float(bat[j]), 9, 0))
-    return [{"b": round(bt(t), 3), "et": ty, "i": v, "f": 1} for t, ty, v in sorted(ev) if t >= 0]
-
-
 def paredes(notas, an, bt, arcos=()):
     """Paredes laterais decorativas nas pausas de 1,6 s ou mais. Ficam na coluna da ponta e nao pedem movimento."""
     ts = sorted({n[0] for n in notas})
@@ -459,7 +440,7 @@ def gerar(audio, nome=None, artista=None, etapa=4, tag="", saida=None, capa=None
     casa_de = {round(float(t), 4): i for i, t in enumerate(an["grade"])}
     it_casa = np.asarray(an["intens"])[np.clip(np.searchsorted(an["ini_comp"] * CASAS, np.arange(len(an["grade"])), "right") - 1, 0, len(an["intens"]) - 1)]  # intensidade do compasso de cada casa
     bt = lambda t: round(bt_(t), 4)
-    ev = luzes(an, bt)
+    ev = luzes.basicos(luzes.deixas(an), bt)
     mapas, resumo = [], [f"capa {origem_capa} | densidade x{densidade:g}"]
     ger = {"etapa": etapa, "capa": origem_capa.split()[-1], "densidade": densidade, "prefs": sorted(prefs), "difs": {}}  # o mesmo resumo em numeros, para o .relatorio.json
     for dif in difs:
