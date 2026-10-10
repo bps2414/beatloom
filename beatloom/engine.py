@@ -12,13 +12,31 @@ from functools import lru_cache
 import numpy as np
 
 from beatloom import checks
-from beatloom.audio import CASAS, INSTRUMENTOS, RAIZ
+from beatloom.audio import CASAS, INSTRUMENTOS, RAIZ, voz
 
 # menor intervalo entre dois golpes da MESMA mao (s): limita a velocidade do braco por dificuldade
 MIN_MAO = {"Easy": 0.40, "Normal": 0.30, "Hard": 0.20, "Expert": 0.15, "ExpertPlus": 0.115}
 from beatloom.checks import SEM_CRUZAR, VEL_MAO  # teto de velocidade da mao e dificuldades em que o braco nunca cruza (nas outras, cruzar perde pontos)
 TENTATIVAS = 80
 VIRA = {0: 1, 1: 0, 2: 2, 3: 3, 4: 6, 6: 4, 5: 7, 7: 5}  # inverte o corte na vertical
+SOBE, DESCE = (0, 4, 5), (1, 6, 7)  # cortes para cima e para baixo
+
+
+def alvos_da_voz(vz):
+    """O que a melodia cantada pede em cada casa onde comeca silaba -> ({casa: linha}, {casa: +1 subiu | -1 desceu}).
+
+    A linha (0 embaixo, 2 em cima) compara a nota com a mediana da frase em volta (8 silabas para cada lado, ate 8 batidas):
+    2 semitons acima sobe, 2 abaixo desce. O sentido compara com a silaba anterior, se ela esta a ate 2 batidas.
+    """
+    alt, sil = vz["altura"], vz["silaba"]
+    linha, sentido = {}, {}
+    for k, i in enumerate(sil):
+        frase = [alt[j] for j in sil[max(k - 8, 0):k + 9] if abs(j - i) <= 8 * CASAS]
+        d = alt[i] - float(np.median(frase))
+        linha[i] = 2 if d >= 2 else 0 if d <= -2 else 1
+        if k and i - sil[k - 1] <= 2 * CASAS and abs(alt[i] - alt[sil[k - 1]]) >= 1:
+            sentido[i] = 1 if alt[i] > alt[sil[k - 1]] else -1
+    return linha, sentido
 
 
 def variantes(pad):
@@ -77,11 +95,14 @@ def golpes(tempos, an, dif, reacao, etapa, njs=16, arcos=(), prefs=()):
     comp_de = {b: k for k, (a, z) in enumerate(zip(ini_comp[:-1], ini_comp[1:])) for b in range(a, z)}
     rep = [int(v) for v in an["rep"]]
     # etapa 4: cada casa sabe se o ataque e de bateria/baixo (grave, embaixo) ou de voz/melodia (em cima)
-    alto = None
+    alto, linha_voz, sentido_voz = None, {}, {}
     if etapa >= 4 and "forca_inst" in an:
         f = np.asarray(an["forca_inst"])
         ritmo, melodia = f[[INSTRUMENTOS.index("drums"), INSTRUMENTOS.index("bass")]].max(0), f[[INSTRUMENTOS.index("other"), INSTRUMENTOS.index("vocals")]].max(0)
         alto = melodia > ritmo * 1.15
+        # ... e, onde a voz manda (silaba sem batida forte da bateria em cima), a altura cantada escolhe a linha e o sentido do corte
+        linha_voz, sentido_voz = alvos_da_voz(voz(an))
+        linha_voz = {i: y for i, y in linha_voz.items() if alto[i] or an["nivel_drums"][i] < 2}
 
     maos_atual, notas_todas = [Maos()], []
     usado = {}  # (compasso, posicao no compasso, L) -> padrao usado, para repetir nos compassos iguais
@@ -141,7 +162,12 @@ def golpes(tempos, an, dif, reacao, etapa, njs=16, arcos=(), prefs=()):
                 p -= 3  # no mapa humano o braco tinha mais tempo para chegar aqui
         if alto is not None:
             for off, x, y, c, d in pad:
-                p += 0.6 if (y >= 1) == bool(alto[casa0 + off]) else -0.3
+                i = casa0 + off
+                if i in linha_voz:
+                    p += (1.5, 0.2, -1.0)[abs(y - min(linha_voz[i], topo))]
+                    p += 0.8 if d in (SOBE if sentido_voz.get(i, 0) > 0 else DESCE if sentido_voz.get(i, 0) < 0 else ()) else 0
+                else:
+                    p += 0.6 if (y >= 1) == bool(alto[i]) else -0.3
         # manha: trecho forte pede desenho aberto (linhas de cima, pontas, diagonais); trecho calmo pede sobe-desce simples embaixo
         it = intens[min(comp_de.get(casa0 // CASAS, 0), len(intens) - 1)]
         for off, x, y, c, d in pad:
@@ -282,4 +308,10 @@ def golpes(tempos, an, dif, reacao, etapa, njs=16, arcos=(), prefs=()):
         rit = [n[2] >= 1 for n in notas_todas if not alto[casa_de[round(n[0], 4)]]]
         resumo += (f" | notas fora da linha de baixo: {np.mean(mel) if mel else 0:.0%} das {len(mel)} em ataques de voz/melodia"
                    f" contra {np.mean(rit) if rit else 0:.0%} das {len(rit)} em ataques de bateria/baixo")
+        na_voz = [(n, casa_de[round(n[0], 4)]) for n in notas_todas if casa_de[round(n[0], 4)] in linha_voz]
+        com_sentido = [(n, sentido_voz[i]) for n, i in na_voz if i in sentido_voz]
+        stats.update(voz_notas=len(na_voz), voz_linha=sum(n[2] == min(linha_voz[i], topo) for n, i in na_voz),
+                     voz_sentido_notas=len(com_sentido), voz_sentido=sum(n[4] in (SOBE if s > 0 else DESCE) for n, s in com_sentido))
+        resumo += (f" | notas em silaba cantada: {len(na_voz)}, das quais {stats['voz_linha']} na linha que a altura da voz pede"
+                   f" e {stats['voz_sentido']} de {len(com_sentido)} cortando no sentido da melodia")
     return sorted(notas_todas), resumo, seguradas, stats

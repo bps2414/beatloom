@@ -220,20 +220,84 @@ def analisar(caminho, instrumentos=False):
     return res
 
 
+def _notas_cantadas(midi, quebra, min_q=4):
+    """Altura por quadro (nan = sem voz) -> [(quadro_ini, quadro_fim, nota MIDI)].
+
+    Comeca nota nova quando a voz volta depois de um silencio, quando a altura muda de vez (0,8 semitom por 3 quadros seguidos,
+    para o vibrato nao contar) ou quando ha ataque no meio da nota (quebra[q]: a mesma nota cantada de novo).
+    """
+    midi = np.array(midi, float)
+    buraco = np.isnan(midi[1:-1]) & ~np.isnan(midi[:-2]) & ~np.isnan(midi[2:])  # um quadro sem voz no meio da nota e falha do detector
+    midi[1:-1][buraco] = midi[:-2][buraco]
+    notas, ini, vals, fora = [], None, [], 0
+    for q, m in enumerate(list(midi) + [np.nan]):
+        corte = None
+        if np.isnan(m):
+            corte = q if ini is not None else None
+        elif ini is None:
+            ini, vals, fora = q, [m], 0
+        else:
+            fora = fora + 1 if abs(m - np.median(vals)) > 0.8 else 0
+            corte = q - 2 if fora >= 3 else q if quebra[q] else None
+            vals.append(m)
+        if corte is not None:
+            if corte - ini >= min_q:
+                notas.append((ini, corte, float(np.median(vals[:corte - ini]))))
+            ini, vals, fora = (None, [], 0) if np.isnan(m) else (corte, list(midi[corte:q + 1]), 0)
+    return notas
+
+
+def voz(an):
+    """A voz cantada, pela altura (pYIN na faixa de voz), em casas da grade. Precisa dos instrumentos separados.
+
+    -> {"altura": nota MIDI de cada casa (None sem voz), "silaba": casas onde comeca silaba ou nota nova,
+        "longas": [(casa_ini, casa_fim)] das notas seguradas por 1,5 batida e 0,7 s ou mais}
+    """
+    pasta = CACHE / "analise" / an["hash"]
+    arq, w = pasta / "voz.json", pasta / "stems" / "vocals.wav"
+    if arq.exists():
+        return json.loads(arq.read_text())
+    g = np.asarray(an["grade"])
+    res = {"altura": [None] * len(g), "silaba": [], "longas": []}
+    if w.exists() and "nivel_vocals" in an:
+        import librosa
+        sr, hop = 11025, 256  # metade da taxa: o pYIN e a parte lenta (7 s por musica assim) e a voz cabe inteira abaixo de 5 kHz
+        y, _ = librosa.load(w, sr=sr, mono=True)
+        f0, tem, _ = librosa.pyin(y, fmin=65, fmax=1000, sr=sr, frame_length=1024, hop_length=hop)
+        rms = librosa.feature.rms(y=y, frame_length=1024, hop_length=hop)[0]
+        # o que sobra dos outros instrumentos na faixa de voz e baixinho: so vale como voz o que tem volume
+        midi = np.where(tem & (rms >= 0.1 * np.percentile(rms, 95)), librosa.hz_to_midi(np.nan_to_num(f0, nan=100.0)), np.nan)
+        quebra = np.zeros(len(midi), bool)
+        quebra[np.clip((g[np.asarray(an["nivel_vocals"]) == 2] * sr / hop).astype(int), 0, len(midi) - 1)] = True
+        for a, b, nota in _notas_cantadas(midi, quebra):
+            ta, tb = a * hop / sr, b * hop / sr
+            i, j = int(np.argmin(np.abs(g - ta))), int(np.searchsorted(g, tb))
+            if abs(g[i] - ta) > 0.08 or res["altura"][i] is not None:  # cantada fora da grade, ou duas notas na mesma casa
+                continue
+            res["altura"][i:max(j, i + 1)] = [round(nota, 1)] * (max(j, i + 1) - i)
+            res["silaba"].append(i)
+            if j - i >= CASAS * 1.5 and tb - ta >= 0.7:
+                res["longas"].append((i, j))
+        res["altura"] = res["altura"][:len(g)]
+    arq.write_text(json.dumps(res))
+    return res
+
+
 def sustentados(an):
     """Notas longas de voz ou melodia (o "ahhh" segurado) -> [(casa_ini, casa_fim)]. Precisa dos instrumentos separados.
 
-    Vale quando ha um ataque forte do instrumento, o volume dele se mantem por pelo menos 1,5 batida (e 0,7 s),
-    nao entra outro ataque forte no meio e a nota (altura) fica a mesma.
+    Na voz vale a nota cantada inteira (voz()). Na melodia vale quando ha um ataque forte, o volume se mantem por pelo menos
+    1,5 batida (e 0,7 s), nao entra outro ataque forte no meio e a nota (altura) fica a mesma.
     """
     pasta = CACHE / "analise" / an["hash"]
-    arq = pasta / "sustentados.json"
+    arq = pasta / "sustentados2.json"  # 2: a voz passou a vir do pYIN
     if arq.exists():
         return [tuple(v) for v in json.loads(arq.read_text())]
     import librosa
-    g, out = np.asarray(an["grade"]), []
+    g = np.asarray(an["grade"])
+    out = [tuple(v) for v in voz(an)["longas"]]
     n = len(g) - 1
-    for nome in ("vocals", "other"):
+    for nome in ("other",):
         w = pasta / "stems" / f"{nome}.wav"
         if not w.exists() or f"nivel_{nome}" not in an:
             continue
@@ -259,7 +323,19 @@ def sustentados(an):
     return out
 
 
+def demo():
+    nan = np.nan
+    #       silencio | nota 60 com vibrato e um quadro falhado | sobe para 64 | silencio | 62 cantada duas vezes (ataque no quadro 22)
+    midi = [nan, nan, 60, 60.3, nan, 59.8, 60, 60.2, 64, 64, 64.1, 64, 64, nan, nan, nan, 62, 62, 62, 62, 62, 62, 62, 62, 62, 62]
+    quebra = np.zeros(len(midi), bool); quebra[22] = True
+    notas = _notas_cantadas(midi, quebra)
+    assert [(a, b, round(m)) for a, b, m in notas] == [(2, 8, 60), (8, 13, 64), (16, 22, 62), (22, 26, 62)], notas
+    print("audio ok")
+
+
 if __name__ == "__main__":
+    if sys.argv[1:] == ["--demo"]:
+        sys.exit(demo())
     a = analisar(sys.argv[1], "--inst" in sys.argv)
     print(f"dur {a['dur']:.1f}s | BPM {a['bpm']} ({'fixo' if a['bpm_fixo'] else 'variavel'}) | {len(a['batidas'])} batidas | "
           f"compasso de {a['batidas_por_compasso']} | picos fortes {int((a['nivel'] == 2).sum())}, fracos {int((a['nivel'] == 1).sum())}")

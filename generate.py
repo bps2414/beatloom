@@ -17,7 +17,7 @@ from pathlib import Path
 import numpy as np
 
 from beatloom import checks
-from beatloom.audio import CACHE, CASAS, RAIZ, analisar, ffmpeg, sustentados
+from beatloom.audio import CACHE, CASAS, RAIZ, analisar, ffmpeg, sustentados, voz
 
 # tps = tempos de nota por segundo que a dificuldade mira (as duplas entram por cima disso)
 # gap = menor intervalo entre dois tempos (s) | w4 = peso das casas de 1/4 de batida | duplas = fracao de tempos com nota dupla
@@ -52,7 +52,14 @@ def escolher_tempos(an, cfg, etapa):
         outros = np.max([an[f"nivel_{s}"] for s in ("bass", "other", "vocals")], axis=0) == 2
         nivel = np.where((nivel == 2) | (an["nivel_drums"] == 2), 2, np.where((nivel == 1) | outros, 1, 0))
         forca = np.maximum(forca, an["forca_inst"].max(0))
+        # ... menos onde comeca uma silaba cantada (altura da voz, pYIN): essa conta como ataque forte
+        sil = np.zeros(n, bool)
+        sil[voz(an)["silaba"]] = True
+        sil &= nivel < 2
+        nivel = np.where(sil, 2, nivel)
     prio = forca * metrico * np.where(nivel == 2, 1.0, 0.45)
+    if etapa >= 4 and "forca_inst" in an:
+        prio = np.where(sil, prio * 0.7, prio)  # a silaba sem ataque forte fica entre o forte e o fraco: com peso cheio ela tirava nota da bateria
     cand = (nivel > 0) & (g >= INICIO) & (g <= an["dur"] - FIM) & (prio > 0)
     escolhido = np.zeros(n, bool)
 
@@ -129,19 +136,25 @@ def escolher_tempos(an, cfg, etapa):
     return out
 
 
-def reservar_arcos(tempos, an):
-    """Notas longas da musica viram nota segurada: dupla no comeco, dupla no fim e nada no meio. Mexe em `tempos`. -> [(casa_ini, casa_fim)]"""
-    g, aceitos, livre = an["grade"], [], 0
-    for s, e in sustentados(an):
+def reservar_arcos(tempos, an, minimo=0):
+    """Notas longas da musica viram nota segurada: dupla no comeco, dupla no fim e nada no meio. Mexe em `tempos`. -> [(casa_ini, casa_fim)]
+
+    Das mais longas para as mais curtas, com 2 batidas de folga entre uma e outra, no maximo uma a cada 20 s de musica (cantor de
+    nota longa enchia o mapa de arcos) e so enquanto sobrarem `minimo` notas no mapa (a segurada apaga as notas das batidas que
+    ocupa; em musica lenta isso derrubava o mapa abaixo do piso da dificuldade)."""
+    g, aceitos = an["grade"], []
+    for s, e in sorted(sustentados(an), key=lambda v: v[0] - v[1]):
         s, e = s - s % 2, min(e - e % 2, s - s % 2 + 4 * CASAS)  # comeco e fim na batida ou meia batida; no maximo 4 batidas
-        if e - s < CASAS + 2 or s < livre or g[s] < INICIO or g[e] > an["dur"] - FIM:
+        if len(aceitos) >= an["dur"] / 20 or e - s < CASAS + 2 or g[s] < INICIO or g[e] > an["dur"] - FIM or any(s < z + 2 * CASAS and a < e + 2 * CASAS for a, z in aceitos):
             continue
-        for i in range(s - s % CASAS, e - e % CASAS + CASAS):
-            tempos.pop(i, None)
+        dentro = [i for i in range(s - s % CASAS, e - e % CASAS + CASAS) if i in tempos]
+        if sum(tempos.values()) - sum(tempos[i] for i in dentro) + 4 < minimo:
+            continue
+        for i in dentro:
+            del tempos[i]
         tempos[s] = tempos[e] = 2
         aceitos.append((s, e))
-        livre = e + 2 * CASAS
-    return aceitos
+    return sorted(aceitos)
 
 
 # ---------------------------------------------------------------- peca 3 (etapas 1 e 2): golpes do BeatKenja
@@ -374,7 +387,7 @@ def gerar(audio, nome=None, artista=None, etapa=4, tag="", saida=None, capa=None
                 extra = f" | compassos repetidos com desenho identico: {ig}/{rp}"
         else:
             from beatloom import engine
-            pedidos = reservar_arcos(tempos, an) if etapa >= 4 and cfg["arcos"] else []
+            pedidos = reservar_arcos(tempos, an, cfg["piso"] * 1.06 * an["dur"]) if etapa >= 4 and cfg["arcos"] else []
             notas, extra, seg, ger["difs"][dif] = engine.golpes(tempos, an, dif, reacao, etapa, cfg["njs"], pedidos, prefs)
             notas = consertar(notas, dif, reacao, 1 if "sem_topo" in prefs else 2)  # rede de seguranca: sobra rara do motor (so muda posicao)
             # arco = (nota da cabeca, nota da cauda); procura as duas depois do conserto, que pode ter mudado a posicao
