@@ -4,583 +4,128 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Beatloom</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-<style>
-:root {
-  --papel: #eceaf4; --folha: #f7f6fb; --tinta: #1a1838; --tinta-2: #5b5978; --linha: rgba(26, 24, 56, .16);
-  --palco: #0f0e26; --esq: #f23d5e; --dir: #2e86ff; --ok: #178f63; --alerta: #b4540a;
-  --titulo: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
-  --texto: "Instrument Sans", "Segoe UI", system-ui, sans-serif;
-}
-* { box-sizing: border-box; }
-html, body { margin: 0; height: 100%; }
-body { background: var(--papel); color: var(--tinta); font: 400 16px/1.5 var(--texto); }
-button, input { font: inherit; color: inherit; }
-:focus-visible { outline: 3px solid var(--dir); outline-offset: 2px; }
-
-.casca { display: grid; grid-template-columns: minmax(300px, 380px) 1fr; min-height: 100%; }
-.lado { padding: 28px 28px 40px; border-right: 1px solid var(--linha); display: flex; flex-direction: column; gap: 28px; }
-.principal { padding: 28px clamp(16px, 3vw, 40px) 40px; min-width: 0; }
-
-.marca { font: 800 15px/1 var(--titulo); letter-spacing: -.01em; display: flex; align-items: center; gap: 10px; }
-.marca i { width: 22px; height: 22px; border-radius: 5px; background: linear-gradient(135deg, var(--esq) 0 50%, var(--dir) 50% 100%); }
-h1 { font: 700 clamp(30px, 3.2vw, 40px)/1.02 var(--titulo); letter-spacing: -.035em; margin: 18px 0 0; }
-.lado p.sub { margin: 10px 0 0; color: var(--tinta-2); max-width: 30ch; }
-
-form { display: grid; gap: 10px; }
-.campo { width: 100%; padding: 14px 14px; border: 1.5px solid var(--tinta); border-radius: 10px; background: var(--folha); }
-.campo::placeholder { color: var(--tinta-2); }
-.arquivo { display: flex; align-items: center; gap: 8px; color: var(--tinta-2); font-size: 14px; }
-.arquivo button { background: none; border: 0; padding: 0; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; color: var(--tinta); }
-.arquivo span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-details.opc { font-size: 14px; color: var(--tinta-2); }
-details.opc summary { cursor: pointer; }
-details.opc div { display: grid; gap: 8px; margin-top: 8px; }
-details.opc .campo { padding: 10px 12px; border-width: 1px; border-color: var(--linha); }
-.previa { display: grid; grid-template-columns: 72px 1fr; gap: 10px 12px; align-items: start; }
-.previa img, .previa .sem-capa { width: 72px; height: 72px; border-radius: 8px; object-fit: cover; background: linear-gradient(135deg, #1e3a8a, #db2777); }
-.previa .campos { display: grid; gap: 6px; min-width: 0; }
-.previa .campo { padding: 8px 10px; border-width: 1px; border-color: var(--linha); }
-.previa small { grid-column: 1 / -1; color: var(--tinta-2); font-size: 13px; }
-fieldset.escolha { border: 0; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 14px; }
-fieldset.escolha legend { padding: 0; color: var(--tinta-2); margin-bottom: 4px; }
-fieldset.escolha label { display: flex; align-items: center; gap: 5px; cursor: pointer; }
-.densidade { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; font-size: 14px; color: var(--tinta-2); }
-.densidade input { grid-column: 1 / -1; width: 100%; accent-color: var(--tinta); }
-.ficha { display: grid; grid-template-columns: 96px 1fr; gap: 16px; align-items: center; margin-top: 22px; }
-.ficha img { width: 96px; height: 96px; border-radius: 12px; object-fit: cover; background: var(--palco); }
-.ficha h2 { font-size: 24px; margin: 0; }
-.ficha p { margin: 2px 0 0; color: var(--tinta-2); overflow-wrap: anywhere; }
-.ficha .mini { display: flex; gap: 14px; margin-top: 6px; }
-.ficha .mini button { background: none; border: 0; padding: 0; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; font-size: 14px; color: var(--tinta); }
-.acao { padding: 14px 18px; border: 0; border-radius: 10px; background: var(--tinta); color: #fff; font: 600 16px var(--texto); cursor: pointer; }
-.acao:hover { background: #2a2760; }
-.acao:disabled { opacity: .5; cursor: default; }
-.erro { color: #b3122f; font-size: 14px; margin: 0; }
-
-.trabalho { border-left: 3px solid var(--dir); padding: 2px 0 2px 12px; font-size: 14px; }
-.trabalho.erro-t { border-color: var(--esq); }
-.trabalho.pronto { border-color: var(--ok); }
-.trabalho b { display: block; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.trabalho span { color: var(--tinta-2); }
-@keyframes pulso { 50% { opacity: .35; } }
-.trabalho.rodando span::after { content: " ●"; color: var(--dir); animation: pulso 1.2s infinite; }
-
-h2 { font: 700 18px/1.2 var(--titulo); letter-spacing: -.02em; margin: 0 0 8px; }
-.mapas { list-style: none; margin: 0; padding: 0; }
-.mapas li { border-top: 1px solid var(--linha); }
-.mapas button { width: 100%; text-align: left; background: none; border: 0; padding: 11px 8px; cursor: pointer; display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; border-radius: 6px; }
-.mapas button:hover { background: rgba(26, 24, 56, .06); }
-.mapas button[aria-current="true"] { background: var(--tinta); color: #fff; }
-.mapas .n { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.mapas .d { grid-column: 1; font-size: 13px; opacity: .7; }
-.mapas .s { grid-row: 1 / span 2; grid-column: 2; align-self: center; font-size: 12px; font-weight: 600; }
-.mapas .s.ok { color: var(--ok); } .mapas .s.nao { color: var(--alerta); }
-.mapas button[aria-current="true"] .s { color: #fff; }
-.vazio { color: var(--tinta-2); font-size: 14px; }
-
-.palco { position: relative; background: var(--palco); border-radius: 18px; overflow: hidden; aspect-ratio: 16 / 9; max-height: 62vh; width: 100%; }
-.palco iframe { width: 100%; height: 100%; display: block; border: 0; }
-.palco .convite { position: absolute; inset: 0; display: grid; place-items: center; color: #c9c7e6; font: 600 clamp(18px, 2.2vw, 26px) var(--titulo); letter-spacing: -.02em; text-align: center; padding: 24px; pointer-events: none; }
-
-.controles { display: flex; align-items: center; gap: 14px; margin-top: 14px; flex-wrap: wrap; }
-.controles { color: var(--tinta-2); font-size: 14px; }
-.difs { display: flex; border: 1.5px solid var(--tinta); border-radius: 999px; overflow: hidden; }
-.difs button { border: 0; background: none; padding: 7px 14px; cursor: pointer; font: 500 14px var(--texto); color: var(--tinta); }
-.difs button[aria-pressed="true"] { background: var(--tinta); color: #fff; }
-
-.resumo { margin-top: 26px; display: grid; grid-template-columns: 1fr auto; gap: 18px 28px; align-items: start; }
-.veredito { font: 700 22px/1.15 var(--titulo); letter-spacing: -.025em; margin: 0; }
-.veredito.ok { color: var(--ok); } .veredito.nao { color: var(--alerta); }
-.numeros { margin: 8px 0 0; color: var(--tinta-2); max-width: 62ch; }
-.botoes { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
-.sec { padding: 12px 16px; border: 1.5px solid var(--tinta); border-radius: 10px; background: none; cursor: pointer; font-weight: 600; text-decoration: none; color: var(--tinta); }
-.sec:hover { background: rgba(26, 24, 56, .06); }
-.quest-saida { grid-column: 1 / -1; font-size: 14px; white-space: pre-wrap; margin: 0; padding: 12px 14px; background: var(--folha); border-radius: 10px; border: 1px solid var(--linha); }
-details.rel { grid-column: 1 / -1; }
-details.rel summary { cursor: pointer; font-weight: 600; }
-details.rel pre { font: 13px/1.5 ui-monospace, Consolas, monospace; background: var(--folha); border: 1px solid var(--linha); border-radius: 10px; padding: 14px; overflow: auto; max-height: 420px; }
-[hidden] { display: none !important; }
-
-@media (max-width: 860px) {
-  .casca { grid-template-columns: 1fr; }
-  .lado { border-right: 0; border-bottom: 1px solid var(--linha); }
-  .resumo { grid-template-columns: 1fr; } .botoes { justify-content: flex-start; }
-}
-@media (prefers-reduced-motion: reduce) { .trabalho.rodando span::after { animation: none; } }
-.marca { display: flex; align-items: center; }
-.q { margin-left: auto; font: 600 12px var(--texto); } .q.ok { color: var(--ok); } .q.nao { color: var(--tinta-2); }
-.q:empty + .lingua { margin-left: auto; }
-.painel { border: 0; border-radius: 18px; padding: 0; width: min(680px, 94vw); max-height: 92vh; background: var(--folha); color: var(--tinta); }
-.painel::backdrop { background: rgba(15, 14, 38, .78); }
-.painel .dentro { padding: 28px; display: grid; gap: 24px; }
-.painel .passo { margin: 0; color: var(--tinta-2); font-size: 14px; }
-.painel header h2 { font-size: 26px; margin: 0; }
-.painel h3 { font: 700 16px var(--titulo); margin: 0 0 6px; }
-.painel section p { margin: 0 0 10px; }
-.painel[data-passo] section { display: none; }
-.painel[data-passo="1"] section[data-p="1"], .painel[data-passo="2"] section[data-p="2"], .painel[data-passo="3"] section[data-p="3"] { display: block; }
-.painel .linha { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
-.painel .linha .campo { flex: 1; min-width: 200px; padding: 10px 12px; }
-.painel .difs { display: inline-flex; }
-.itens { list-style: none; margin: 0 0 12px; padding: 0; }
-.itens li { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; align-items: center; padding: 10px 0; border-top: 1px solid var(--linha); }
-.itens .d { grid-column: 1; font-size: 13px; color: var(--tinta-2); }
-.itens .s { grid-column: 2; grid-row: 1 / span 2; font-size: 13px; font-weight: 600; text-align: right; }
-.itens .s.ok { color: var(--ok); }
-.itens .s .sec, .painel .mini-b { padding: 7px 12px; font-size: 14px; }
-.itens .erro { grid-column: 1 / -1; }
-.itens progress { width: 110px; vertical-align: middle; accent-color: var(--dir); }
-.lingua { margin-left: 0; border: 1.5px solid var(--tinta); border-radius: 999px; background: none; padding: 3px 10px; font: 600 12px var(--texto); cursor: pointer; color: var(--tinta); }
-</style>
+<link rel="stylesheet" href="/site/app.css">
 </head>
 <body>
+<svg hidden>
+  <symbol id="i-bpm" viewBox="0 0 16 16"><path d="M1 8h3l2-5 3 10 2-5h4"/></symbol>
+  <symbol id="i-tempo" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.3"/><path d="M8 4.5V8l2.5 1.6"/></symbol>
+  <symbol id="i-ok" viewBox="0 0 16 16"><path d="M3 8.5l3.5 3.5L13 4.5"/></symbol>
+  <symbol id="i-nao" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8"/></symbol>
+  <symbol id="i-volta" viewBox="0 0 16 16"><path d="M10 3L5 8l5 5"/></symbol>
+</svg>
+
+<header class="topo">
+  <div class="marca"><i></i>Beatloom</div>
+  <button type="button" class="acao" id="novo" data-t="novo_mapa"></button>
+  <span class="vao"></span>
+  <button type="button" class="quieto q" id="q-estado"></button>
+  <button type="button" class="quieto" id="lingua"></button>
+  <button type="button" class="quieto" id="config" data-t="config"></button>
+</header>
+
 <div class="casca">
-  <aside class="lado">
-    <header>
-      <div class="marca"><i></i>Beatloom <span class="q" id="q-estado"></span><button type="button" id="lingua" class="lingua"></button><button type="button" id="config" class="lingua" data-t="config"></button></div>
-      <h1 data-t="titulo"></h1>
-      <p class="sub" data-t="sub"></p>
-    </header>
-
-    <form id="form">
-      <input class="campo" id="link" type="url" inputmode="url" data-tp="link" autocomplete="off">
-      <div class="arquivo"><span id="arq-nome"></span> <button type="button" id="arq-btn"></button>
-        <input type="file" id="arq" accept="audio/*,.egg" hidden></div>
-      <div class="previa" id="previa" hidden>
-        <img id="p-capa" alt=""><div class="sem-capa" id="p-sem" hidden></div>
-        <div class="campos"><input class="campo" id="nome" data-tp="nome"><input class="campo" id="artista" data-tp="artista"></div>
-        <small id="p-info"></small>
-      </div>
-      <fieldset class="escolha" id="escolha"><legend data-t="quais"></legend></fieldset>
-      <label class="densidade"><span data-t="densidade"></span><span id="dens-v"></span>
-        <input type="range" id="dens" min="0.8" max="1.3" step="0.05" value="1"></label>
-      <button class="acao" id="gerar" data-t="gerar"></button>
-      <p class="erro" id="erro" role="alert" hidden></p>
-    </form>
-
+  <aside class="biblioteca" data-ta="mapas">
     <div id="trabalhos" aria-live="polite"></div>
-
-    <section>
-      <h2 data-t="mapas"></h2>
-      <ul class="mapas" id="mapas"></ul>
-      <p class="vazio" id="sem-mapas" data-t="sem_mapas" hidden></p>
-    </section>
+    <ul class="mapas" id="mapas"></ul>
+    <p class="fraco" id="sem-mapas" data-t="sem_mapas" hidden></p>
+    <div class="lote" id="lote" hidden><span id="lote-n"></span>
+      <button type="button" class="quieto" id="lote-limpar" data-t="cancelar"></button><button type="button" class="acao" id="lote-enviar" data-t="quest"></button></div>
   </aside>
 
-  <main class="principal">
-    <div class="palco">
-      <iframe id="visor" title="ArcViewer" allow="autoplay; fullscreen" allowfullscreen hidden></iframe>
-      <div class="convite" id="convite" data-t="convite"></div>
-    </div>
-    <p class="controles" id="controles" hidden><span class="difs" id="difs" role="group"></span><button type="button" class="sec" id="regerar" data-t="regerar" style="padding:6px 12px"></button><span data-t="visor"></span>
-      <a id="fora" target="_blank" rel="noopener" data-t="cheia"></a></p>
-    <section class="ficha" id="ficha" hidden>
-      <img id="f-capa" alt="">
-      <div><h2 id="f-nome"></h2><p id="f-info"></p>
-        <div class="mini"><button type="button" id="renomear" data-t="renomear"></button><button type="button" id="apagar" data-t="apagar"></button></div></div>
-    </section>
-    <section class="resumo" id="resumo" hidden>
-      <div><p class="veredito" id="veredito"></p><p class="numeros" id="numeros"></p></div>
-      <div class="botoes">
-        <a class="sec" id="baixar" data-t="baixar"></a>
-        <button class="sec" id="q-apagar" data-t="q_apagar" hidden></button>
-        <button class="acao" id="quest" hidden></button>
+  <main class="detalhe">
+    <div class="chamada" id="vazio"><h1 id="vz-titulo"></h1><p id="vz-sub"></p><button type="button" class="acao" id="vz-novo" data-t="novo_mapa"></button></div>
+    <article id="aberto" hidden>
+      <button type="button" class="quieto voltar" id="voltar"><svg class="ic"><use href="#i-volta"/></svg><span data-t="mapas"></span></button>
+      <header class="ficha"><img id="f-capa" alt="">
+        <div><h1 id="f-nome"></h1><p class="artista" id="f-artista"></p><p class="dados" id="f-info"></p></div></header>
+      <div class="difs" id="difs" role="group" data-ta="quais"></div>
+      <div class="palco">
+        <iframe id="visor" title="ArcViewer" allow="autoplay; fullscreen" allowfullscreen hidden></iframe>
+        <div class="cartaz" id="sem-visor" hidden><p data-t="sem_visor"></p><button type="button" class="acao" id="instalar-visor" data-t="instalar_visor"></button>
+          <p id="visor-andamento" hidden><progress id="visor-barra"></progress> <span id="visor-quanto"></span></p></div>
       </div>
-      <pre class="quest-saida" id="quest-saida" hidden></pre>
-      <details class="rel"><summary data-t="rel"></summary><pre id="rel"></pre></details>
-    </section>
+      <p class="fraco dica" id="dica"><span data-t="visor_dica"></span> <a id="fora" target="_blank" rel="noopener" data-t="cheia"></a></p>
+      <dl class="numeros" id="numeros"></dl>
+      <section class="conf">
+        <h2 class="veredito" id="veredito"></h2>
+        <ul class="metas" id="metas"></ul>
+        <details id="tec-caixa"><summary data-t="tecnico"></summary><dl class="tecnico" id="tecnico"></dl></details>
+      </section>
+      <div class="acoes">
+        <button type="button" class="acao" id="quest" hidden></button>
+        <a class="sec" id="baixar" data-t="baixar"></a>
+        <button type="button" class="sec" id="regerar" data-t="regerar"></button>
+        <span class="vao"></span>
+        <button type="button" class="quieto" id="renomear" data-t="renomear"></button>
+        <button type="button" class="quieto" id="q-apagar" data-t="q_apagar" hidden></button>
+        <button type="button" class="quieto" id="apagar" data-t="apagar"></button>
+      </div>
+    </article>
   </main>
 </div>
 
-<dialog class="painel" id="painel"><div class="dentro">
-  <header><p class="passo" id="p-passo"></p><h2 id="p-titulo"></h2></header>
+<template id="m-linha"><li class="linha">
+  <input type="checkbox" class="marcar">
+  <button type="button" class="abre"><img class="capa" alt="" loading="lazy"><span class="n"></span><span class="a"></span><span class="tags"></span>
+    <span class="lado"><span><b class="bpm"></b><svg class="ic"><use href="#i-bpm"/></svg></span><span><b class="dur"></b><svg class="ic"><use href="#i-tempo"/></svg></span></span></button>
+</li></template>
+
+<dialog class="caixa" id="d-novo"><form id="form">
+  <h2 data-t="novo_mapa"></h2>
+  <input class="campo" id="link" type="url" inputmode="url" data-tp="link" autocomplete="off">
+  <button type="button" class="solta" id="solta"><b id="arq-nome"></b><span id="arq-dica"></span></button>
+  <input type="file" id="arq" accept="audio/*,.egg" hidden>
+  <div class="previa" id="previa" hidden>
+    <img id="p-capa" alt=""><div class="sem-capa" id="p-sem" hidden></div>
+    <div class="campos"><input class="campo" id="nome" data-tp="nome"><input class="campo" id="artista" data-tp="artista"></div>
+    <small class="fraco" id="p-info"></small>
+  </div>
+  <fieldset><legend data-t="quais"></legend><div class="difs" id="escolha"></div></fieldset>
+  <label class="densidade"><span data-t="densidade"></span><span id="dens-v"></span>
+    <input type="range" id="dens" min="0.8" max="1.3" step="0.05" value="1"></label>
+  <p class="erro" id="erro" role="alert" hidden></p>
+  <footer><button type="button" class="quieto" data-fecha data-t="cancelar"></button><button class="acao" id="gerar" data-t="gerar"></button></footer>
+</form></dialog>
+
+<dialog class="caixa" id="d-nome"><form method="dialog">
+  <h2 data-t="renomear"></h2>
+  <label class="rotulo"><span data-t="nome"></span><input class="campo" id="n-nome" required></label>
+  <label class="rotulo"><span data-t="artista"></span><input class="campo" id="n-artista"></label>
+  <footer><button type="button" class="quieto" data-fecha data-t="cancelar"></button><button class="acao" value="sim" data-t="salvar"></button></footer>
+</form></dialog>
+
+<dialog class="caixa" id="d-regerar"><form method="dialog">
+  <h2 id="r-titulo"></h2><p class="fraco" data-t="regerar_sub"></p>
+  <label class="densidade"><span data-t="densidade"></span><span id="r-dens-v"></span>
+    <input type="range" id="r-dens" min="0.8" max="1.3" step="0.05" value="1"></label>
+  <footer><button type="button" class="quieto" data-fecha data-t="cancelar"></button><button class="acao" value="sim" data-t="regerar_ir"></button></footer>
+</form></dialog>
+
+<dialog class="caixa" id="d-confirma"><form method="dialog">
+  <p id="cf-texto"></p>
+  <footer><button type="button" class="quieto" data-fecha data-t="cancelar"></button><button class="acao" id="cf-sim" value="sim"></button></footer>
+</form></dialog>
+
+<dialog class="caixa painel" id="painel">
+  <header><p class="fraco" id="p-passo"></p><h2 id="p-titulo"></h2></header>
   <section data-p="1"><h3 data-t="s_lingua"></h3>
-    <div class="difs" id="p-linguas" role="group"><button type="button" data-l="pt">Português</button><button type="button" data-l="en">English</button></div></section>
-  <section data-p="2"><h3 data-t="s_itens"></h3><p class="vazio" data-t="s_itens_sub"></p>
-    <ul class="itens" id="itens"></ul><button type="button" class="sec mini-b" id="p-tudo" data-t="instalar_tudo"></button></section>
-  <section data-p="3"><h3 data-t="s_quest"></h3><p class="vazio" data-t="s_quest_sub"></p><p id="q-texto" aria-live="polite"></p>
-    <div class="linha"><button type="button" class="sec mini-b" id="q-parear" data-t="q_parear"></button></div>
-    <div class="linha"><input class="campo" id="q-ip" inputmode="decimal" autocomplete="off" data-tp="q_ip"><button type="button" class="sec mini-b" id="q-testar" data-t="q_testar"></button></div>
+    <div class="difs" id="p-linguas" role="group"><button type="button" class="dif" data-l="pt">Português</button><button type="button" class="dif" data-l="en">English</button></div></section>
+  <section data-p="2"><h3 data-t="s_itens"></h3><p class="fraco" data-t="s_itens_sub"></p>
+    <ul class="itens" id="itens"></ul><button type="button" class="acao" id="p-tudo" data-t="instalar_tudo"></button></section>
+  <section data-p="3" id="s-quest"><h3 data-t="s_quest"></h3><p class="fraco" data-t="s_quest_sub"></p><p id="q-texto" aria-live="polite"></p>
+    <div class="fila"><button type="button" class="sec" id="q-parear" data-t="q_parear"></button></div>
+    <div class="fila"><input class="campo" id="q-ip" inputmode="decimal" autocomplete="off" data-tp="q_ip"><button type="button" class="sec" id="q-testar" data-t="q_testar"></button></div>
     <p class="erro" id="q-erro" role="alert" hidden></p></section>
-  <section><h3 data-t="s_padrao"></h3><fieldset class="escolha" id="c-difs"><legend data-t="quais"></legend></fieldset>
-    <label class="densidade" style="margin-top:10px"><span data-t="densidade"></span><span id="c-dens-v"></span>
+  <section><h3 data-t="s_padrao"></h3><fieldset><legend data-t="quais"></legend><div class="difs" id="c-difs"></div></fieldset>
+    <label class="densidade"><span data-t="densidade"></span><span id="c-dens-v"></span>
       <input type="range" id="c-dens" min="0.8" max="1.3" step="0.05" value="1"></label></section>
-  <section><h3 data-t="s_cache"></h3><p id="c-cache"></p><button type="button" class="sec mini-b" id="c-limpar" data-t="limpar"></button>
-    <p class="vazio" id="c-torch" style="margin-top:10px"></p></section>
-  <footer class="botoes"><button type="button" class="sec" id="p-voltar" data-t="voltar"></button><button type="button" class="acao" id="p-seguir"></button></footer>
-</div></dialog>
+  <section><h3 data-t="s_cache"></h3><p id="c-cache"></p><button type="button" class="sec" id="c-limpar" data-t="limpar"></button>
+    <p class="fraco" id="c-torch"></p></section>
+  <footer><button type="button" class="quieto" id="p-voltar" data-t="voltar"></button><button type="button" class="acao" id="p-seguir"></button></footer>
+</dialog>
 
-<script>
-const $ = (id) => document.getElementById(id);
-const api = (url, corpo, cru) => fetch(url, corpo === undefined ? {} : {
-  method: "POST", headers: { "X-Automapper": "1", ...(cru ? {} : { "Content-Type": "application/json" }) }, body: cru ? corpo : JSON.stringify(corpo),
-}).then(async (r) => { const j = await r.json(); if (!r.ok) throw new Error(j.erro ? erroT(j.erro) : t("erro")); return j; });
-const NOMES = { Hard: "Hard", Expert: "Expert", ExpertPlus: "Expert+", Normal: "Normal", Easy: "Easy" };
-
-let mapa = null, temVisor = true;
-const T = {
-  pt: { titulo: "Sua música vira um mapa de Beat Saber", sub: "De Easy a Expert+, com zip pronto para o Quest.", link: "Cole um link do YouTube",
-    ou: "ou", escolha: "escolha um arquivo de áudio", trocar_arq: "trocar", trocar: "Trocar o nome que aparece no jogo", nome: "Nome da música", artista: "Artista",
-    gerar: "Gerar mapa", mapas: "Seus mapas", sem_mapas: "Nenhum mapa ainda. Cole um link acima para gerar o primeiro.",
-    convite: "Escolha um mapa na lista para assistir antes de jogar", visor: "Espaço toca e pausa. Trocar de dificuldade recarrega o visualizador (ArcViewer).",
-    sem_visor: "O visualizador 3D não está instalado. Veja no README como baixar o ArcViewer.", cheia: "Abrir em tela cheia", baixar: "Baixar zip", quest: "Mandar ao Quest",
-    rel: "Relatório completo", fila: "Na fila", comecando: "Começando…", metas_ok: "Metas ok", ver_rel: "Ver relatório",
-    v_sem: "Este mapa ainda não foi conferido", v_ok: "Passou em todas as conferências", v_nao: "Alguma conferência falhou", notas: "notas", vel: "velocidade", sem_rel: "Sem relatório.",
-    confirma: "Mandar este mapa para o Quest agora?", mandando: "Mandando…", erro: "Algo deu errado.",
-    baixando: "Baixando o áudio do link…", ouvindo: "Ouvindo a música e separando os instrumentos (alguns minutos)…", golpes: "Escolhendo as notas e os golpes…",
-    empacotando: "Empacotando…", conferindo: "Conferindo o mapa…", ytdlp: "O yt-dlp não conseguiu baixar esse link.", gerador: "O gerador parou:",
-    recusado: "Pedido recusado.", nao_existe: "Isso não existe.", sem_mapa: "Não achei esse mapa.", grande: "Arquivo grande demais (limite de 300 MB).",
-    tipo: "Use um arquivo de áudio: mp3, ogg, wav, m4a, flac ou opus.", invalido: "Pedido inválido.", link_ruim: "Isso não parece um link. Cole o endereço completo, começando com https://",
-    vazio: "Cole um link ou escolha um arquivo de áudio.",
-    quais: "Dificuldades", densidade: "Quantidade de notas", leve: "mais leve", normal: "normal", cheio: "mais cheio", procurando: "Procurando os dados da música…",
-    confira: "Confira o nome e o artista antes de gerar.", sem_dif: "Marque pelo menos uma dificuldade.", renomear: "Trocar nome", apagar: "Apagar mapa",
-    novo_nome: "Nome da música:", novo_artista: "Artista:", confirma_apagar: "Apagar este mapa da lista? Ele vai para a pasta saida\\lixeira.",
-    regerar: "Regerar esta dificuldade", pergunta_dens: "Quantidade de notas desta dificuldade, de 0.8 (mais leve) a 1.3 (mais cheio):", regerando: "Regerando…",
-    arcos: "notas seguradas", capa_arq: "capa do arquivo", capa_gen: "sem capa no arquivo: vai a genérica", fonte: "fonte",
-    config: "Configuração", bemvindo: "Vamos preparar o Beatloom", passo: "Passo {n} de 3", s_lingua: "Idioma", s_itens: "O que o Beatloom precisa",
-    s_itens_sub: "Tudo é baixado para dentro da pasta do Beatloom. Nada é instalado no seu Windows.", instalar: "Instalar", instalar_tudo: "Instalar tudo o que falta",
-    instalado: "Pronto", opcional: "opcional", trabalhando: "Trabalhando…", montando: "Montando a biblioteca (uns minutos)…", falhou: "Não deu certo:",
-    i_ffmpeg: "ffmpeg", d_ffmpeg: "Lê e converte o áudio. 115 MB.", i_node: "Node.js", d_node: "Confere se o mapa está no formato que o jogo aceita. 35 MB.",
-    i_padroes: "Biblioteca de padrões", d_padroes: "Golpes tirados de 1000 mapas humanos bem avaliados do BeatSaver. Leva uns 20 minutos; se fechar, continua de onde parou.",
-    i_visor: "Visualizador 3D", d_visor: "ArcViewer, para assistir ao mapa na página. 80 MB.", i_adb: "Conexão com o Quest", d_adb: "ADB, para mandar mapas ao headset pelo Wi-Fi. 8 MB.",
-    s_quest: "Quest", s_quest_sub: "Opcional. Na primeira vez, ligue o Quest ao PC pelo cabo USB (com o modo desenvolvedor ativado), aceite o aviso que aparece dentro do headset e clique no botão. Depois disso o cabo não é mais preciso.",
-    q_parear: "Encontrar o Quest pelo cabo USB", q_ip: "IP do Quest (ex.: 192.168.1.50)", q_testar: "Salvar e testar", q_sem_adb: "Instale antes a “Conexão com o Quest” na lista de itens.",
-    q_conectado: "Quest conectado", q_nao_responde: "O Quest não respondeu. Ele precisa estar ligado e no mesmo Wi-Fi; se ele reiniciou, use o cabo de novo.", q_sem_ip: "Nenhum Quest configurado ainda.",
-    q_on: "Quest conectado", q_off: "Quest desligado", q_enviado: "Mapa no Quest. Reinicie o Beat Saber (ou recarregue as músicas) para ele aparecer.",
-    q_de_novo: "Mandar de novo ao Quest", q_atualizar: "Atualizar no Quest", q_apagar: "Apagar do Quest", q_confirma_apagar: "Apagar este mapa do Quest? Ele continua aqui no PC.",
-    no_quest: "no Quest", q_velho: "no Quest (versão antiga)", ip_ruim: "Isso não parece um IP. Exemplo: 192.168.1.50",
-    sem_adb: "Falta instalar a conexão com o Quest (ADB).", sem_cabo: "Não achei o Quest no cabo USB. Confira o cabo e se o modo desenvolvedor está ativado.",
-    sem_permissao: "O Quest está no cabo, mas falta aceitar o aviso “Permitir depuração USB” dentro do headset.", sem_wifi: "O Quest não está conectado a nenhum Wi-Fi.",
-    sem_quest: "O Quest não respondeu. Confira se ele está ligado e no mesmo Wi-Fi.", ocupado: "Espere a geração terminar.", adb: "O Quest recusou:",
-    s_padrao: "Padrão ao gerar", s_cache: "Espaço e sistema", cache_tam: "Análises guardadas: {n}. Elas fazem a mesma música gerar rápido da segunda vez.",
-    limpar: "Apagar análises guardadas", confirma_limpar: "Apagar as análises guardadas? Seus mapas ficam; só a próxima geração de cada música volta a demorar.",
-    torch: "Motor de análise: torch", voltar: "Voltar", continuar: "Continuar", concluir: "Concluir", fechar: "Fechar" },
-  en: { titulo: "Your song becomes a Beat Saber map", sub: "From Easy to Expert+, in a zip ready for the Quest.", link: "Paste a YouTube link",
-    ou: "or", escolha: "choose an audio file", trocar_arq: "change", trocar: "Change the name shown in the game", nome: "Song name", artista: "Artist",
-    gerar: "Generate map", mapas: "Your maps", sem_mapas: "No maps yet. Paste a link above to generate the first one.",
-    convite: "Pick a map from the list to watch it before you play", visor: "Space plays and pauses. Switching difficulty reloads the viewer (ArcViewer).",
-    sem_visor: "The 3D viewer is not installed. See the README for how to download ArcViewer.", cheia: "Open full screen", baixar: "Download zip", quest: "Send to Quest",
-    rel: "Full report (in Portuguese)", fila: "Queued", comecando: "Starting…", metas_ok: "Checks passed", ver_rel: "See report",
-    v_sem: "This map has not been checked yet", v_ok: "Passed every check", v_nao: "A check failed", notas: "notes", vel: "speed", sem_rel: "No report.",
-    confirma: "Send this map to the Quest now?", mandando: "Sending…", erro: "Something went wrong.",
-    baixando: "Downloading the audio from the link…", ouvindo: "Listening to the song and separating instruments (a few minutes)…", golpes: "Choosing notes and swings…",
-    empacotando: "Packing…", conferindo: "Checking the map…", ytdlp: "yt-dlp could not download this link.", gerador: "The generator stopped:",
-    recusado: "Request refused.", nao_existe: "That does not exist.", sem_mapa: "Map not found.", grande: "File too large (300 MB limit).",
-    tipo: "Use an audio file: mp3, ogg, wav, m4a, flac or opus.", invalido: "Invalid request.", link_ruim: "That does not look like a link. Paste the full address, starting with https://",
-    vazio: "Paste a link or choose an audio file.",
-    quais: "Difficulties", densidade: "Amount of notes", leve: "lighter", normal: "normal", cheio: "fuller", procurando: "Looking up the song…",
-    confira: "Check the name and artist before generating.", sem_dif: "Tick at least one difficulty.", renomear: "Rename", apagar: "Delete map",
-    novo_nome: "Song name:", novo_artista: "Artist:", confirma_apagar: "Remove this map from the list? It goes to the saida\\lixeira folder.",
-    regerar: "Regenerate this difficulty", pergunta_dens: "Amount of notes for this difficulty, from 0.8 (lighter) to 1.3 (fuller):", regerando: "Regenerating…",
-    arcos: "held notes", capa_arq: "cover from the file", capa_gen: "no cover in the file: the generic one will be used", fonte: "source",
-    config: "Settings", bemvindo: "Let's set up Beatloom", passo: "Step {n} of 3", s_lingua: "Language", s_itens: "What Beatloom needs",
-    s_itens_sub: "Everything is downloaded into the Beatloom folder. Nothing is installed on your Windows.", instalar: "Install", instalar_tudo: "Install everything missing",
-    instalado: "Ready", opcional: "optional", trabalhando: "Working…", montando: "Building the library (a few minutes)…", falhou: "It did not work:",
-    i_ffmpeg: "ffmpeg", d_ffmpeg: "Reads and converts audio. 115 MB.", i_node: "Node.js", d_node: "Checks that the map is in the format the game accepts. 35 MB.",
-    i_padroes: "Pattern library", d_padroes: "Swings taken from 1000 well-rated human maps on BeatSaver. Takes about 20 minutes; if you close it, it resumes where it stopped.",
-    i_visor: "3D viewer", d_visor: "ArcViewer, to watch the map on the page. 80 MB.", i_adb: "Quest connection", d_adb: "ADB, to send maps to the headset over Wi-Fi. 8 MB.",
-    s_quest: "Quest", s_quest_sub: "Optional. The first time, plug the Quest into the PC with a USB cable (developer mode on), accept the prompt inside the headset and click the button. After that the cable is no longer needed.",
-    q_parear: "Find the Quest over USB", q_ip: "Quest IP (e.g. 192.168.1.50)", q_testar: "Save and test", q_sem_adb: "Install “Quest connection” from the list of items first.",
-    q_conectado: "Quest connected", q_nao_responde: "The Quest did not answer. It must be on and on the same Wi-Fi; if it restarted, use the cable again.", q_sem_ip: "No Quest set up yet.",
-    q_on: "Quest connected", q_off: "Quest offline", q_enviado: "Map is on the Quest. Restart Beat Saber (or reload songs) to see it.",
-    q_de_novo: "Send to Quest again", q_atualizar: "Update on Quest", q_apagar: "Delete from Quest", q_confirma_apagar: "Delete this map from the Quest? It stays here on the PC.",
-    no_quest: "on Quest", q_velho: "on Quest (old version)", ip_ruim: "That does not look like an IP. Example: 192.168.1.50",
-    sem_adb: "The Quest connection (ADB) is not installed.", sem_cabo: "No Quest found on USB. Check the cable and that developer mode is on.",
-    sem_permissao: "The Quest is plugged in, but you still need to accept “Allow USB debugging” inside the headset.", sem_wifi: "The Quest is not connected to any Wi-Fi.",
-    sem_quest: "The Quest did not answer. Check that it is on and on the same Wi-Fi.", ocupado: "Wait for the generation to finish.", adb: "The Quest refused:",
-    s_padrao: "Defaults when generating", s_cache: "Space and system", cache_tam: "Saved analyses: {n}. They make the same song generate fast the second time.",
-    limpar: "Delete saved analyses", confirma_limpar: "Delete the saved analyses? Your maps stay; only the next generation of each song gets slow again.",
-    torch: "Analysis engine: torch", voltar: "Back", continuar: "Continue", concluir: "Finish", fechar: "Close" },
-};
-let lingua = navigator.language.startsWith("pt") ? "pt" : "en";  // ate o beatloom.json dizer outra coisa
-const t = (k) => T[lingua][k] || k;
-const erroT = (c) => { const [k, resto] = String(c).split("|"); const m = T[lingua][k === "link" ? "link_ruim" : k]; return m ? m + (resto ? " " + resto : "") : c; };
-function traduzir() {
-  document.documentElement.lang = lingua === "pt" ? "pt-BR" : "en";
-  for (const e of document.querySelectorAll("[data-t]")) e.textContent = t(e.dataset.t);
-  for (const e of document.querySelectorAll("[data-tp]")) { e.placeholder = t(e.dataset.tp); e.setAttribute("aria-label", t(e.dataset.tp)); }
-  $("lingua").textContent = lingua === "pt" ? "English" : "Português";
-  $("arq-nome").textContent = arquivo ? arquivo.name : t("ou"); $("arq-btn").textContent = t(arquivo ? "trocar_arq" : "escolha");
-  for (const b of $("p-linguas").children) b.setAttribute("aria-pressed", b.dataset.l === lingua);
-  $("dens").oninput(); $("c-dens").oninput(); atualizar.chave = null;
-  if (mapa) pintar();
-  if ($("painel").open) { botoes(); verPreparo(); verQuest(); verConfig(); }
-}
-function mudarLingua(l) { lingua = l; salvar({ lingua }); traduzir(); atualizar(); }
-$("lingua").onclick = () => mudarLingua(lingua === "pt" ? "en" : "pt");
-for (const b of $("p-linguas").children) b.onclick = () => mudarLingua(b.dataset.l);
-
-// ---------- gerar
-let arquivo = null, subido = null, extra = {};
-$("arq-btn").onclick = () => $("arq").click();
-$("dens").oninput = () => { const v = +$("dens").value; $("dens-v").textContent = t(v < 0.98 ? "leve" : v > 1.02 ? "cheio" : "normal") + " (×" + v.toFixed(2) + ")"; };
-// previa: mostra capa, nome e artista antes de gerar, para a pessoa corrigir
-function previa(d, capa, info) {
-  extra = { album: d.album, ano: d.ano };
-  $("previa").hidden = false; $("nome").value = d.nome || ""; $("artista").value = d.artista || "";
-  $("p-capa").hidden = !capa; $("p-sem").hidden = !!capa; if (capa) $("p-capa").src = capa;
-  $("p-info").textContent = [d.album, d.ano, info, t("confira")].filter(Boolean).join(" · ");
-}
-function semPrevia() { $("previa").hidden = true; $("nome").value = ""; $("artista").value = ""; extra = {}; }
-let ultimoLink = "";
-async function verLink() {
-  const link = $("link").value.trim();
-  if (link === ultimoLink) return;
-  ultimoLink = link;
-  if (!/^https?:\/\/\S+$/.test(link)) return semPrevia();
-  $("previa").hidden = false; $("p-info").textContent = t("procurando");
-  try { const d = await api("/api/previa", { link }); if ($("link").value.trim() === link) previa(d, d.capa, ""); }
-  catch (x) { if ($("link").value.trim() === link) { semPrevia(); $("erro").textContent = x.message; $("erro").hidden = false; } }
-}
-$("link").onchange = verLink;
-$("link").onpaste = () => setTimeout(verLink, 0);
-$("arq").onchange = async () => {
-  arquivo = $("arq").files[0] || null; subido = null;
-  $("arq-nome").textContent = arquivo ? arquivo.name : t("ou"); $("arq-btn").textContent = t(arquivo ? "trocar_arq" : "escolha");
-  if (!arquivo) return semPrevia();
-  $("link").value = ""; ultimoLink = ""; $("erro").hidden = true;
-  try {
-    subido = await api("/api/arquivo?nome=" + encodeURIComponent(arquivo.name), arquivo, true);
-    const capa = "/api/capa?arquivo=" + encodeURIComponent(subido.base) + "&v=" + Date.now();
-    const tem = (await fetch(capa)).ok;
-    previa(subido, tem ? capa : null, t(tem ? "capa_arq" : "capa_gen"));
-  } catch (x) { $("erro").textContent = x.message; $("erro").hidden = false; }
-};
-$("form").onsubmit = async (e) => {
-  e.preventDefault();
-  const erro = $("erro"); erro.hidden = true; $("gerar").disabled = true;
-  try {
-    const link = $("link").value.trim();
-    const difs = [...$("escolha").querySelectorAll("input:checked")].map((c) => c.value);
-    if (!difs.length) throw new Error(t("sem_dif"));
-    if (!link && arquivo && !subido) subido = await api("/api/arquivo?nome=" + encodeURIComponent(arquivo.name), arquivo, true);
-    await api("/api/gerar", { link, arquivo: link ? null : subido && subido.arquivo, nome: $("nome").value, artista: $("artista").value, ...extra, difs, densidade: +$("dens").value });
-    $("link").value = ""; ultimoLink = ""; $("arq").value = ""; arquivo = subido = null; semPrevia();
-    $("arq-nome").textContent = t("ou"); $("arq-btn").textContent = t("escolha");
-    atualizar();
-  } catch (x) { erro.textContent = x.message; erro.hidden = false; }
-  $("gerar").disabled = false;
-};
-
-// ---------- lista e trabalhos
-let atual = null, vistos = new Set(), primeira = true;
-async function atualizar() {
-  const e = await api("/api/estado");
-  $("trabalhos").innerHTML = "";
-  let ativo = false;
-  for (const tr of e.trabalhos.slice().reverse()) {
-    if (tr.estado === "pronto" && !primeira && !vistos.has(tr.id) && tr.zip) { vistos.add(tr.id); abrir(tr.zip); }
-    if (tr.estado === "pronto") { vistos.add(tr.id); continue; }
-    ativo = ativo || tr.estado !== "erro";
-    const d = document.createElement("div");
-    d.className = "trabalho " + (tr.estado === "erro" ? "erro-t" : tr.estado === "rodando" ? "rodando" : "");
-    const b = document.createElement("b"); b.textContent = tr.titulo;
-    const s = document.createElement("span");
-    const [passo, qual] = (tr.passos.at(-1) || "comecando").split("|");  // "golpes|Hard (2/4)"
-    s.textContent = tr.estado === "erro" ? erroT(tr.erro) : tr.estado === "na fila" ? t("fila") : t(passo) + (qual ? " " + qual.replace("ExpertPlus", "Expert+") : "");
-    d.append(b, s); $("trabalhos").append(d);
-  }
-  primeira = false;
-  const ul = $("mapas"), chave = JSON.stringify([e.mapas, atual, noQuest.mapas]);
-  $("sem-mapas").hidden = e.mapas.length > 0;
-  for (const m of chave === atualizar.chave ? [] : e.mapas) {  // so redesenha a lista quando ela muda (nao rouba o foco)
-    if (m === e.mapas[0]) ul.innerHTML = "";
-    const li = document.createElement("li"), b = document.createElement("button");
-    b.setAttribute("aria-current", m.zip === atual);
-    b.innerHTML = '<span class="n"></span><span class="d"></span><span class="s"></span>';
-    b.children[0].textContent = m.nome;
-    b.children[1].textContent = [m.artista, m.sub, Math.round(m.bpm) + " BPM", noQuest.mapas[m.zip] && t(noQuest.mapas[m.zip] === "ok" ? "no_quest" : "q_velho")].filter(Boolean).join(", ");
-    b.children[2].textContent = !m.conferido ? "" : t(m.ok ? "metas_ok" : "ver_rel");
-    b.children[2].className = "s " + (m.ok ? "ok" : "nao");
-    b.onclick = () => abrir(m.zip);
-    li.append(b); ul.append(li);
-  }
-  if (!e.mapas.length) ul.innerHTML = "";
-  atualizar.chave = chave;
-  temVisor = e.visor;
-  for (const [id, aoMudar] of [["escolha", null], ["c-difs", guardarPadrao]]) if (!$(id).querySelector("input")) for (const d of e.difs) {  // uma caixa por dificuldade
-    const l = document.createElement("label"), c = document.createElement("input");
-    c.type = "checkbox"; c.value = d; c.checked = cfg.difs.includes(d); c.onchange = aoMudar; l.append(c, NOMES[d] || d); $(id).append(l);
-  }
-  clearTimeout(atualizar.t);
-  atualizar.t = setTimeout(atualizar, ativo ? 1200 : 6000);
-}
-
-// ---------- previa: copia local do ArcViewer servida por este app; noProxy = ler o zip direto deste PC, nada sobe para a internet
-async function abrir(zip) {
-  atual = zip;
-  mapa = await api("/api/mapa?zip=" + encodeURIComponent(zip));
-  const box = $("difs"); box.innerHTML = "";
-  for (const d of mapa.difs) {
-    const b = document.createElement("button"); b.textContent = NOMES[d.nome] || d.nome; b.dataset.n = d.nome;
-    b.onclick = () => verDif(d.nome); box.append(b);
-  }
-  verDif(mapa.difs.some((d) => d.nome === dif) ? dif : mapa.difs.some((d) => d.nome === "Expert") ? "Expert" : mapa.difs[0].nome);
-  $("visor").hidden = !temVisor; $("controles").hidden = !temVisor; $("convite").hidden = temVisor;
-  $("resumo").hidden = false; $("ficha").hidden = false; $("quest-saida").hidden = true;
-  $("f-capa").src = "/api/capa?zip=" + encodeURIComponent(zip) + "&v=" + Date.now();
-  $("baixar").href = "/api/zip?zip=" + encodeURIComponent(zip);
-  pintar(); atualizar();
-}
-let dif = "Expert";
-function verDif(nome) {  // trocar de dificuldade recarrega o ArcViewer ja nela (uns segundos)
-  dif = nome;
-  for (const b of $("difs").children) b.setAttribute("aria-pressed", b.dataset.n === nome);
-  const visor = `/arcviewer/?noProxy=true&difficulty=${nome}&url=` + encodeURIComponent(location.origin + "/zip/" + encodeURIComponent(atual));
-  if (temVisor) { $("visor").src = visor; $("fora").href = visor; }
-}
-function pintar() {
-  if (!temVisor) $("convite").textContent = t("sem_visor");
-  const ok = mapa.relatorio.includes("TODAS AS METAS OK");
-  $("veredito").textContent = t(!mapa.relatorio ? "v_sem" : ok ? "v_ok" : "v_nao");
-  $("veredito").className = "veredito " + (ok ? "ok" : "nao");
-  $("numeros").textContent = mapa.difs.map((d) => `${NOMES[d.nome]}: ${d.notas} ${t("notas")}${d.arcos ? `, ${d.arcos} ${t("arcos")}` : ""}, ${t("vel")} ${d.njs}`).join(". ") + ".";
-  $("f-nome").textContent = mapa.nome;
-  const info = $("f-info"); info.textContent = [mapa.artista, mapa.album, mapa.ano, Math.round(mapa.bpm) + " BPM"].filter(Boolean).join(" · ");
-  if (/^https?:\/\//.test(mapa.link || "")) { const a = document.createElement("a"); a.href = mapa.link; a.target = "_blank"; a.rel = "noopener"; a.textContent = t("fonte"); info.append(" · ", a); }
-  $("rel").textContent = mapa.relatorio || t("sem_rel");
-  const la = noQuest.mapas[atual];
-  $("quest").hidden = !noQuest.conectado; $("quest").textContent = t(la === "ok" ? "q_de_novo" : la ? "q_atualizar" : "quest"); $("q-apagar").hidden = !la;
-}
-$("regerar").onclick = async () => {  // so a dificuldade que esta aberta; as outras ficam como estao
-  const v = prompt(t("pergunta_dens"), "1"); if (v === null) return;
-  const b = $("regerar"); b.disabled = true; b.textContent = t("regerando");
-  try { await api("/api/regerar", { zip: atual, dif, densidade: parseFloat(v.replace(",", ".")) || 1 }); await abrir(atual); } catch (x) { alert(x.message); }
-  b.disabled = false; b.textContent = t("regerar");
-};
-$("renomear").onclick = async () => {
-  const nome = prompt(t("novo_nome"), mapa.nome); if (nome === null) return;
-  const artista = prompt(t("novo_artista"), mapa.artista); if (artista === null) return;
-  await api("/api/renomear", { zip: atual, nome, artista }); atualizar.chave = null; abrir(atual);
-};
-$("apagar").onclick = async () => {
-  if (!confirm(t("confirma_apagar"))) return;
-  await api("/api/apagar", { zip: atual });
-  atual = mapa = null; atualizar.chave = null;
-  for (const id of ["ficha", "resumo", "controles", "visor"]) $(id).hidden = true;
-  $("visor").src = "about:blank"; $("convite").hidden = false; $("convite").textContent = t("convite"); atualizar();
-};
-$("quest").onclick = async () => {
-  if (!atual || !confirm(t("confirma"))) return;
-  const s = $("quest-saida"); s.hidden = false; s.textContent = t("mandando"); $("quest").disabled = true;
-  try { const r = (await api("/api/quest", { zip: atual })).resultados[atual]; s.textContent = r ? t("falhou") + " " + erroT(r) : t("q_enviado"); } catch (x) { s.textContent = x.message; }
-  $("quest").disabled = false; verQuest();
-};
-$("q-apagar").onclick = async () => {
-  if (!confirm(t("q_confirma_apagar"))) return;
-  try { await api("/api/quest/apagar", { zip: atual }); } catch (x) { alert(x.message); }
-  verQuest();
-};
-
-// ---------- primeira vez e configuracao: o mesmo painel. passo 1 a 3 = primeira vez (uma parte por vez); 0 = tudo junto
-const ITENS = ["ffmpeg", "node", "padroes", "visor", "adb"];
-let cfg = { difs: [] }, noQuest = { mapas: {} }, passo = 0;
-const salvar = async (d) => { cfg = { ...cfg, ...(await api("/api/config", d)) }; };
-const mb = (n) => Math.round(n / 2 ** 20) + " MB";
-async function verPreparo() {
-  const p = await api("/api/preparo"), ul = $("itens");
-  ul.innerHTML = "";
-  for (const i of ITENS) {
-    const e = p[i], li = document.createElement("li"), n = document.createElement("b"), d = document.createElement("span"), s = document.createElement("span");
-    n.textContent = t("i_" + i) + (e.obrigatorio ? "" : " · " + t("opcional")); d.textContent = t("d_" + i); d.className = "d"; s.className = "s";
-    if (e.ok) { s.textContent = t("instalado"); s.classList.add("ok"); }
-    else if (e.rodando) {  // barra parada no meio = sem tamanho conhecido
-      const b = document.createElement("progress"); if (e.total) { b.max = e.total; b.value = e.feito; }
-      s.append(b, " " + (i === "padroes" ? (e.total ? e.feito + " / " + e.total : t("montando")) : e.total ? mb(e.feito) + " / " + mb(e.total) : e.feito ? mb(e.feito) : t("trabalhando")));
-    } else {
-      const b = document.createElement("button"); b.type = "button"; b.className = "sec"; b.textContent = t("instalar");
-      b.onclick = async () => { await api("/api/preparo", { item: i }); verPreparo(); }; s.append(b);
-    }
-    li.append(n, s, d);
-    if (e.erro && !e.ok) { const x = document.createElement("p"); x.className = "erro"; x.textContent = t("falhou") + " " + e.erro; li.append(x); }
-    ul.append(li);
-  }
-  const ativo = ITENS.some((i) => p[i].rodando);
-  $("p-tudo").hidden = ativo || ITENS.every((i) => p[i].ok);
-  verPreparo.falta = ITENS.some((i) => p[i].obrigatorio && !p[i].ok);
-  botoes();
-  clearTimeout(verPreparo.t);
-  if ($("painel").open) verPreparo.t = setTimeout(verPreparo, ativo ? 1000 : 5000);
-}
-$("p-tudo").onclick = async () => { await api("/api/preparo", { item: "tudo" }); verPreparo(); };
-
-async function verQuest() {
-  clearTimeout(verQuest.t); verQuest.t = setTimeout(verQuest, 15000);
-  try { noQuest = await api("/api/quest"); } catch (x) { return; }
-  $("q-estado").textContent = noQuest.conectado ? t("q_on") : noQuest.ip ? t("q_off") : "";
-  $("q-estado").className = "q " + (noQuest.conectado ? "ok" : "nao");
-  $("q-texto").textContent = t(!noQuest.adb ? "q_sem_adb" : noQuest.conectado ? "q_conectado" : noQuest.ip ? "q_nao_responde" : "q_sem_ip") + (noQuest.conectado ? " (" + noQuest.ip + ")" : "");
-  if (document.activeElement !== $("q-ip")) $("q-ip").value = noQuest.ip;
-  $("q-parear").disabled = $("q-testar").disabled = !noQuest.adb;
-  if (mapa) pintar();
-  atualizar();
-}
-async function comQuest(botao, pedido) {  // os dois botoes do Quest: trava, tenta, mostra o erro
-  $("q-erro").hidden = true; botao.disabled = true;
-  try { await pedido(); } catch (x) { $("q-erro").textContent = x.message; $("q-erro").hidden = false; }
-  await verQuest();
-}
-$("q-parear").onclick = () => comQuest($("q-parear"), () => api("/api/quest/parear", {}));
-$("q-testar").onclick = () => comQuest($("q-testar"), async () => {
-  const ip = $("q-ip").value.trim(); await salvar({ quest_ip: ip });
-  if (cfg.quest_ip !== ip) throw new Error(t("ip_ruim"));
-});
-
-async function verConfig() {
-  cfg = await api("/api/config");
-  $("c-cache").textContent = t("cache_tam").replace("{n}", mb(cfg.cache)); $("c-torch").textContent = t("torch") + " " + cfg.torch;
-  $("c-dens").value = cfg.densidade; $("c-dens").oninput();
-  for (const c of $("c-difs").querySelectorAll("input")) c.checked = cfg.difs.includes(c.value);
-}
-async function guardarPadrao() {  // o padrao vale tambem para o formulario que esta aberto
-  await salvar({ difs: [...$("c-difs").querySelectorAll("input:checked")].map((c) => c.value), densidade: +$("c-dens").value });
-  for (const c of $("escolha").querySelectorAll("input")) c.checked = cfg.difs.includes(c.value);
-  $("dens").value = cfg.densidade; $("dens").oninput();
-}
-$("c-dens").oninput = () => { $("c-dens-v").textContent = "×" + (+$("c-dens").value).toFixed(2); };
-$("c-dens").onchange = guardarPadrao;
-$("c-limpar").onclick = async () => {
-  if (!confirm(t("confirma_limpar"))) return;
-  try { await api("/api/cache", {}); } catch (x) { alert(x.message); }
-  verConfig();
-};
-
-function botoes() {
-  const p = $("painel");
-  if (passo) p.dataset.passo = passo; else delete p.dataset.passo;
-  $("p-passo").textContent = passo ? t("passo").replace("{n}", passo) : "";
-  $("p-titulo").textContent = t(passo ? "bemvindo" : "config");
-  $("p-voltar").hidden = passo < 2;
-  $("p-seguir").textContent = t(!passo ? "fechar" : passo < 3 ? "continuar" : "concluir");
-  $("p-seguir").disabled = passo === 2 && !!verPreparo.falta;  // sem os obrigatorios nao da para gerar
-}
-function abrirPainel(n) {
-  passo = n;
-  if (!$("painel").open) $("painel").showModal();
-  botoes(); verPreparo(); verQuest(); verConfig();
-}
-$("config").onclick = () => abrirPainel(0);
-$("p-voltar").onclick = () => { passo--; botoes(); };
-$("p-seguir").onclick = async () => {
-  if (passo && passo < 3) { passo++; return botoes(); }
-  if (passo) await salvar({ pronto: true });
-  $("painel").close();
-};
-$("painel").oncancel = (e) => { if (passo) e.preventDefault(); };  // Esc nao pula a primeira vez
-
-(async () => {
-  cfg = await api("/api/config");
-  lingua = cfg.lingua || lingua;
-  $("dens").value = cfg.densidade;
-  traduzir(); atualizar();
-  const p = await api("/api/preparo");
-  // primeira vez, ou sumiu algo sem o qual nao da para gerar (ai abre direto na lista de itens)
-  if (!cfg.pronto || ITENS.some((i) => p[i].obrigatorio && !p[i].ok)) abrirPainel(cfg.pronto ? 2 : 1);
-  else verQuest();
-})();
-</script>
+<div id="avisos" popover="manual" aria-live="polite"></div>
+<script type="module" src="/site/app.js"></script>
 </body>
 </html>

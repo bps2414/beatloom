@@ -1,0 +1,414 @@
+// Pagina do Beatloom. As frases moram em site/i18n/<lingua>.json; o servidor so manda codigos e numeros, e aqui eles viram texto.
+const $ = (id) => document.getElementById(id);
+const el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
+const icone = (nome) => { const s = document.createElementNS("http://www.w3.org/2000/svg", "svg"); s.setAttribute("class", "ic"); s.innerHTML = `<use href="#i-${nome}"/>`; return s; };
+const enc = encodeURIComponent;
+const NOMES = { Easy: "Easy", Normal: "Normal", Hard: "Hard", Expert: "Expert", ExpertPlus: "Expert+" };
+const ITENS = ["ffmpeg", "node", "padroes", "visor", "adb"];
+
+const T = {};
+let lingua = navigator.language.startsWith("pt") ? "pt" : "en";  // ate o beatloom.json dizer outra coisa
+let cfg = { difs: [], densidade: 1 }, quest = { mapas: {} }, estado = { mapas: [], trabalhos: [], visor: true };
+let atual = null, mapa = null, dif = "Expert";
+
+const t = (k, v = {}) => (T[lingua][k] ?? k).replace(/\{(\w+)\}/g, (_, n) => v[n] ?? "");
+const num = (n, casas = 0) => new Intl.NumberFormat(lingua === "pt" ? "pt-BR" : "en", { minimumFractionDigits: casas, maximumFractionDigits: casas }).format(n);
+const pct = (f, casas = 0) => num(f * 100, casas) + "%";
+const tempo = (s) => Math.floor(s / 60) + ":" + String(Math.floor(s % 60)).padStart(2, "0");
+const mb = (n) => num(n / 2 ** 20) + " MB";
+
+// erro do servidor: "codigo" ou "codigo|detalhe tecnico" (fim da saida do gerador, do yt-dlp ou do adb)
+function lerErro(c) { const [k, ...r] = String(c || "").split("|"); return { msg: T[lingua]["erro_" + k] || t("erro_geral"), detalhe: r.join("|") }; }
+class Erro extends Error { constructor(c) { const e = lerErro(c); super(e.msg); this.detalhe = e.detalhe; } }
+const api = (url, corpo, cru) => fetch(url, corpo === undefined ? {} : {
+  method: "POST", headers: { "X-Automapper": "1", ...(cru ? {} : { "Content-Type": "application/json" }) }, body: cru ? corpo : JSON.stringify(corpo),
+}).then(async (r) => { const j = await r.json().catch(() => ({})); if (!r.ok) throw new Erro(j.erro); return j; });
+
+function tecnico(txt) { const d = el("details"); d.append(el("summary", "", t("detalhe_tecnico")), el("pre", "", txt)); return d; }
+function avisar(msg, ruim, detalhe) {  // popover: fica por cima ate de um dialogo aberto
+  const a = $("avisos"), d = el("div", "aviso" + (ruim ? " ruim" : ""), msg);
+  if (detalhe) d.append(tecnico(detalhe));
+  a.append(d); if (a.matches(":popover-open")) a.hidePopover(); a.showPopover();
+  setTimeout(() => { d.remove(); if (!a.children.length) a.hidePopover(); }, detalhe ? 20000 : 6000);
+}
+const falhou = (x) => avisar(x.message, true, x.detalhe);
+function confirmar(pergunta, botao) {  // -> Promise<sim ou nao>
+  const d = $("d-confirma"); $("cf-texto").textContent = t(pergunta); $("cf-sim").textContent = t(botao);
+  d.returnValue = ""; d.showModal();
+  return new Promise((ok) => { d.onclose = () => ok(d.returnValue === "sim"); });
+}
+for (const b of document.querySelectorAll("[data-fecha]")) b.onclick = () => b.closest("dialog").close();
+
+// ---------- controles repetidos: quantidade de notas e botoes de dificuldade
+function dens(id) { const r = $(id); (r.oninput = () => { const v = +r.value; $(id + "-v").textContent = t(v < 0.98 ? "leve" : v > 1.02 ? "cheio" : "normal") + " ×" + num(v, 2); })(); }
+function alternadores(id, marcadas, aoMudar) {
+  const c = $(id); c.textContent = "";
+  for (const d of Object.keys(NOMES)) {
+    const b = el("button", "dif", NOMES[d]); b.type = "button"; b.dataset.n = d; b.setAttribute("aria-pressed", marcadas.includes(d));
+    b.onclick = () => { b.setAttribute("aria-pressed", b.getAttribute("aria-pressed") !== "true"); if (aoMudar) aoMudar(); }; c.append(b);
+  }
+}
+const marcadasEm = (id) => [...$(id).querySelectorAll('[aria-pressed="true"]')].map((b) => b.dataset.n);
+
+function traduzir() {
+  document.documentElement.lang = lingua === "pt" ? "pt-BR" : "en";
+  for (const e of document.querySelectorAll("[data-t]")) e.textContent = t(e.dataset.t);
+  for (const e of document.querySelectorAll("[data-tp]")) { e.placeholder = t(e.dataset.tp); e.setAttribute("aria-label", t(e.dataset.tp)); }
+  for (const e of document.querySelectorAll("[data-ta]")) e.setAttribute("aria-label", t(e.dataset.ta));
+  $("lingua").textContent = lingua === "pt" ? "English" : "Português";
+  for (const b of $("p-linguas").children) b.setAttribute("aria-pressed", b.dataset.l === lingua);
+  for (const id of ["dens", "c-dens", "r-dens"]) dens(id);
+  pintarArquivo(); pintarTrabalhos(); pintarLista(); pintarMapa(); pintarQuest();
+  if ($("painel").open) { botoes(); verPreparo(); verConfig(); }
+}
+function mudarLingua(l) { lingua = l; salvar({ lingua }); traduzir(); }
+$("lingua").onclick = () => mudarLingua(lingua === "pt" ? "en" : "pt");
+for (const b of $("p-linguas").children) b.onclick = () => mudarLingua(b.dataset.l);
+
+// ---------- novo mapa
+let arquivo = null, subido = null, extra = {}, miniatura = null, ultimoLink = "";
+const erroNovo = (x) => { $("erro").textContent = x.message; $("erro").hidden = false; };
+function pintarArquivo() { $("arq-nome").textContent = arquivo ? arquivo.name : t("solte"); $("arq-dica").textContent = t(arquivo ? "trocar_arq" : "solte_dica"); }
+function previa(d, capa, info) {  // capa, nome e artista antes de gerar, para a pessoa corrigir
+  extra = { album: d.album, ano: d.ano }; miniatura = capa;
+  $("previa").hidden = false; $("nome").value = d.nome || ""; $("artista").value = d.artista || "";
+  $("p-capa").hidden = !capa; $("p-sem").hidden = !!capa; if (capa) $("p-capa").src = capa;
+  $("p-info").textContent = [d.album, d.ano, info, t("confira")].filter(Boolean).join(", ");
+}
+function semPrevia() { $("previa").hidden = true; $("nome").value = ""; $("artista").value = ""; extra = {}; miniatura = null; }
+function abrirNovo() {
+  if ($("d-novo").open) return;
+  $("erro").hidden = true; alternadores("escolha", cfg.difs); $("dens").value = cfg.densidade; dens("dens");
+  $("d-novo").showModal();
+}
+$("novo").onclick = $("vz-novo").onclick = abrirNovo;
+async function verLink() {
+  const link = $("link").value.trim();
+  if (link === ultimoLink) return;
+  ultimoLink = link; $("erro").hidden = true;
+  if (!/^https?:\/\/\S+$/.test(link)) return semPrevia();
+  arquivo = subido = null; pintarArquivo();
+  $("previa").hidden = false; $("p-capa").hidden = true; $("p-sem").hidden = false; $("p-info").textContent = t("procurando");
+  try { const d = await api("/api/previa", { link }); if ($("link").value.trim() === link) previa(d, d.capa, ""); }
+  catch (x) { if ($("link").value.trim() === link) { semPrevia(); erroNovo(x); } }
+}
+$("link").onchange = verLink;
+$("link").onpaste = () => setTimeout(verLink, 0);
+async function pegarArquivo(f) {
+  arquivo = f || null; subido = null; pintarArquivo();
+  if (!arquivo) return semPrevia();
+  $("link").value = ""; ultimoLink = ""; $("erro").hidden = true;
+  try {
+    subido = await api("/api/arquivo?nome=" + enc(arquivo.name), arquivo, true);
+    const capa = "/api/capa?arquivo=" + enc(subido.base) + "&t=" + Date.now();
+    const tem = (await fetch(capa)).ok;
+    previa(subido, tem ? capa : null, t(tem ? "capa_arq" : "capa_gen"));
+  } catch (x) { arquivo = null; pintarArquivo(); erroNovo(x); }
+}
+$("solta").onclick = () => $("arq").click();
+$("arq").onchange = () => pegarArquivo($("arq").files[0]);
+// soltar um arquivo em qualquer lugar da pagina abre o dialogo ja com ele
+addEventListener("dragover", (e) => { e.preventDefault(); $("solta").classList.add("sobre"); });
+addEventListener("dragleave", () => $("solta").classList.remove("sobre"));
+addEventListener("drop", (e) => { e.preventDefault(); $("solta").classList.remove("sobre"); const f = e.dataTransfer.files[0]; if (f && !$("painel").open) { abrirNovo(); pegarArquivo(f); } });
+$("form").onsubmit = async (e) => {
+  e.preventDefault();
+  $("erro").hidden = true; $("gerar").disabled = true;
+  try {
+    const link = $("link").value.trim(), difs = marcadasEm("escolha");
+    if (!difs.length) throw new Error(t("sem_dif"));
+    if (!link && arquivo && !subido) subido = await api("/api/arquivo?nome=" + enc(arquivo.name), arquivo, true);
+    await api("/api/gerar", { link, arquivo: link ? null : subido && subido.arquivo, nome: $("nome").value, artista: $("artista").value, ...extra, capa: miniatura, difs, densidade: +$("dens").value });
+    $("link").value = ""; ultimoLink = ""; $("arq").value = ""; arquivo = subido = null; semPrevia(); pintarArquivo();
+    $("d-novo").close(); document.body.classList.remove("vendo"); atualizar();
+  } catch (x) { erroNovo(x); }
+  $("gerar").disabled = false;
+};
+
+// ---------- biblioteca: geracoes em andamento e mapas prontos
+const vistos = new Set(), linhas = new Map(), marcados = new Set();
+let primeira = true;
+function pintarTrabalhos() {
+  const vivos = estado.trabalhos.filter((tr) => tr.estado !== "pronto").reverse(), chave = JSON.stringify([vivos, lingua]);
+  if (chave === pintarTrabalhos.chave) return;  // so redesenha quando muda: nao rouba o foco do botao de dispensar
+  pintarTrabalhos.chave = chave; $("trabalhos").textContent = "";
+  for (const tr of vivos) {
+    const ruim = tr.estado === "erro", c = el("div", "trabalho" + (ruim ? " ruim" : "")), capa = tr.capa ? el("img", "capa") : el("div", "sem-capa");
+    if (tr.capa) { capa.src = tr.capa; capa.alt = ""; }
+    const [passo, qual] = (tr.passos.at(-1) || "comecando").split("|");  // "golpes|Hard (2/4)"
+    const e = ruim ? lerErro(tr.erro) : null;
+    const etapa = e ? e.msg : tr.estado === "na fila" ? t("fila") : t("passo_" + passo) + (qual ? " " + qual.replace("ExpertPlus", "Expert+") : "") + (tr.progresso != null ? " " + tr.progresso + "%" : "");
+    c.append(capa, el("b", "", tr.titulo), el("span", "etapa", etapa));
+    if (tr.estado === "rodando") { const p = el("progress"); p.max = 100; if (tr.progresso != null) p.value = tr.progresso; c.append(p); }
+    if (ruim) {
+      const fim = el("div", "fim"), b = el("button", "quieto", t("dispensar")); b.type = "button";
+      b.onclick = async () => { await api("/api/trabalho/dispensar", { id: tr.id }); atualizar(); };
+      fim.append(e.detalhe ? tecnico(e.detalhe) : el("span"), b); c.append(fim);
+    }
+    $("trabalhos").append(c);
+  }
+}
+function pintarLista() {
+  const ul = $("mapas");
+  for (const [z, li] of linhas) if (!estado.mapas.some((m) => m.zip === z)) { li.remove(); linhas.delete(z); marcados.delete(z); }
+  estado.mapas.forEach((m, i) => {  // uma linha por zip, reaproveitada: refazer a lista roubaria o foco e faria as capas piscarem
+    let li = linhas.get(m.zip);
+    if (!li) {
+      li = $("m-linha").content.firstElementChild.cloneNode(true); linhas.set(m.zip, li);
+      li.querySelector(".abre").onclick = () => abrir(m.zip);
+      li.querySelector(".marcar").onchange = (e) => { marcados[e.target.checked ? "add" : "delete"](m.zip); pintarLote(); };
+    }
+    if (ul.children[i] !== li) ul.insertBefore(li, ul.children[i] || null);
+    const q = (s) => li.querySelector(s), capa = `/api/capa?zip=${enc(m.zip)}&v=${m.v}`, la = quest.mapas[m.zip];
+    if (q(".capa").getAttribute("src") !== capa) q(".capa").src = capa;
+    q(".n").textContent = m.nome; q(".a").textContent = m.artista; q(".bpm").textContent = num(m.bpm); q(".dur").textContent = m.dur ? tempo(m.dur) : "–";
+    q(".bpm").title = "BPM"; q(".dur").title = t("duracao");
+    q(".tags").textContent = "";
+    if (m.ok === false) q(".tags").append(el("span", "falha", t("tag_falhou")));
+    if (la) q(".tags").append(el("span", la === "ok" ? "la" : "velho", t(la === "ok" ? "no_quest" : "q_velho")));
+    q(".abre").setAttribute("aria-current", m.zip === atual);
+    q(".marcar").checked = marcados.has(m.zip); q(".marcar").setAttribute("aria-label", t("marcar", { nome: m.nome }));
+  });
+  const nada = !estado.mapas.length && !estado.trabalhos.some((tr) => tr.estado !== "pronto");
+  $("sem-mapas").hidden = estado.mapas.length > 0; document.body.classList.toggle("sem-nada", nada);
+  $("vz-titulo").textContent = t(estado.mapas.length ? "convite" : "titulo"); $("vz-sub").textContent = estado.mapas.length ? "" : t("sub"); $("vz-novo").hidden = estado.mapas.length > 0;
+  pintarLote();
+}
+function pintarLote() {
+  $("lote").hidden = !marcados.size; $("mapas").classList.toggle("marcando", marcados.size > 0);
+  $("lote-n").textContent = t(marcados.size === 1 ? "lote_um" : "lote_varios", { n: marcados.size });
+}
+$("lote-limpar").onclick = () => { marcados.clear(); pintarLista(); };
+$("lote-enviar").onclick = () => enviar([...marcados], $("lote-enviar")).then(() => { marcados.clear(); pintarLista(); });
+async function enviar(zips, botao) {  // um aviso por mapa que falhou e um com quantos foram
+  botao.disabled = true; avisar(t("mandando"));
+  try {
+    const r = (await api("/api/quest", { zips })).resultados, bons = zips.filter((z) => !r[z]);
+    for (const z of zips) if (r[z]) { const e = lerErro(r[z]); avisar(t("q_falhou", { nome: (estado.mapas.find((m) => m.zip === z) || {}).nome || z }) + " " + e.msg, true, e.detalhe); }
+    if (bons.length) avisar(t(bons.length === 1 ? "q_enviado" : "q_enviados", { n: bons.length }));
+  } catch (x) { falhou(x); }
+  botao.disabled = false; await verQuest();
+}
+async function atualizar() {
+  clearTimeout(atualizar.t);
+  try { estado = await api("/api/estado"); } catch (x) { atualizar.t = setTimeout(atualizar, 6000); return; }
+  for (const tr of estado.trabalhos) if (tr.estado === "pronto") { if (!primeira && !vistos.has(tr.id) && tr.zip) abrir(tr.zip); vistos.add(tr.id); }  // acabou agora: abre
+  primeira = false;
+  if (atual && !estado.mapas.some((m) => m.zip === atual)) fechar();  // o mapa aberto sumiu da pasta
+  pintarTrabalhos(); pintarLista();
+  if (mapa && $("visor").hidden === estado.visor) pintarMapa();  // o visualizador acabou de ser instalado
+  atualizar.t = setTimeout(atualizar, estado.trabalhos.some((tr) => ["na fila", "rodando"].includes(tr.estado)) ? 1200 : 6000);
+}
+
+// ---------- detalhe do mapa aberto
+async function abrir(zip) {
+  try { mapa = await api("/api/mapa?zip=" + enc(zip)); } catch (x) { return falhou(x); }
+  atual = zip; document.body.classList.add("vendo");
+  if (!mapa.difs.some((d) => d.nome === dif)) dif = mapa.difs.some((d) => d.nome === "Expert") ? "Expert" : mapa.difs[0].nome;
+  pintarMapa(); pintarLista();
+  clearTimeout(abrir.t);
+  if (mapa.conferindo) abrir.t = setTimeout(() => atual === zip && abrir(zip), 3000);  // mapa antigo sendo conferido agora: pergunta de novo
+}
+function fechar() {
+  atual = mapa = null; document.body.classList.remove("vendo"); $("visor").removeAttribute("src"); $("visor").dataset.de = "";
+  pintarMapa(); pintarLista();
+}
+$("voltar").onclick = () => document.body.classList.remove("vendo");
+const falhas = (r) => (r ? r.metas.filter((m) => !m.ok).length + (r.esquema_ok && r.notas ? 0 : 1) : 0);
+function valorMeta(m) {
+  if (m.id === "esquema") return "";
+  if (m.id === "paridade") return t("v_paridade", { erros: num(m.erros), avisos: num(m.avisos), golpes: num(m.golpes) });
+  if (m.id === "grade") return pct(m.fracao, 1);
+  if (m.id.startsWith("folga")) return t("v_seg", { n: num(m.s, 1) });
+  if (m.id === "nps") return t("v_nps", { n: num(m.valor, 2), a: num(m.faixa[0], 2), b: num(m.faixa[1], 2) });
+  return onde(m);
+}
+const onde = (v) => (v.n ? t("v_ex", { n: num(v.n), t: v.ex.map(tempo).join(", ") }) : "0");
+function pintarMapa() {
+  $("aberto").hidden = !mapa; $("vazio").hidden = !!mapa;
+  if (!mapa) return;
+  const R = mapa.relatorio, d = mapa.difs.find((x) => x.nome === dif), r = R && R.difs.find((x) => x.nome === dif);
+  const capa = `/api/capa?zip=${enc(atual)}&v=${mapa.v}`;
+  if ($("f-capa").getAttribute("src") !== capa) $("f-capa").src = capa;
+  $("f-nome").textContent = mapa.nome; $("f-artista").textContent = mapa.artista;
+  const info = $("f-info"); info.textContent = "";
+  for (const x of [mapa.album, mapa.ano, num(mapa.bpm) + " BPM", R && tempo(R.dur)]) if (x) info.append(el("span", "", x));
+  if (/^https?:\/\//.test(mapa.link || "")) { const a = el("a", "", t("fonte")); a.href = mapa.link; a.target = "_blank"; a.rel = "noopener"; info.append(a); }
+
+  // abas: so sao refeitas quando o mapa muda, para o foco do teclado ficar na aba clicada
+  const chave = JSON.stringify([atual, mapa.difs.map((x) => x.nome), R && R.difs.map(falhas), lingua]);
+  if (chave !== pintarMapa.chave) {
+    pintarMapa.chave = chave; $("difs").textContent = "";
+    for (const x of mapa.difs) {
+      const b = el("button", "dif", NOMES[x.nome] || x.nome), ruim = falhas(R && R.difs.find((y) => y.nome === x.nome)) > 0;
+      b.type = "button"; b.dataset.n = x.nome; b.classList.toggle("falha", ruim); if (ruim) b.setAttribute("aria-label", b.textContent + ", " + t("tag_falhou"));
+      b.onclick = () => { dif = x.nome; pintarMapa(); }; $("difs").append(b);
+    }
+  }
+  for (const b of $("difs").children) b.setAttribute("aria-pressed", b.dataset.n === dif);
+
+  // copia local do ArcViewer; noProxy = le o zip direto deste PC, nada sobe para a internet. Trocar de dificuldade recarrega (uns segundos)
+  const visor = `/arcviewer/?noProxy=true&difficulty=${dif}&url=` + enc(location.origin + "/zip/" + enc(atual)), de = visor + mapa.v;
+  $("visor").hidden = $("dica").hidden = !estado.visor; $("sem-visor").hidden = estado.visor;
+  if (estado.visor && $("visor").dataset.de !== de) { $("visor").dataset.de = de; $("visor").src = visor; $("fora").href = visor; }
+
+  const nums = $("numeros"); nums.textContent = "";
+  for (const [k, v] of [["notas", num(d.notas)], ["nps", r && r.nps ? num(r.nps, 2) : "–"], ["vel", num(d.njs)], ["paredes", r && r.notas ? num(r.paredes) : "–"], ["arcos", num(d.arcos)]]) {
+    const c = el("div"); c.append(el("dt", "", t("n_" + k)), el("dd", "", v)); nums.append(c);
+  }
+
+  const total = R ? R.difs.reduce((s, x) => s + falhas(x), 0) + (R.info_ok ? 0 : 1) : 0, ve = $("veredito");
+  ve.textContent = !R ? t(mapa.conferindo ? "v_conferindo" : "v_sem") : !total ? t("v_ok") : t(total === 1 ? "v_nao_um" : "v_nao_varios", { n: total });
+  ve.className = "veredito " + (!R ? "sem" : total ? "nao" : "ok");
+  const ul = $("metas"); ul.textContent = "";
+  const linha = (ok, txt, v) => { const li = el("li", ok ? "" : "nao"); li.append(icone(ok ? "ok" : "nao"), el("span", "", txt), el("span", "v", v)); li.firstChild.setAttribute("role", "img"); li.firstChild.setAttribute("aria-label", t(ok ? "passou" : "nao_passou")); ul.append(li); };
+  if (r && !r.esquema_ok) linha(false, t("meta_esquema"), r.erro || "");
+  else if (r && !r.notas) linha(false, t("meta_sem_notas"), "");
+  else if (r) for (const m of r.metas) linha(m.ok, t("meta_" + m.id), valorMeta(m));
+  const tec = $("tecnico"); tec.textContent = ""; $("tec-caixa").hidden = !(r && r.notas);
+  if (r && r.notas) {
+    const g = r.gerador, D = r.direcoes;
+    for (const [k, v] of [
+      ["tec_bpm", num(R.bpm_detectado, 1) + " (" + t(R.bpm_fixo ? "bpm_fixo" : "bpm_variavel") + ")"], ["tec_tempos", num(r.tempos)], ["tec_duplas", num(r.duplas)], ["tec_luzes", num(r.luzes)],
+      ["tec_cruzadas", onde(r.cruzadas)], ["tec_corridas", onde(r.corridas)], ["tec_pausa", t("v_seg", { n: num(r.maior_pausa, 1) })], ["tec_sobra", t("v_seg", { n: num(r.sobra_fim, 1) })],
+      ["tec_salto", num(r.salto_m, 1) + " m"], ["tec_reacao", num(r.reacao_ms) + " ms"], ["tec_ataques_p", pct(r.ataques_precisao)], ["tec_ataques_c", pct(r.ataques_cobertura)],
+      ["tec_direcoes", t("v_direcoes", { cima: D[0], baixo: D[1], esq: D[2], dir: D[3], diag: D[4] + D[5] + D[6] + D[7], ponto: D[8] })],
+      ["tec_linhas", t("v_linhas", { baixo: r.linhas[0], meio: r.linhas[1], cima: r.linhas[2] })],
+      ["tec_correlacao", r.correlacao == null ? "–" : num(r.correlacao, 2)],
+      ["tec_janelas", g ? t("v_janelas", { a: g.padrao4, b: g.padrao2, c: g.padrao1, r: g.regra }) : null],
+    ]) if (v != null) tec.append(el("dt", "", t(k)), el("dd", "", v));
+  }
+
+  const la = quest.mapas[atual];
+  $("quest").hidden = !quest.conectado; $("quest").textContent = t(la === "ok" ? "q_de_novo" : la ? "q_atualizar" : "quest"); $("q-apagar").hidden = !la || !quest.conectado;
+  $("baixar").href = "/api/zip?zip=" + enc(atual);
+}
+$("quest").onclick = () => enviar([atual], $("quest"));
+$("q-apagar").onclick = async () => {
+  if (!await confirmar("confirma_q_apagar", "q_apagar")) return;
+  try { await api("/api/quest/apagar", { zip: atual }); avisar(t("q_apagado")); } catch (x) { falhou(x); }
+  verQuest();
+};
+$("apagar").onclick = async () => {
+  if (!await confirmar("confirma_apagar", "apagar")) return;
+  try { await api("/api/apagar", { zip: atual }); fechar(); await atualizar(); } catch (x) { falhou(x); }
+};
+$("renomear").onclick = () => { $("n-nome").value = mapa.nome; $("n-artista").value = mapa.artista; $("d-nome").returnValue = ""; $("d-nome").showModal(); };
+$("d-nome").onclose = async () => {
+  if ($("d-nome").returnValue !== "sim") return;
+  try { await api("/api/renomear", { zip: atual, nome: $("n-nome").value, artista: $("n-artista").value }); await abrir(atual); await atualizar(); } catch (x) { falhou(x); }
+};
+$("regerar").onclick = () => {  // so a dificuldade que esta aberta; as outras ficam como estao
+  $("r-titulo").textContent = t("regerar_titulo", { dif: NOMES[dif] }); $("r-dens").value = 1; dens("r-dens"); $("d-regerar").returnValue = ""; $("d-regerar").showModal();
+};
+$("d-regerar").onclose = async () => {
+  if ($("d-regerar").returnValue !== "sim") return;
+  const zip = atual, qual = dif; $("regerar").disabled = true; avisar(t("regerando", { dif: NOMES[qual] }));
+  try { await api("/api/regerar", { zip, dif: qual, densidade: +$("r-dens").value }); avisar(t("regerado", { dif: NOMES[qual] })); if (atual === zip) await abrir(zip); atualizar(); } catch (x) { falhou(x); }
+  $("regerar").disabled = false;
+};
+$("instalar-visor").onclick = async () => { try { await api("/api/preparo", { item: "visor" }); seguirVisor(); } catch (x) { falhou(x); } };
+async function seguirVisor() {  // a barra do download fica ali mesmo, no lugar do visualizador
+  const e = (await api("/api/preparo")).visor;
+  $("instalar-visor").hidden = e.rodando; $("visor-andamento").hidden = !e.rodando;
+  if (e.total) { $("visor-barra").max = e.total; $("visor-barra").value = e.feito; $("visor-quanto").textContent = mb(e.feito) + " / " + mb(e.total); }
+  if (e.ok) return atualizar();
+  if (e.rodando) return setTimeout(seguirVisor, 1000);
+  if (e.erro) avisar(t("falhou"), true, e.erro);
+}
+
+// ---------- primeira vez e configuracao: o mesmo painel. passo 1 a 3 = primeira vez (uma parte por vez); 0 = tudo junto
+let passo = 0;
+const salvar = async (d) => { cfg = { ...cfg, ...(await api("/api/config", d)) }; };
+async function verPreparo() {
+  const p = await api("/api/preparo"), ul = $("itens");
+  for (const i of ITENS) {  // uma linha por item, feita uma vez e depois so atualizada: o foco do teclado nao some durante um download
+    let li = $("it-" + i);
+    if (!li) {
+      li = el("li"); li.id = "it-" + i;
+      const s = el("span", "s"), b = el("button", "sec"); b.type = "button"; b.onclick = async () => { await api("/api/preparo", { item: i }); verPreparo(); };
+      s.append(el("progress"), el("span"), b); li.append(el("b"), s, el("span", "d"), el("p", "erro")); ul.append(li);
+    }
+    const e = p[i], [n, s, d, x] = li.children, [barra, txt, b] = s.children, falta = !e.ok && !e.rodando;
+    n.textContent = t("i_" + i) + (e.obrigatorio ? "" : " (" + t("opcional") + ")"); d.textContent = t("d_" + i);
+    s.classList.toggle("ok", e.ok); barra.hidden = !e.rodando || e.ok; b.hidden = !falta; b.textContent = t("instalar");
+    if (e.total) { barra.max = e.total; barra.value = e.feito; } else barra.removeAttribute("value");  // sem valor = tamanho desconhecido
+    txt.textContent = e.ok ? t("instalado") : !e.rodando ? "" : i === "padroes" ? (e.total ? e.feito + " / " + e.total : t("montando")) : e.total ? mb(e.feito) + " / " + mb(e.total) : e.feito ? mb(e.feito) : t("trabalhando");
+    x.hidden = !(e.erro && !e.ok); x.textContent = t("falhou") + " " + (e.erro || "");
+  }
+  const ativo = ITENS.some((i) => p[i].rodando);
+  $("p-tudo").hidden = ativo || ITENS.every((i) => p[i].ok);
+  verPreparo.falta = ITENS.some((i) => p[i].obrigatorio && !p[i].ok);
+  botoes();
+  clearTimeout(verPreparo.t);
+  if ($("painel").open) verPreparo.t = setTimeout(verPreparo, ativo ? 1000 : 5000);
+}
+$("p-tudo").onclick = async () => { await api("/api/preparo", { item: "tudo" }); verPreparo(); };
+
+function pintarQuest() {
+  $("q-estado").textContent = t(quest.conectado ? "q_on" : quest.ip ? "q_off" : "q_configurar"); $("q-estado").classList.toggle("ok", !!quest.conectado);
+  $("q-texto").textContent = t(!quest.adb ? "q_sem_adb" : quest.conectado ? "q_conectado" : quest.ip ? "q_nao_responde" : "q_sem_ip") + (quest.conectado ? " (" + quest.ip + ")" : "");
+  $("q-parear").disabled = $("q-testar").disabled = !quest.adb;
+  document.body.classList.toggle("com-quest", !!quest.conectado);
+}
+async function verQuest() {
+  clearTimeout(verQuest.t); verQuest.t = setTimeout(verQuest, 15000);
+  try { quest = await api("/api/quest"); } catch (x) { return; }
+  if (document.activeElement !== $("q-ip")) $("q-ip").value = quest.ip;
+  pintarQuest(); pintarLista(); pintarMapa();
+}
+async function comQuest(botao, pedido) {  // os dois botoes do Quest: trava, tenta, mostra o erro
+  $("q-erro").hidden = true; botao.disabled = true;
+  try { await pedido(); } catch (x) { $("q-erro").textContent = x.message; $("q-erro").hidden = false; }
+  await verQuest();
+}
+$("q-parear").onclick = () => comQuest($("q-parear"), () => api("/api/quest/parear", {}));
+$("q-testar").onclick = () => comQuest($("q-testar"), async () => {
+  const ip = $("q-ip").value.trim(); await salvar({ quest_ip: ip });
+  if (cfg.quest_ip !== ip) throw new Error(t("ip_ruim"));
+});
+
+async function verConfig() {
+  cfg = await api("/api/config");
+  $("c-cache").textContent = t("cache_tam", { n: mb(cfg.cache) }); $("c-torch").textContent = cfg.torch ? t("torch", { v: cfg.torch }) : "";
+  $("c-dens").value = cfg.densidade; dens("c-dens");
+  alternadores("c-difs", cfg.difs, () => (marcadasEm("c-difs").length ? salvar({ difs: marcadasEm("c-difs") }) : verConfig()));  // a ultima marcada nao sai
+}
+$("c-dens").onchange = () => salvar({ densidade: +$("c-dens").value });
+$("c-limpar").onclick = async () => {
+  if (!await confirmar("confirma_limpar", "limpar")) return;
+  try { await api("/api/cache", {}); } catch (x) { falhou(x); }
+  verConfig();
+};
+
+function botoes() {
+  const p = $("painel");
+  if (passo) p.dataset.passo = passo; else delete p.dataset.passo;
+  $("p-passo").textContent = passo ? t("passo", { n: passo }) : ""; $("p-passo").hidden = !passo;
+  $("p-titulo").textContent = t(passo ? "bemvindo" : "config");
+  $("p-voltar").hidden = passo < 2;
+  $("p-seguir").textContent = t(!passo ? "fechar" : passo < 3 ? "continuar" : "concluir");
+  $("p-seguir").disabled = passo === 2 && !!verPreparo.falta;  // sem os obrigatorios nao da para gerar
+}
+function abrirPainel(n) {
+  passo = n;
+  if (!$("painel").open) $("painel").showModal();
+  botoes(); verPreparo(); verQuest(); verConfig();
+}
+$("config").onclick = () => abrirPainel(0);
+$("q-estado").onclick = () => { abrirPainel(0); $("s-quest").scrollIntoView(); };
+$("p-voltar").onclick = () => { passo--; botoes(); };
+$("p-seguir").onclick = async () => {
+  if (passo && passo < 3) { passo++; return botoes(); }
+  if (passo) await salvar({ pronto: true });
+  $("painel").close();
+};
+$("painel").oncancel = (e) => { if (passo) e.preventDefault(); };  // Esc nao pula a primeira vez
+
+[T.pt, T.en, cfg] = await Promise.all(["/site/i18n/pt.json", "/site/i18n/en.json", "/api/config"].map((u) => api(u)));
+lingua = cfg.lingua || lingua;
+traduzir(); atualizar();
+const p = await api("/api/preparo");
+// primeira vez, ou sumiu algo sem o qual nao da para gerar (ai abre direto na lista de itens)
+if (!cfg.pronto || ITENS.some((i) => p[i].obrigatorio && !p[i].ok)) abrirPainel(cfg.pronto ? 2 : 1);
+else verQuest();
