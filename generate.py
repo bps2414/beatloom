@@ -322,8 +322,28 @@ def relogio(an, bpm, tol=0.010):
     return ev, lambda t: float(np.interp(t, T, B))
 
 
+def corredor(pontas, bat, entradas, ocupado=()):
+    """Onde cabe a parede de um lado do corredor de cada queda -> [(inicio, fim)] em segundos, uma por queda no maximo.
+
+    `pontas` = tempos das notas na coluna dessa ponta; `entradas` = [(primeira batida, ultima batida)] onde procurar (os 4 primeiros compassos de cada
+    queda); `ocupado` = [(inicio, fim)] das paredes que ja existem. A parede vai no primeiro trecho de 2 batidas sem nota na ponta desde 0,2 s antes
+    ate 0,6 s depois (a nota que vem logo atras da parede nasce escondida), esticado ate 4 batidas enquanto continuar livre.
+    """
+    livre = lambda a, b: not any(a - 0.2 <= t <= b + 0.6 for t in pontas) and not any(a < f and i < b for i, f in ocupado)
+    out = []
+    for j0, j1 in entradas:
+        j = next((j for j in range(j0, min(j1, len(bat) - 2)) if livre(bat[j], bat[j + 2])), None)
+        if j is not None:
+            n = 2
+            while n < 4 and j + n + 1 < len(bat) and livre(bat[j], bat[j + n + 1]):
+                n += 1
+            out.append((float(bat[j]), float(bat[j + n])))
+    return out
+
+
 def paredes(notas, an, bt, arcos=()):
-    """Paredes laterais decorativas nas pausas de 1,6 s ou mais. Ficam na coluna da ponta e nao pedem movimento."""
+    """Paredes que nao pedem movimento, na coluna da ponta: uma de enfeite nas pausas de 1,6 s ou mais e um corredor na entrada de cada queda
+    (uma parede de cada lado, cada uma onde o seu lado estiver livre: em mapa cheio os dois lados quase nunca estao livres ao mesmo tempo)."""
     ts = sorted({n[0] for n in notas})
     segurando = {round(a[0], 4) for a in arcos}  # durante uma nota segurada a mao esta ocupada: sem parede
     out, lado = [], 0
@@ -333,7 +353,12 @@ def paredes(notas, an, bt, arcos=()):
             for x in (0, 3) if b - a >= 4.0 else ((0, 3)[lado],):
                 out.append({"b": round(bt(ini), 3), "x": x, "y": 0, "d": round(bt(fim) - bt(ini), 3), "w": 1, "h": 5})
             lado ^= 1
-    return out
+    bat, ic, pt = an["batidas"], an["ini_comp"], partes(an)
+    entradas = [(int(ic[k]), int(ic[min(k + 4, len(pt))])) for k in range(1, len(pt)) if pt[k] == "queda" and pt[k - 1] != "queda"]
+    for x in (0, 3):
+        for a, b in corredor(sorted(n[0] for n in notas if n[1] == x), bat, entradas, [(a + 0.4, b - 0.6) for a, b in zip(ts[:-1], ts[1:]) if b - a >= 1.6]):
+            out.append({"b": round(bt(a), 3), "x": x, "y": 0, "d": round(bt(b) - bt(a), 3), "w": 1, "h": 5})
+    return sorted(out, key=lambda o: o["b"])
 
 
 # ---------------------------------------------------------------- peca 4: empacotar
@@ -538,6 +563,9 @@ def demo():
     com, p, tr = empilhar(ns, lambda t: {50: 9, 100: 8}.get(t, 0), "Expert", 0.5)
     assert (p, tr) == (1, 1) and [n[1:] for n in com if n[0] == 50] == [(1, 0, 0, 1), (1, 1, 0, 1), (1, 2, 0, 1)] and [n[1:] for n in com if n[0] == 100] == [(1, 0, 0, 1), (1, 1, 0, 1)], (p, tr)
     assert empilhar(ns, lambda t: t, "Normal", 0.5) == (ns, 0, 0) and sum(n[0] == 50 for n in empilhar(ns, lambda t: -abs(t - 50), "Expert", 0.5, presas={(50.0, 0)})[0]) == 1
+    # corredor: batidas de 0,5 s; a nota na ponta em 1,0 s barra o comeco e o trecho livre vai de 1,5 a 3,5 s (4 batidas). Com uma parede de 2,5 a 3,0 s, para nela
+    assert corredor([1.0, 4.5], np.arange(0, 20, 0.5), [(0, 16)]) == [(1.5, 3.5)] and corredor([1.0, 4.5], np.arange(0, 20, 0.5), [(0, 16)], [(2.5, 3.0)]) == [(1.5, 2.5)]
+    assert corredor(list(np.arange(0, 20, 0.5)), np.arange(0, 20, 0.5), [(0, 16)]) == []
     print("gerar ok")
 
 

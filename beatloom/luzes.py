@@ -22,8 +22,10 @@ COR = {"intro": 1, "verso": 1, "subida": 0, "queda": 0}  # a cor de cada parte d
 def deixas(an, pt=None, pc=None):
     """A musica analisada -> as deixas, na ordem do tempo. `pt` (parte de cada compasso) e `pc` (peca da bateria de cada casa) so vem de fora no demo.
 
-    Cada parte tem a sua cor e o seu jeito: introducao e verso com o fundo aceso e os aneis pulsando no bumbo, queda com tudo aceso, aneis girando
-    e lasers batendo na caixa, pausa no escuro. Prato de ataque da um clarao branco no centro. Sem a bateria separada (modo rapido) o pulso vai na batida.
+    Cada parte tem a sua cor e o seu jeito, que volta quando a parte volta: introducao e verso com o fundo aceso e os aneis pulsando no bumbo, queda com
+    tudo aceso, aneis girando no bumbo e lasers batendo na caixa, pausa no escuro. A subida comeca quase apagada e acende uma luz depois da outra ate a
+    queda; se a musica cala logo antes da queda, apaga tudo de uma vez nesse silencio. Prato de ataque da um clarao branco no centro.
+    Sem a bateria separada (modo rapido) o pulso vai na batida.
     """
     bat, ic, it = np.asarray(an["batidas"], float), [int(i) for i in an["ini_comp"]], np.asarray(an["intens"], float)
     g, nivel = np.asarray(an["grade"], float), np.asarray(an["nivel"])
@@ -32,7 +34,7 @@ def deixas(an, pt=None, pc=None):
         pc = bateria(an)
     forca = np.maximum(an["forca"], an["forca_inst"].max(0)) if "forca_inst" in an else np.asarray(an["forca"], float)
     acento = float(np.percentile(forca[nivel == 2], 90)) if (nivel == 2).any() else 9e9
-    lado, D = 0, [(0.0, FUNDO, ACENDE, 1, 0.3)]  # antes do primeiro compasso: so o fundo, baixinho
+    lado, escuros, D = 0, [], [(0.0, FUNDO, ACENDE, 1, 0.3)]  # antes do primeiro compasso: so o fundo, baixinho
     for k, (a, b) in enumerate(zip(ic[:-1], ic[1:])):
         p, i, t0 = pt[k], float(it[k]), float(bat[a])
         muda = k == 0 or pt[k - 1] != p
@@ -42,6 +44,22 @@ def deixas(an, pt=None, pc=None):
             continue
         cor, queda = COR[p], p == "queda"
         outra = 1 - cor
+        if queda and muda and k:  # apagao seco: a ultima batida (ou meia batida) antes da queda, se nao ha ataque forte nela
+            c0 = next((c for c in (a * CASAS - CASAS, a * CASAS - CASAS // 2) if not (nivel[c + 1:a * CASAS] == 2).any()), None)
+            if c0 is not None:
+                escuros.append((float(g[c0]), t0))
+        if p == "subida":  # do escuro ate tudo aceso, batida a batida: fundo, depois aneis, lasers e por fim o centro e o giro dos aneis
+            k0 = next(j for j in range(k, -1, -1) if j == 0 or pt[j - 1] != "subida")
+            k1 = next(j for j in range(k, len(pt) + 1) if j == len(pt) or pt[j] != "subida")
+            if muda:
+                D += [(t0, e, APAGA, 0, 0) for e in (ANEIS, ESQ, DIR, CENTRO)]
+            for j in range(a, b):
+                t, x = float(bat[j]), (j - ic[k0]) / (ic[k1] - ic[k0])
+                D += [(t, FUNDO, ACENDE, cor, 0.2 + 0.8 * x), (t, VEL_E, 1 + round(7 * x), 0, 0), (t, VEL_D, 1 + round(7 * x), 0, 0)]
+                D += [(t, ANEIS, PULSO, cor, 0.4 + 0.6 * x)] * (x >= 0.25) + [(t, ESQ, ACENDE, outra, x), (t, DIR, ACENDE, outra, x)] * (x >= 0.5)
+                if x >= 0.75:
+                    D += [(t, CENTRO, ACENDE, cor, x), (t, GIRO, 0, 0, 0)] + [((t + float(bat[j + 1])) / 2, GIRO, 0, 0, 0)] * (k + 1 == k1)  # no ultimo compasso os aneis giram em dobro
+            continue
         D.append((t0, FUNDO, CLARAO if queda else ACENDE, cor, 1.0 if queda else 0.35 + 0.4 * i))
         D += [(t0, VEL_E, 1 + round(i * (6 if queda else 3)), 0, 0), (t0, VEL_D, 1 + round(i * (6 if queda else 3)), 0, 0)]
         if queda:  # lasers dos dois lados, trocando de cor a cada compasso; aneis abrem e fecham a cada 4
@@ -57,16 +75,15 @@ def deixas(an, pt=None, pc=None):
         for c in range(a * CASAS, min(b * CASAS, len(g))):
             t, pos = float(g[c]), (c - a * CASAS) % CASAS
             peca = int(pc[c]) if pc is not None else (1 if pos == 0 and nivel[c] else 0)
-            if queda and pos == 0:
-                D.append((t, GIRO, 0, 0, 0))
-            if peca in (1, 4) and pos % 2 == 0:  # bumbo (o prato de ataque quase sempre vem com ele): os aneis pulsam
-                D.append((t, ANEIS, CLARAO if queda else PULSO, cor, 1.0 if queda else 0.5 + 0.5 * i))
+            if peca in (1, 4) and pos % 2 == 0:  # bumbo (o prato de ataque quase sempre vem com ele): os aneis pulsam e, na queda, giram
+                D += [(t, ANEIS, CLARAO if queda else PULSO, cor, 1.0 if queda else 0.5 + 0.5 * i)] + [(t, GIRO, 0, 0, 0)] * queda
             elif peca == 2 and queda:  # caixa: um lado dos lasers de cada vez
                 D.append((t, (ESQ, DIR)[lado], CLARAO, outra, 1.0))
                 lado ^= 1
             if peca == 4 or (pc is None and pos == 0 and c == a * CASAS and forca[c] >= acento):
                 D.append((t, CENTRO, PULSO if not queda else CLARAO, 2, 1.0))  # acento: clarao branco
     D += [(float(bat[ic[-1]]), e, PULSO, 1, 0.6) for e in (FUNDO, CENTRO)] + [(float(bat[ic[-1]]), e, APAGA, 0, 0) for e in (ANEIS, ESQ, DIR)]  # o fim da musica some devagar
+    D = [d for d in D if not any(e0 <= d[0] < e1 for e0, e1 in escuros)] + [(e0, e, APAGA, 0, 0) for e0, _ in escuros for e in range(5)]
     return sorted(D, key=lambda d: d[0])  # a ordem de quem empata fica: a deixa posta depois vale
 
 
@@ -149,7 +166,13 @@ def demo():
     em = lambda a, b: [d[1:4] for d in D if a <= d[0] < b]
     assert (ANEIS, PULSO, 1) in em(0, 1) and not any(e in (GIRO, ZOOM) for e, _, _ in em(0, 4)), em(0, 4)
     assert sorted(em(4, 8)) == [(e, APAGA, 0) for e in range(5)], em(4, 8)  # a pausa apaga tudo e nada acende dentro dela
-    assert (CENTRO, CLARAO, 2) in em(8, 8.1) and (ZOOM, 0, 0) in em(8, 8.1) and sum(e == GIRO for e, _, _ in em(8, 16)) == 8, em(8, 9)
+    assert (CENTRO, CLARAO, 2) in em(8, 8.1) and (ZOOM, 0, 0) in em(8, 8.1) and [d[0] for d in D if d[1] == GIRO] == [8, 12], em(8, 9)  # os aneis giram no bumbo
+    # verso, subida, queda, queda, com silencio na ultima batida da subida: o fundo sobe de brilho, as luzes entram uma a uma e a batida 7 fica no escuro
+    an["nivel"] = np.where((np.arange(65) > 28) & (np.arange(65) < 32), 0, 2)
+    D = deixas(an, ["verso", "subida", "queda", "queda"], pc)
+    fundo = [d[4] for d in D if d[1] == FUNDO and 4 <= d[0] < 7]
+    assert fundo == sorted(fundo) and fundo[0] == 0.2 and (ANEIS, PULSO, 0) in em(5, 5.1) and (ESQ, ACENDE, 1) not in em(5, 5.1) and (ESQ, ACENDE, 1) in em(6, 6.1), em(4, 7)
+    assert sorted(em(7, 8)) == [(e, APAGA, 0) for e in range(5)] and (FUNDO, CLARAO, 2) in em(8, 8.1), em(7, 8.1)
     assert (ESQ, CLARAO, 1) in em(10, 10.1) and (DIR, CLARAO, 1) in em(14, 14.1), em(10, 15)
     ev = basicos(D, lambda t: t * 2)  # 120 BPM
     assert {"b": 8.0, "et": ANEIS, "i": 0, "f": 0} in ev and {"b": 16.0, "et": CENTRO, "i": 10, "f": 1.0} in ev, [e for e in ev if e["b"] in (8.0, 16.0)]
