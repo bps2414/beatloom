@@ -26,6 +26,9 @@ ENVIADOS = SAIDA / "quest.json"  # {zip: data do arquivo quando foi mandado}: ma
 DESCARTAVEL = ("analise", "regerar", "quest", "tmp_egg", "baixar")  # pastas de .cache que podem sumir (os modelos ficam)
 
 trabalhos, fila = [], []  # um trabalho por vez: a analise usa o processador inteiro
+conferindo, lidos = {}, {}  # zip -> data do arquivo quando a conferencia comecou; zip -> (datas, linha da lista)
+SITE = RAIZ / "site"
+TIPOS = {".css": "text/css", ".js": "text/javascript", ".json": "application/json", ".woff2": "font/woff2", ".svg": "image/svg+xml", ".png": "image/png", ".webp": "image/webp"}
 trava = threading.Lock()
 
 
@@ -116,6 +119,9 @@ def rodar(trab):
         rotulos = {"[1/4]": "ouvindo", "[2/4]": "golpes", "[3/4]": "empacotando", "[4/4]": "conferindo"}
         cauda = []
         for linha in p.stdout:
+            if linha.startswith("[sep] "):  # andamento da separacao de instrumentos, em %; fora dela a barra nao tem numero
+                trab["progresso"] = int(linha[6:]) if linha[6:].strip().isdigit() else None
+                continue
             cauda = (cauda + [linha.rstrip()])[-6:]
             for k, v in rotulos.items():
                 if linha.startswith(k):
@@ -144,18 +150,43 @@ def operario():
         rodar(trab)
 
 
+def ler_relatorio(zp):
+    try:
+        return json.loads(zp.with_suffix(".relatorio.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+
+
 def lista_de_mapas():
+    """Roda a cada poucos segundos: so reabre o zip e o relatorio de quem mudou."""
     out = []
     for zp in sorted(SAIDA.glob("*.zip"), key=lambda p: -p.stat().st_mtime):
-        try:
-            info = json.loads(zipfile.ZipFile(zp).read("Info.dat").decode("utf-8-sig"))
-        except Exception:
-            continue
-        rel = zp.with_suffix(".relatorio.txt")
-        txt = rel.read_text(encoding="utf-8") if rel.exists() else ""
-        out.append({"zip": zp.name, "nome": info["_songName"], "sub": info.get("_songSubName", ""), "artista": info["_songAuthorName"],
-                    "bpm": info["_beatsPerMinute"], "ok": "TODAS AS METAS OK" in txt, "conferido": bool(txt)})
+        rel = zp.with_suffix(".relatorio.json")
+        datas = (zp.stat().st_mtime, rel.stat().st_mtime if rel.exists() else 0)
+        if lidos.get(zp.name, (0,))[0] != datas:
+            try:
+                info = json.loads(zipfile.ZipFile(zp).read("Info.dat").decode("utf-8-sig"))
+            except Exception:
+                continue
+            r = ler_relatorio(zp) or {}
+            lidos[zp.name] = (datas, {"zip": zp.name, "nome": info["_songName"], "sub": info.get("_songSubName", ""), "artista": info["_songAuthorName"],
+                                      "bpm": info["_beatsPerMinute"], "ok": r.get("passou"), "dur": r.get("dur"), "v": int(datas[0]),
+                                      "difs": [b["_difficulty"] for s in info["_difficultyBeatmapSets"] if s["_beatmapCharacteristicName"] == "Standard" for b in s["_difficultyBeatmaps"]]})
+        out.append(lidos[zp.name][1])
     return out
+
+
+def conferir(zp):
+    """Mapa de antes do .relatorio.json: confere em segundo plano, uma vez por versao do zip. -> esta conferindo agora?"""
+    def faz():
+        subprocess.run([PY, str(RAIZ / "report.py"), str(zp), "--so-json"], capture_output=True, cwd=RAIZ)
+        conferindo[zp.name] = (data, False)
+    data = zp.stat().st_mtime
+    with trava:
+        if conferindo.get(zp.name, (0,))[0] != data:
+            conferindo[zp.name] = (data, True)
+            threading.Thread(target=faz, daemon=True).start()
+    return conferindo[zp.name][1]
 
 
 def renomear(zp, nome, artista):
@@ -204,22 +235,22 @@ def mapa(nome_zip):
             d = json.loads(z.read(b["_beatmapFilename"]).decode("utf-8-sig"))
             difs.append({"nome": b["_difficulty"], "njs": b["_noteJumpMovementSpeed"],  # mapa antigo (v2) ou novo (v3)
                          "notas": len(d.get("colorNotes", d.get("_notes", []))), "arcos": len(d.get("sliders", []))})
-    rel = zp.with_suffix(".relatorio.txt")
-    return {"zip": zp.name, "nome": info["_songName"], "sub": info.get("_songSubName", ""), "artista": info["_songAuthorName"], "bpm": bpm,
-            "difs": difs, "relatorio": rel.read_text(encoding="utf-8") if rel.exists() else "", **info.get("_customData", {}).get("_beatloom", {})}
+    rel = ler_relatorio(zp)
+    return {"zip": zp.name, "nome": info["_songName"], "sub": info.get("_songSubName", ""), "artista": info["_songAuthorName"], "bpm": bpm, "v": int(zp.stat().st_mtime),
+            "difs": difs, "relatorio": rel, "conferindo": not rel and conferir(zp), **info.get("_customData", {}).get("_beatloom", {})}
 
 
 class H(BaseHTTPRequestHandler):
     def log_message(self, *a):
         pass
 
-    def manda(self, corpo, tipo="application/json", cod=200, extra=()):
+    def manda(self, corpo, tipo="application/json", cod=200, extra=(), guarda=False):
         if not isinstance(corpo, bytes):
             corpo = json.dumps(corpo, ensure_ascii=False).encode()
         self.send_response(cod)
         self.send_header("Content-Type", tipo)
         self.send_header("Content-Length", str(len(corpo)))
-        self.send_header("Cache-Control", "no-store")
+        self.send_header("Cache-Control", "max-age=31536000, immutable" if guarda else "no-store")
         for k, v in extra:
             self.send_header(k, v)
         self.end_headers()
@@ -241,14 +272,19 @@ class H(BaseHTTPRequestHandler):
         q = {k: v[0] for k, v in parse_qs(u.query).items()}
         try:
             if u.path == "/":
-                self.manda((RAIZ / "site" / "app.html").read_bytes(), "text/html; charset=utf-8")
+                self.manda((SITE / "app.html").read_bytes(), "text/html; charset=utf-8")
+            elif u.path.startswith("/site/"):  # css, js, frases e fontes da pagina
+                arq = (SITE / unquote(u.path[6:])).resolve()
+                if SITE not in arq.parents or arq.suffix not in TIPOS or not arq.is_file():
+                    return self.manda({"erro": "nao_existe"}, cod=404)
+                self.manda(arq.read_bytes(), TIPOS[arq.suffix] + ("; charset=utf-8" if arq.suffix in (".css", ".js", ".json") else ""), guarda=arq.suffix == ".woff2")
             elif u.path == "/api/estado":
                 self.manda({"trabalhos": trabalhos[-6:], "mapas": lista_de_mapas(), "visor": (ARC / "index.html").exists(), "difs": list(DIFS)})
             elif u.path == "/api/preparo":
                 self.manda(preparo.estado())
             elif u.path == "/api/config":
                 cache = sum(f.stat().st_size for p in DESCARTAVEL for f in (RAIZ / ".cache" / p).rglob("*") if f.is_file())
-                self.manda({**config(), "cache": cache, "torch": importlib.metadata.version("torch")})
+                self.manda({**config(), "cache": cache, "torch": next((d.version for d in importlib.metadata.distributions(name="torch")), "")})
             elif u.path == "/api/quest":
                 self.manda(estado_quest())
             elif u.path == "/api/mapa":
@@ -256,7 +292,7 @@ class H(BaseHTTPRequestHandler):
             elif u.path == "/api/capa":  # capa de um mapa pronto (?zip=) ou de um arquivo de audio que acabou de subir (?arquivo=)
                 if "zip" in q:
                     z = zipfile.ZipFile(SAIDA / Path(q["zip"]).name)
-                    return self.manda(z.read(json.loads(z.read("Info.dat").decode("utf-8-sig"))["_coverImageFilename"]), "image/png")
+                    return self.manda(z.read(json.loads(z.read("Info.dat").decode("utf-8-sig"))["_coverImageFilename"]), "image/png", guarda="v" in q)  # com a data na URL a capa pode ficar guardada
                 png = RAIZ / ".cache" / "previa.png"
                 png.unlink(missing_ok=True)
                 if not fazer_capa(MUSICAS / Path(q["arquivo"]).name, png):
@@ -305,13 +341,18 @@ class H(BaseHTTPRequestHandler):
                 return self.manda({"erro": "link"}, cod=400)
             if not link and not (arq and Path(arq).parent == MUSICAS and Path(arq).exists()):
                 return self.manda({"erro": "vazio"}, cod=400)
-            trab = {"id": int(time.time() * 1000), "estado": "na fila", "passos": [], "titulo": (d.get("nome") or "").strip() or link or Path(arq).name,
+            capa = d.get("capa") if re.fullmatch(r"https?://\S+|/api/capa\?\S+", str(d.get("capa"))) else None  # a miniatura da previa, so para o cartao da fila
+            trab = {"id": int(time.time() * 1000), "estado": "na fila", "passos": [], "progresso": None, "capa": capa, "titulo": (d.get("nome") or "").strip() or link or Path(arq).name,
                     "link": link or None, "arquivo": arq, **{k: str(d.get(k) or "").strip() or None for k in ("nome", "artista", "album", "ano")},
                     "difs": [x for x in DIFS if x in (d.get("difs") or DIFS)] or list(DIFS),
                     "densidade": min(max(float(d.get("densidade") or 1), 0.8), 1.3)}
             with trava:
                 trabalhos.append(trab); fila.append(trab)
             return self.manda({"id": trab["id"]})
+        if u.path == "/api/trabalho/dispensar":  # tira da lista um trabalho que acabou (pronto ou com erro)
+            with trava:
+                trabalhos[:] = [t for t in trabalhos if t["id"] != d.get("id") or t["estado"] in ("na fila", "rodando")]
+            return self.manda({"ok": True})
         if u.path == "/api/previa":  # dados e capa do link, antes de gerar (nao baixa o audio)
             link = (d.get("link") or "").strip()
             if not re.match(r"https?://\S+$", link):
@@ -355,7 +396,7 @@ class H(BaseHTTPRequestHandler):
             return self.manda({"erro": "sem_mapa"}, cod=404)
         if u.path == "/api/apagar":  # nao apaga de verdade: vai para saida\lixeira, de onde da para trazer de volta
             (SAIDA / "lixeira").mkdir(exist_ok=True)
-            for f in (zp, zp.with_suffix(".relatorio.txt")):
+            for f in (zp, zp.with_suffix(".relatorio.txt"), zp.with_suffix(".relatorio.json")):
                 if f.exists():
                     f.replace(SAIDA / "lixeira" / f.name)
             return self.manda({"ok": True})

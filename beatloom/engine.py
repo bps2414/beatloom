@@ -65,7 +65,7 @@ class Maos:
 
 def golpes(tempos, an, dif, reacao, etapa, njs=16, arcos=()):
     """tempos = {casa: 1|2}; arcos = [(casa_ini, casa_fim)] das notas seguradas pedidas.
-    Devolve (notas [(t_s, x, y, cor, dir)], texto de resumo, seguradas [(t_ini, t_fim, cor)])."""
+    Devolve (notas [(t_s, x, y, cor, dir)], texto de resumo, seguradas [(t_ini, t_fim, cor)], contagens do resumo)."""
     lib, grade = biblioteca(dif), an["grade"]
     rng = random.Random(f"{an['hash']}-{dif}")
     min_mao, vel_mao = MIN_MAO[dif], VEL_MAO[dif]
@@ -279,4 +279,4 @@ def golpes(tempos, an, dif, reacao, etapa, njs=16, arcos=()):
         rit = [n[2] >= 1 for n in notas_todas if not alto[casa_de[round(n[0], 4)]]]
         resumo += (f" | notas fora da linha de baixo: {np.mean(mel) if mel else 0:.0%} das {len(mel)} em ataques de voz/melodia"
                    f" contra {np.mean(rit) if rit else 0:.0%} das {len(rit)} em ataques de bateria/baixo")
-    return sorted(notas_todas), resumo, seguradas
+    return sorted(notas_todas), resumo, seguradas, stats

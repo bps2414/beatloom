@@ -6,7 +6,7 @@ r"""Gera um mapa de Beat Saber (Easy, Normal, Hard, Expert e Expert+) a partir d
 Nome e artista: o que voce passar, senao as tags do arquivo, senao o nome do arquivo limpo ("Artista - Musica").
 Capa: --capa, senao a imagem embutida no arquivo, senao uma capa generica. Sempre cortada em quadrado.
 
-Sai em saida\<nome>-v<etapa>.zip (o site manda ao Quest) e saida\<nome>-v<etapa>.relatorio.txt.
+Sai em saida\<nome>-v<etapa>.zip (o site manda ao Quest), saida\<nome>-v<etapa>.relatorio.txt e .relatorio.json (o que o site mostra).
 --etapa escolhe a versao do gerador (padrao 4, a mais completa):
   1 = notas no tempo + golpes do BeatKenja      2 = + intensidade por trecho, repeticoes, notas duplas nos sons fortes
   3 = + motor de golpes proprio (padroes humanos) 4 = + separacao de instrumentos (Demucs) e paredes
@@ -359,6 +359,7 @@ def gerar(audio, nome=None, artista=None, etapa=4, tag="", saida=None, capa=None
 
     ev = luzes(an, bpm)
     mapas, resumo = [], [f"capa {origem_capa} | densidade x{densidade:g}"]
+    ger = {"etapa": etapa, "capa": origem_capa.split()[-1], "densidade": densidade, "difs": {}}  # o mesmo resumo em numeros, para o .relatorio.json
     for dif in difs:
         cfg = dict(DIFS[dif], tps=DIFS[dif]["tps"] * densidade)
         print(f"[2/4] {dif}: escolhendo os tempos e os golpes...", flush=True)
@@ -374,7 +375,7 @@ def gerar(audio, nome=None, artista=None, etapa=4, tag="", saida=None, capa=None
         else:
             from beatloom import engine
             pedidos = reservar_arcos(tempos, an) if etapa >= 4 and cfg["arcos"] else []
-            notas, extra, seg = engine.golpes(tempos, an, dif, reacao, etapa, cfg["njs"], pedidos)
+            notas, extra, seg, ger["difs"][dif] = engine.golpes(tempos, an, dif, reacao, etapa, cfg["njs"], pedidos)
             notas = consertar(notas, dif, reacao)  # rede de seguranca: sobra rara do motor (so muda posicao)
             # arco = (nota da cabeca, nota da cauda); procura as duas depois do conserto, que pode ter mudado a posicao
             achar = lambda t, c: next(n for n in notas if abs(n[0] - t) < 0.001 and n[3] == c)
@@ -418,7 +419,7 @@ def gerar(audio, nome=None, artista=None, etapa=4, tag="", saida=None, capa=None
             z.write(f, f.name)
     shutil.rmtree(pasta)
     print("[4/4] conferindo...", flush=True)
-    return zp, resumo
+    return zp, resumo, ger
 
 
 def demo():
@@ -443,10 +444,15 @@ if __name__ == "__main__":
     ap.add_argument("--etapa", type=int, default=4, choices=(1, 2, 3, 4))
     ap.add_argument("--saida"); ap.add_argument("--humano", help="pasta de um mapa humano da mesma musica, para comparar os tempos")
     a = ap.parse_args()
-    zp, resumo = gerar(a.audio, a.nome, a.artista, a.etapa, a.tag, a.saida, a.capa, a.difs and a.difs.split(","), min(max(a.densidade, 0.5), 1.6),
+    zp, resumo, ger = gerar(a.audio, a.nome, a.artista, a.etapa, a.tag, a.saida, a.capa, a.difs and a.difs.split(","), min(max(a.densidade, 0.5), 1.6),
                        a.album, a.ano, a.link)
-    from report import relatorio
-    txt, ok = relatorio(zp, a.humano)
+    import report
+    R = report.conferir(zp, a.humano)
+    for D in R["difs"]:
+        D["gerador"] = ger["difs"].get(D["nome"])
+    R["gerador"] = {k: v for k, v in ger.items() if k != "difs"}
+    report.gravar_json(zp, R)
+    txt, ok = report.texto(R), R["passou"]
     txt += "\n\nGERADOR (etapa %d)\n  " % a.etapa + "\n  ".join(resumo)
     zp.with_suffix(".relatorio.txt").write_text(txt, encoding="utf-8")
     print(txt)

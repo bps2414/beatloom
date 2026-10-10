@@ -123,8 +123,13 @@ def _separar(wav, pasta):
         ref = x.mean(0)
         media, desvio = ref.mean(), ref.std() + 1e-9
         x = (x - media) / desvio
+        # o site le "[sep] N" para a barra: N = quanto da musica ja passou, contado nos pedacos que o Demucs comeca
+        def andou(d):
+            if d["state"] == "start":
+                print(f"[sep] {100 * (d['model_idx_in_bag'] + d['segment_offset'] / x.shape[-1]) / d['models']:.0f}", flush=True)
         with torch.no_grad():
-            out = apply_model(modelo, x[None], device="cpu", split=True, overlap=0.1, progress=False)[0]
+            out = apply_model(modelo, x[None], device="cpu", split=True, overlap=0.1, progress=False, callback=andou)[0]
+        print("[sep] fim", flush=True)
         pasta.mkdir(parents=True, exist_ok=True)
         for nome, s in zip(modelo.sources, out):
             sf.write(pasta / f"{nome}.wav", (s.mean(0) * desvio).numpy(), sr)
