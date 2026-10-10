@@ -61,6 +61,10 @@ Pedido do dono: melhorar o mapa, deixar mais bonito, usar mais recursos do próp
 6. **Um Braço, 360 e 90 graus.** Modos do próprio jogo que o gerador ainda não faz. O de um braço é o mais barato.
 7. **Velocidade por trecho.** NJS e distância de salto ajustados à dificuldade (já faz) e eventos de BPM para a grade acompanhar (item 1.1.5).
 8. Fora do jogo puro, só se o dono quiser: Chroma (cores livres) e Noodle Extensions pedem mods; no Quest nem sempre existem.
+9. **Escolher o que vai no mapa** (pedido do dono, a partir da tela do Beat Sage). No diálogo de mapa novo, além das dificuldades:
+   - Modos de jogo: Padrão (já faz), Sem Setas, Um Sabre, 90 Graus, 360 Graus. Cada modo marcado sai como mais um conjunto de dificuldades no mesmo mapa. Sem Setas é o mais barato (as mesmas notas, sem direção); Um Sabre e os de giro são os do item 6.
+   - O que entra: bombas, notas sem direção (ponto), paredes, luzes dinâmicas. Cada um liga e desliga; o padrão de cada um fica guardado na Configuração, junto das preferências, e vale também no "Refazer as notas".
+   - Só aparece na tela o que o gerador já sabe fazer; nada de opção cinza prometendo o que não existe.
 
 ### 1.4 Ferramentas de terceiros a aproveitar
 
@@ -94,6 +98,12 @@ Execute o bloco 1.2 do roadmap inteiro, um item por vez. A cada item: meça ante
 
 ```text
 Execute o bloco 1.3 do roadmap inteiro, um item por vez, menos o item 8 (mods). A cada item: confira que o mapa passa na conferência e faça commit. Não pare para aprovar entre itens. No fim, push e me diga duas músicas para eu ver.
+```
+
+Só as opções do mapa, 1.3 item 9 (Sonnet 5.5 alto):
+
+```text
+Roadmap 1.3 item 9 (escolher o que vai no mapa): comece por Sem Setas e pelos liga e desliga de bombas, pontos e paredes; os modos que o gerador ainda não faz ficam de fora da tela. Commit e push ao final.
 ```
 
 1.4 (Sonnet 5.5 alto):
