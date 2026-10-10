@@ -1,0 +1,21 @@
+.venv/
+.cache/
+__pycache__/
+check/node_modules/
+# your songs, generated maps and downloaded data never go to the repository
+musicas/
+saida/
+ref/
+dados/
+dados_download.log
+# third-party tools you download yourself
+arcviewer/
+beatkenja/
+# folders BeatKenja drops in the working directory
+/assets/
+/CustomWIPLevels/
+/logs/
+/OnsetGeneration/
+/Patterns/
+/config.json
+test_audio.py
