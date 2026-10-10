@@ -5,9 +5,10 @@ r"""Monta a biblioteca de padroes a partir dos mapas humanos em dados\mapas (ver
 Um padrao e o que um mapper humano colocou numa janela de 1, 2 ou 4 batidas, guardado pela "mascara" de ritmo
 (quantas notas em cada casa de 1/4). So entram janelas limpas: tudo na grade de 1/4, sem bombas, sem notas de ponto,
 sem pilhas, sem aviso de paridade. Cada padrao guarda tambem a nota anterior de cada mao, para o motor encaixar
-onde o braco esta no mesmo lugar. Tambem calcula NJS e densidade tipicos por dificuldade.
+onde o braco esta no mesmo lugar. Padrao de mapa mais bem avaliado pesa mais (peso_por_nota): cada padrao sai como
+(notas, nota anterior de cada mao, frequencia pesada, qualidade media das fontes). Tambem calcula NJS e densidade tipicos por dificuldade.
 """
-import json, pickle, statistics, sys
+import bisect, json, pickle, statistics, sys
 from collections import Counter, defaultdict
 from pathlib import Path
 
@@ -19,6 +20,7 @@ from beatloom.checks import ESPELHO
 DADOS = RAIZ / "dados"
 JANELAS = (4, 2, 1)
 MAX_POR_MASCARA = 4000
+FIADO = 3  # a qualidade de um padrao comeca como 3 aparicoes de peso medio (1,25): quem apareceu uma vez so num mapa otimo nao passa na frente de todos
 
 
 def ler(arq):
@@ -102,12 +104,21 @@ def janelas_do_mapa(notas, bombas, correntes):
             yield L, "".join(map(str, cont)), tuple(sorted(jan)), tuple(pre)
 
 
+def peso_por_nota(notas):
+    """-> funcao nota do mapa -> quanto cada padrao dele pesa: 0,5 no pior avaliado do conjunto, 2 no melhor, pela posicao na fila.
+    Pela posicao e nao pelo valor porque as notas ficam todas coladas (0,96 a 0,99 nos mil mapas baixados)."""
+    fila = sorted(notas)
+    return lambda nota: 0.5 + 1.5 * bisect.bisect_left(fila, nota) / max(len(fila) - 1, 1)
+
+
 def main():
     meta = [json.loads(l) for l in (DADOS / "meta.jsonl").read_text(encoding="utf-8").splitlines()]
     meta = list({m["id"]: m for m in meta}.values())  # mapa baixado de novo (dificuldades a mais): vale a ultima linha
     lib = {d: {L: defaultdict(Counter) for L in JANELAS} for d in ("Easy", "Normal", "Hard", "Expert", "ExpertPlus")}
-    usados = Counter()
+    usados, peso = Counter(), peso_por_nota([m.get("nota", 0) for m in meta])
+    vezes = Counter()  # (dificuldade, L, mascara, padrao) -> quantas vezes apareceu, sem peso: o peso somado dividido por isto e a qualidade media das fontes
     for m in meta:
+        w = peso(m.get("nota", 0))
         for dif in m["diffs"]:
             arq = DADOS / "mapas" / m["id"] / f"{dif}.dat"
             try:
@@ -119,10 +130,11 @@ def main():
                 continue
             usados[dif] += 1
             for L, masc, jan, pre in janelas_do_mapa(*lido):
-                lib[dif][L][masc][(jan, pre)] += 1
-                lib[dif][L][masc][espelhar(jan, pre)] += 1
+                for chave in ((jan, pre), espelhar(jan, pre)):
+                    lib[dif][L][masc][chave] += w
+                    vezes[(dif, L, masc, chave)] += 1
     for dif, por_l in lib.items():
-        saida = {L: {masc: [(j, p, n) for (j, p), n in c.most_common(MAX_POR_MASCARA)] for masc, c in por_m.items()} for L, por_m in por_l.items()}
+        saida = {L: {masc: [(j, p, round(n, 2), round((n + 1.25 * FIADO) / (vezes[(dif, L, masc, (j, p))] + FIADO), 2)) for (j, p), n in c.most_common(MAX_POR_MASCARA)] for masc, c in por_m.items()} for L, por_m in por_l.items()}
         with open(DADOS / f"padroes_{dif}.pkl", "wb") as f:
             pickle.dump(saida, f)
         print(f"{dif}: {usados[dif]} mapas | " + " | ".join(
@@ -146,6 +158,8 @@ def demo():
     assert not [j for j in js if j[0] == 1 and j[2][0][0] == 0 and j[3][0] is None]  # a primeira nota do mapa nao vira padrao
     j, p = espelhar(((0, 1, 0, 0, 6),), ((0, 2, 4, 2), None))
     assert j == ((0, 2, 0, 1, 7),) and p == (None, (3, 2, 5, 2))
+    p = peso_por_nota([0.96, 0.98, 0.97])
+    assert (p(0.96), p(0.97), p(0.98)) == (0.5, 1.25, 2.0)
     print("extrair ok")
 
 

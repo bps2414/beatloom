@@ -19,6 +19,9 @@ from beatloom.audio import CASAS, INSTRUMENTOS, RAIZ, bateria, voz
 MIN_MAO = {"Easy": 0.40, "Normal": 0.30, "Hard": 0.20, "Expert": 0.15, "ExpertPlus": 0.115}
 from beatloom.checks import VEL_MAO  # teto de velocidade da mao
 TENTATIVAS = 80
+# pontos por unidade de qualidade das fontes do padrao (tools/extract_patterns.py: peso_por_nota). Easy e Normal ficam sem: medido, la o ganho
+# e minimo e as trocas de posicao raras em mapa humano sobem (a biblioteca delas e pequena e o padrao de poucas fontes passava na frente)
+QUALIDADE = {"Hard": 1.5, "Expert": 1.5, "ExpertPlus": 1.5}
 EMENDA_RARA = 2.5  # pontos que perde o padrao que emenda no anterior com uma troca de posicao rara em mapa humano
 OLHAR, HORIZONTE, AMOSTRA_ADIANTE = 5, 8, 16  # dos melhores encaixes, quantos sao seguidos adiante; ate quantas batidas a frente; padroes provados por janela nesse ensaio
 VIRA = {0: 1, 1: 0, 2: 2, 3: 3, 4: 6, 6: 4, 5: 7, 7: 5}  # inverte o corte na vertical
@@ -83,7 +86,7 @@ def trocas_humanas(lib):
     c = Counter()
     for por_masc in lib.values():
         for lista in por_masc.values():
-            for pad, pre, freq in lista:
+            for pad, pre, freq, *_ in lista:
                 ult = [p and p[:3] for p in pre]
                 for _, x, y, cor, d in pad:
                     if ult[cor]:
@@ -129,7 +132,7 @@ def golpes(tempos, an, dif, reacao, etapa, njs=16, arcos=(), prefs=()):
     Devolve (notas [(t_s, x, y, cor, dir)], texto de resumo, seguradas [(t_ini, t_fim, cor)], contagens do resumo)."""
     lib, grade, humanas = biblioteca(dif), an["grade"], _trocas(dif)
     rng = random.Random(f"{an['hash']}-{dif}")
-    min_mao, vel_mao = MIN_MAO[dif], VEL_MAO[dif]
+    min_mao, vel_mao, qual = MIN_MAO[dif], VEL_MAO[dif], QUALIDADE.get(dif, 0)
     intens = [float(v) for v in an["intens"]]
     usos = Counter()  # quantas vezes cada desenho ja saiu: repetir sempre o mesmo cansa
     tam = int(an["batidas_por_compasso"])
@@ -278,8 +281,9 @@ def golpes(tempos, an, dif, reacao, etapa, njs=16, arcos=(), prefs=()):
                 continue
             if (casa0, L, n) not in amostras:
                 amostras[(casa0, L, n)] = rng.sample(lista, n) if len(lista) > n else list(lista)
-            achados = [[pontos(pad, pre, casa0, maos) + min(freq, 8) * 0.15 + rng.random() * 0.5, pad, r]
-                       for pad, pre, freq in amostras[(casa0, L, n)] if (r := tentar(pad, casa0, maos, notas))]
+            # q = qualidade media dos mapas de onde o padrao veio (0,5 a 2; biblioteca antiga nao tem e fica no meio): mapa mais bem avaliado pesa mais
+            achados = [[pontos(pad, pre, casa0, maos) + min(freq, 8) * 0.15 + qual * ((q[0] if q else 1.25) - 1.25) + rng.random() * 0.5, pad, r]
+                       for pad, pre, freq, *q in amostras[(casa0, L, n)] if (r := tentar(pad, casa0, maos, notas))]
             if achados:
                 return L, masc, achados
         return None
