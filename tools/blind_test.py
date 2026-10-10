@@ -1,6 +1,6 @@
 r"""Teste cego: recebe dois zips da MESMA musica e devolve "Musica - A" e "Musica - B" sem dizer qual e qual.
 
-  .venv\Scripts\python.exe ferramentas\teste_cego.py <mapa1.zip> <mapa2.zip> [--nome "Musica"]
+  .venv\Scripts\python.exe tools\blind_test.py <mapa1.zip> <mapa2.zip> [--nome "Musica"]
 
 Sorteia quem e A e quem e B, iguala nome, autor, capa e cenario, e grava em saida\cego\:
   <musica>-<codigo>-A.zip, <musica>-<codigo>-B.zip   -> mande os dois pro Quest com o sync.py
@@ -10,9 +10,9 @@ O <codigo> muda a cada rodada, porque o sync.py pula nomes de pasta que ja exist
 import io, json, random, secrets, sys, zipfile
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent))  # a raiz do projeto, onde estao gerar.py e a pasta beatloom
+sys.path.insert(0, str(Path(__file__).parent.parent))  # a raiz do projeto, onde estao generate.py e a pasta beatloom
 from beatloom.audio import RAIZ, ffmpeg
-from gerar import slug
+from generate import slug
 
 
 def reempacotar(origem, destino, nome, letra, capa):

@@ -2,7 +2,7 @@
 
 [Português (Brasil)](ARCHITECTURE.pt-BR.md)
 
-Where the files are: `gerar.py`, `app.py` and `relatorio.py` in the root; `audio.py`, `motor.py` and `checks.py` in `beatloom\`; the rest in `ferramentas\` and `site\`.
+Where the files are: `generate.py`, `app.py` and `report.py` in the root; `audio.py`, `engine.py` and `checks.py` in `beatloom\`; the rest in `tools\` and `site\`.
 
 This document follows a song on its way to becoming a map, one piece at a time. It does not assume you can program. File and function names are in Portuguese, like the code.
 
@@ -17,19 +17,19 @@ Beatloom answers two questions, one after the other: **when** there is a note (b
  1. LISTEN       audio.py     beats, onsets, energy, choruses, instruments
         │
         ▼
- 2. WHEN         gerar.py     picks the moments that get a note
+ 2. WHEN         generate.py     picks the moments that get a note
         │
         ▼
- 3. WHICH NOTE   motor.py     position, colour and direction of each note
+ 3. WHICH NOTE   engine.py     position, colour and direction of each note
         │
         ▼
- 4. DECORATE     gerar.py     held notes, lights and walls
+ 4. DECORATE     generate.py     held notes, lights and walls
         │
         ▼
- 5. PACK         gerar.py     Info.dat, difficulties, song.egg, cover → zip
+ 5. PACK         generate.py     Info.dat, difficulties, song.egg, cover → zip
         │
         ▼
- 6. CHECK        relatorio.py report with the goals, next to the zip
+ 6. CHECK        report.py report with the goals, next to the zip
 ```
 
 ## Three words used everywhere
@@ -53,12 +53,12 @@ First the song is converted to the format the game uses (`song.egg`). The analys
 
 All of this is stored in `.cache\`, so generating the same song again takes seconds instead of minutes.
 
-## 2. When there is a note (`gerar.py`, function `escolher_tempos`)
+## 2. When there is a note (`generate.py`, function `escolher_tempos`)
 
-Each difficulty has a **budget**: how many note moments per second it aims for (Normal 1.8, Hard 2.45, Expert 3.3, Expert+ 4.1) and the smallest gap allowed between two notes. The numbers sit near the lightest quarter of the human maps of each difficulty.
+Each difficulty has a **budget**: how many note moments per second it aims for (Easy 1.25, Normal 1.8, Hard 2.45, Expert 3.3, Expert+ 4.1) and the smallest gap allowed between two notes. The numbers sit near the lightest quarter of the human maps of each difficulty.
 
 1. **Candidates.** Every slot with an onset is a candidate, except in the first 2 seconds and the last 3 (room for you to get ready and for the song to end).
-2. **Priority.** Each candidate gets a priority: onset strength × position in the beat. On the beat counts most, halfway counts a little less, and quarter slots count little on Expert and zero on Normal and Hard. That is why they have no fast notes.
+2. **Priority.** Each candidate gets a priority: onset strength × position in the beat. On the beat counts most, halfway counts a little less, and quarter slots count little on Expert and zero on Easy, Normal and Hard. That is why they have no fast notes.
 3. **Budget per bar.** The total budget is shared among the bars according to their energy. Inside a bar, the highest-priority candidates go in first, respecting the minimum gap.
 4. **Repeated chorus.** A bar marked as a copy of another gets the same rhythm as the original instead of being chosen again. If it has onsets the original did not have, it is topped up to its own budget.
 5. **Empty stretch.** If a stretch of 2 beats or more (4 on Normal) is left without notes and has at least 3 strong onsets inside, the strongest onset gets a note, until no such stretch is left.
@@ -67,7 +67,7 @@ Each difficulty has a **budget**: how many note moments per second it aims for (
 
 The output of this step is just a list: "these slots get a note; these get a double".
 
-## 3. Which note (`motor.py`)
+## 3. Which note (`engine.py`)
 
 This is where the pattern library comes in. It was built by cutting hundreds of well-rated human maps into **windows** of 4, 2 and 1 beats. Each window keeps the layout of its notes and is labelled by its **rhythm** (which slots have a note). The library holds no music, only these layouts.
 
@@ -97,20 +97,20 @@ The defects it avoids:
 - **Stacked note**: two notes in the same place at the same time.
 - **Saber passing through**: in a double, one hand's saber passing through the other colour's note.
 
-## 4. Lights and walls (`gerar.py`)
+## 4. Lights and walls (`generate.py`)
 
 - **Lights**: it is never dark; they flash on the beat and change colour in intense bars. Simple on purpose.
 - **Walls**: only in pauses of 1.6 seconds or more, in the outer column. They are decoration; none of them makes you move.
 
-## 5. Pack (`gerar.py`)
+## 5. Pack (`generate.py`)
 
 Through the whole process time is counted in seconds. Only when the file is written is it converted to the game's unit (beats). This avoids rounding errors.
 
-The zip contains `Info.dat` (name, BPM, difficulties), one file per difficulty (v3 format, the one that accepts arcs), `song.egg` and the cover. The preview that plays in the game menu starts at the most intense part of the song. Note speed is 12, 14, 16 and 18 (the typical value in the human maps of the library).
+The zip contains `Info.dat` (name, BPM, difficulties), one file per difficulty (v3 format, the one that accepts arcs), `song.egg` and the cover. The preview that plays in the game menu starts at the most intense part of the song. Note speed is 10, 12, 14, 16 and 18 (the typical value in the human maps of the library).
 
 **Name, artist and cover.** In this order: what you typed; the track and artist reported by yt-dlp; the file tags; the video title or the cleaned file name ("Artist - Song", without "Official Video" or "feat."). The cover comes from the picture you point to, the video thumbnail or the image embedded in the file, cropped to a square; the generic one is used only when all of those are missing. Album, year and link have no field of their own in `Info.dat`: they go in `_customData`, which the game ignores and the web page shows.
 
-## 6. Check (`relatorio.py`, `checks.py`, `check\check.mjs`)
+## 6. Check (`report.py`, `checks.py`, `check\check.mjs`)
 
 The finished map is read back and goes before two judges:
 
@@ -132,15 +132,15 @@ The report marks each goal `[ok]` or `[FALHOU]` (failed) and is saved next to th
 
 ## The web page (`app.py`, `site\app.html`)
 
-A small server that only answers your own computer. Before generating it shows the cover and song data so you can fix them, and lets you choose difficulties and the amount of notes. It does three things: takes the link or file and calls `gerar.py` (one map at a time, because the analysis uses the whole processor), lists the zips in `saida\`, and hands the zip to ArcViewer, the 3D viewer embedded in the page. Links are downloaded with yt-dlp. Nothing is sent anywhere. It also renames a finished map, moves it to `saida\lixeira`, and sends it to the Quest (with the time in the folder name, so it is not mistaken for an older version).
+A small server that only answers your own computer. Before generating it shows the cover and song data so you can fix them, and lets you choose difficulties and the amount of notes. It does three things: takes the link or file and calls `generate.py` (one map at a time, because the analysis uses the whole processor), lists the zips in `saida\`, and hands the zip to ArcViewer, the 3D viewer embedded in the page. Links are downloaded with yt-dlp. Nothing is sent anywhere. It also regenerates a single difficulty of a finished map with a different amount of notes, renames it, moves it to `saida\lixeira`, and sends it to the Quest (with the time in the folder name, so it is not mistaken for an older version).
 
-## The pattern library (`ferramentas\baixar_mapas.py`, `ferramentas\extrair_padroes.py`)
+## The pattern library (`tools\download_maps.py`, `tools\extract_patterns.py`)
 
-`ferramentas\baixar_mapas.py` searches BeatSaver for maps with a high rating and many votes, made by people, without mods, and keeps only the note files (the audio is discarded). `ferramentas\extrair_padroes.py` cuts those maps into the windows described above, also in a mirrored version (left ↔ right), and writes one file per difficulty into `dados\`.
+`tools\download_maps.py` searches BeatSaver for maps with a high rating and many votes, made by people, without mods, and keeps only the note files (the audio is discarded). `tools\extract_patterns.py` cuts those maps into the windows described above, also in a mirrored version (left ↔ right), and writes one file per difficulty into `dados\`.
 
 ## What it cannot do yet
 
 - Notes faster than a quarter of a beat, triplets and swing.
 - Bombs, chains and dot notes.
 - Understand song structure beyond "this bar equals that one" and "this one is more intense".
-- Know whether the map is fun. That is what `ferramentas\teste_cego.py` is for: it shuffles two versions of the same song as A and B so you can play them without knowing which is which.
+- Know whether the map is fun. That is what `tools\blind_test.py` is for: it shuffles two versions of the same song as A and B so you can play them without knowing which is which.

@@ -153,7 +153,7 @@ details.rel pre { font: 13px/1.5 ui-monospace, Consolas, monospace; background: 
       <iframe id="visor" title="ArcViewer" allow="autoplay; fullscreen" allowfullscreen hidden></iframe>
       <div class="convite" id="convite" data-t="convite"></div>
     </div>
-    <p class="controles" id="controles" hidden><span class="difs" id="difs" role="group"></span><span data-t="visor"></span>
+    <p class="controles" id="controles" hidden><span class="difs" id="difs" role="group"></span><button type="button" class="sec" id="regerar" data-t="regerar" style="padding:6px 12px"></button><span data-t="visor"></span>
       <a id="fora" target="_blank" rel="noopener" data-t="cheia"></a></p>
     <section class="ficha" id="ficha" hidden>
       <img id="f-capa" alt="">
@@ -181,7 +181,7 @@ const NOMES = { Hard: "Hard", Expert: "Expert", ExpertPlus: "Expert+", Normal: "
 
 let mapa = null, temVisor = true;
 const T = {
-  pt: { titulo: "Sua música vira um mapa de Beat Saber", sub: "Normal, Hard, Expert e Expert+, com zip pronto para o Quest.", link: "Cole um link do YouTube",
+  pt: { titulo: "Sua música vira um mapa de Beat Saber", sub: "De Easy a Expert+, com zip pronto para o Quest.", link: "Cole um link do YouTube",
     ou: "ou", escolha: "escolha um arquivo de áudio", trocar_arq: "trocar", trocar: "Trocar o nome que aparece no jogo", nome: "Nome da música", artista: "Artista",
     gerar: "Gerar mapa", mapas: "Seus mapas", sem_mapas: "Nenhum mapa ainda. Cole um link acima para gerar o primeiro.",
     convite: "Escolha um mapa na lista para assistir antes de jogar", visor: "Espaço toca e pausa. Trocar de dificuldade recarrega o visualizador (ArcViewer).",
@@ -197,8 +197,9 @@ const T = {
     quais: "Dificuldades", densidade: "Quantidade de notas", leve: "mais leve", normal: "normal", cheio: "mais cheio", procurando: "Procurando os dados da música…",
     confira: "Confira o nome e o artista antes de gerar.", sem_dif: "Marque pelo menos uma dificuldade.", renomear: "Trocar nome", apagar: "Apagar mapa",
     novo_nome: "Nome da música:", novo_artista: "Artista:", confirma_apagar: "Apagar este mapa da lista? Ele vai para a pasta saida\\lixeira.",
+    regerar: "Regerar esta dificuldade", pergunta_dens: "Quantidade de notas desta dificuldade, de 0.8 (mais leve) a 1.3 (mais cheio):", regerando: "Regerando…",
     arcos: "notas seguradas", capa_arq: "capa do arquivo", capa_gen: "sem capa no arquivo: vai a genérica", fonte: "fonte" },
-  en: { titulo: "Your song becomes a Beat Saber map", sub: "Normal, Hard, Expert and Expert+, in a zip ready for the Quest.", link: "Paste a YouTube link",
+  en: { titulo: "Your song becomes a Beat Saber map", sub: "From Easy to Expert+, in a zip ready for the Quest.", link: "Paste a YouTube link",
     ou: "or", escolha: "choose an audio file", trocar_arq: "change", trocar: "Change the name shown in the game", nome: "Song name", artista: "Artist",
     gerar: "Generate map", mapas: "Your maps", sem_mapas: "No maps yet. Paste a link above to generate the first one.",
     convite: "Pick a map from the list to watch it before you play", visor: "Space plays and pauses. Switching difficulty reloads the viewer (ArcViewer).",
@@ -214,6 +215,7 @@ const T = {
     quais: "Difficulties", densidade: "Amount of notes", leve: "lighter", normal: "normal", cheio: "fuller", procurando: "Looking up the song…",
     confira: "Check the name and artist before generating.", sem_dif: "Tick at least one difficulty.", renomear: "Rename", apagar: "Delete map",
     novo_nome: "Song name:", novo_artista: "Artist:", confirma_apagar: "Remove this map from the list? It goes to the saida\\lixeira folder.",
+    regerar: "Regenerate this difficulty", pergunta_dens: "Amount of notes for this difficulty, from 0.8 (lighter) to 1.3 (fuller):", regerando: "Regenerating…",
     arcos: "held notes", capa_arq: "cover from the file", capa_gen: "no cover in the file: the generic one will be used", fonte: "source" },
 };
 let lingua = "pt";
@@ -361,6 +363,12 @@ function pintar() {
   if (/^https?:\/\//.test(mapa.link || "")) { const a = document.createElement("a"); a.href = mapa.link; a.target = "_blank"; a.rel = "noopener"; a.textContent = t("fonte"); info.append(" · ", a); }
   $("rel").textContent = mapa.relatorio || t("sem_rel");
 }
+$("regerar").onclick = async () => {  // so a dificuldade que esta aberta; as outras ficam como estao
+  const v = prompt(t("pergunta_dens"), "1"); if (v === null) return;
+  const b = $("regerar"); b.disabled = true; b.textContent = t("regerando");
+  try { await api("/api/regerar", { zip: atual, dif, densidade: parseFloat(v.replace(",", ".")) || 1 }); await abrir(atual); } catch (x) { alert(x.message); }
+  b.disabled = false; b.textContent = t("regerar");
+};
 $("renomear").onclick = async () => {
   const nome = prompt(t("novo_nome"), mapa.nome); if (nome === null) return;
   const artista = prompt(t("novo_artista"), mapa.artista); if (artista === null) return;

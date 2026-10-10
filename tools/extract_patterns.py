@@ -1,6 +1,6 @@
-r"""Monta a biblioteca de padroes a partir dos mapas humanos em dados\mapas (ver baixar_mapas.py).
+r"""Monta a biblioteca de padroes a partir dos mapas humanos em dados\mapas (ver download_maps.py).
 
-  .venv\Scripts\python.exe ferramentas\extrair_padroes.py
+  .venv\Scripts\python.exe tools\extract_patterns.py
 
 Um padrao e o que um mapper humano colocou numa janela de 1, 2 ou 4 batidas, guardado pela "mascara" de ritmo
 (quantas notas em cada casa de 1/4). So entram janelas limpas: tudo na grade de 1/4, sem bombas, sem notas de ponto,
@@ -105,7 +105,7 @@ def janelas_do_mapa(notas, bombas, correntes):
 def main():
     meta = [json.loads(l) for l in (DADOS / "meta.jsonl").read_text(encoding="utf-8").splitlines()]
     meta = list({m["id"]: m for m in meta}.values())  # mapa baixado de novo (dificuldades a mais): vale a ultima linha
-    lib = {d: {L: defaultdict(Counter) for L in JANELAS} for d in ("Normal", "Hard", "Expert", "ExpertPlus")}
+    lib = {d: {L: defaultdict(Counter) for L in JANELAS} for d in ("Easy", "Normal", "Hard", "Expert", "ExpertPlus")}
     usados = Counter()
     for m in meta:
         for dif in m["diffs"]:

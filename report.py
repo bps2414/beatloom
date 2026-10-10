@@ -1,6 +1,6 @@
 r"""Relatorio automatico de um mapa (zip ou pasta). Funciona com mapa nosso, do Beat Sage ou humano.
 
-  .venv\Scripts\python.exe relatorio.py <mapa.zip> [--humano <pasta do mapa humano>]
+  .venv\Scripts\python.exe report.py <mapa.zip> [--humano <pasta do mapa humano>]
 
 Escreve <mapa>.relatorio.txt ao lado do zip. Sai com codigo 1 se alguma meta falhar.
 Os numeros nao dizem se o mapa e bom; dizem se ele tem os defeitos que os jogadores mais citam.

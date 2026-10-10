@@ -15,7 +15,7 @@ from beatloom import checks
 from beatloom.audio import CASAS, INSTRUMENTOS, RAIZ
 
 # menor intervalo entre dois golpes da MESMA mao (s): limita a velocidade do braco por dificuldade
-MIN_MAO = {"Normal": 0.30, "Hard": 0.20, "Expert": 0.15, "ExpertPlus": 0.115}
+MIN_MAO = {"Easy": 0.40, "Normal": 0.30, "Hard": 0.20, "Expert": 0.15, "ExpertPlus": 0.115}
 from beatloom.checks import SEM_CRUZAR, VEL_MAO  # teto de velocidade da mao e dificuldades em que o braco nunca cruza (nas outras, cruzar perde pontos)
 TENTATIVAS = 80
 VIRA = {0: 1, 1: 0, 2: 2, 3: 3, 4: 6, 6: 4, 5: 7, 7: 5}  # inverte o corte na vertical
@@ -36,7 +36,7 @@ def variantes(pad):
 def biblioteca(dif):
     arq = RAIZ / "dados" / f"padroes_{dif}.pkl"
     if not arq.exists():
-        raise SystemExit(f"Falta a biblioteca de padroes ({arq.name}). Rode ferramentas\\baixar_mapas.py e depois ferramentas\\extrair_padroes.py.")
+        raise SystemExit(f"Falta a biblioteca de padroes ({arq.name}). Rode tools\\download_maps.py e depois tools\\extract_patterns.py.")
     with open(arq, "rb") as f:
         return pickle.load(f)
 
@@ -144,8 +144,8 @@ def golpes(tempos, an, dif, reacao, etapa, njs=16, arcos=()):
         for off, x, y, c, d in pad:
             aberto = y >= 1 or x in (0, 3) or d >= 4
             p += (0.3 if aberto else -0.1) if it >= 0.6 else (0.3 if not aberto else -0.2) if it <= 0.3 else 0
-            if dif == "Normal" and d >= 4:
-                p -= 0.6  # Normal: golpe simples, pouca diagonal
+            if dif in ("Easy", "Normal") and d >= 4:
+                p -= 0.6  # Easy e Normal: golpe simples, pouca diagonal
         p -= 0.35 * min(usos[pad], 6)
         if dif not in SEM_CRUZAR:
             p -= 1.5 * len(checks.cruzadas([(float(grade[casa0 + o]), x, y, c, d) for o, x, y, c, d in pad]))

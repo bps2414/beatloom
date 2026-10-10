@@ -1,6 +1,6 @@
 r"""Baixa mapas humanos bem avaliados do BeatSaver e guarda SO os arquivos de dificuldade.
 
-  .venv\Scripts\python.exe ferramentas\baixar_mapas.py [quantos=1000]
+  .venv\Scripts\python.exe tools\download_maps.py [quantos=1000]
 
 Filtro: nota >= 85%, >= 50 votos, de 2022 em diante, sem IA, modo Standard, de Easy a Expert+,
 sem Noodle/Mapping Extensions e com zero erro de paridade. O zip e lido na memoria; o audio nunca vai pro disco.

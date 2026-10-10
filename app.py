@@ -9,7 +9,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
-from gerar import DIFS, dados_da_musica, fazer_capa, limpar_titulo
+from generate import DIFS, dados_da_musica, fazer_capa, limpar_titulo
 
 mimetypes.add_type('application/wasm', '.wasm')
 
@@ -62,7 +62,7 @@ def rodar(trab):
             d["capa"] = str(capa) if capa.exists() else None
         d = {**d, **{k: trab[k] for k in ("nome", "artista", "album", "ano") if trab.get(k)}}  # o que a pessoa escreveu vale mais
         trab["titulo"] = d.get("nome") or Path(audio).stem
-        cmd = [PY, "-u", str(RAIZ / "gerar.py"), audio, "--etapa", "4", "--densidade", str(trab.get("densidade") or 1)]
+        cmd = [PY, "-u", str(RAIZ / "generate.py"), audio, "--etapa", "4", "--densidade", str(trab.get("densidade") or 1)]
         cmd += ["--difs", ",".join(trab["difs"])] if trab.get("difs") else []
         for k in ("nome", "artista", "album", "ano", "link", "capa"):
             cmd += [f"--{k}", str(d[k])] if d.get(k) else []
@@ -124,6 +124,26 @@ def renomear(zp, nome, artista):
                 dado = json.dumps(info, ensure_ascii=False, indent=2).encode()
             out.writestr(n, dado)
     novo.replace(zp)
+
+
+def trocar_dificuldade(zp, novo, dif):
+    """Poe no zip `zp` a dificuldade `dif` que esta no zip `novo`, sem mexer nas outras."""
+    with zipfile.ZipFile(novo) as z:
+        ninfo = json.loads(z.read("Info.dat").decode("utf-8-sig"))
+        entrada = next(b for b in ninfo["_difficultyBeatmapSets"][0]["_difficultyBeatmaps"] if b["_difficulty"] == dif)
+        notas = z.read(entrada["_beatmapFilename"])
+    tmp = zp.with_suffix(".tmp")
+    with zipfile.ZipFile(zp) as z, zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED) as out:
+        info = json.loads(z.read("Info.dat").decode("utf-8-sig"))
+        mapas = next(s for s in info["_difficultyBeatmapSets"] if s["_beatmapCharacteristicName"] == "Standard")
+        fora = {b["_beatmapFilename"] for b in mapas["_difficultyBeatmaps"] if b["_difficulty"] == dif} | {"Info.dat", entrada["_beatmapFilename"]}
+        mapas["_difficultyBeatmaps"] = sorted([b for b in mapas["_difficultyBeatmaps"] if b["_difficulty"] != dif] + [entrada], key=lambda b: b["_difficultyRank"])
+        out.writestr("Info.dat", json.dumps(info, ensure_ascii=False, indent=2))
+        out.writestr(entrada["_beatmapFilename"], notas)
+        for n in z.namelist():
+            if n not in fora:
+                out.writestr(n, z.read(n))
+    tmp.replace(zp)
 
 
 def mapa(nome_zip):
@@ -249,13 +269,29 @@ class H(BaseHTTPRequestHandler):
             except (RuntimeError, ValueError) as e:
                 return self.manda({"erro": str(e) if str(e).startswith("ytdlp|") else "ytdlp"}, cod=400)
         zp = SAIDA / Path(d.get("zip") or "-").name
-        if u.path in ("/api/quest", "/api/apagar", "/api/renomear") and not zp.is_file():
+        if u.path in ("/api/quest", "/api/apagar", "/api/renomear", "/api/regerar") and not zp.is_file():
             return self.manda({"erro": "sem_mapa"}, cod=404)
         if u.path == "/api/apagar":  # nao apaga de verdade: vai para saida\lixeira, de onde da para trazer de volta
             (SAIDA / "lixeira").mkdir(exist_ok=True)
             for f in (zp, zp.with_suffix(".relatorio.txt")):
                 if f.exists():
                     f.replace(SAIDA / "lixeira" / f.name)
+            return self.manda({"ok": True})
+        if u.path == "/api/regerar":  # refaz uma dificuldade de um mapa pronto (outra quantidade de notas), sem mexer nas outras
+            if d.get("dif") not in DIFS:
+                return self.manda({"erro": "invalido"}, cod=400)
+            tmp = RAIZ / ".cache" / "regerar"
+            shutil.rmtree(tmp, ignore_errors=True)
+            tmp.mkdir(parents=True)
+            with zipfile.ZipFile(zp) as z:  # o audio sai do proprio mapa, entao a analise ja esta no cache
+                (tmp / "song.egg").write_bytes(z.read(json.loads(z.read("Info.dat").decode("utf-8-sig"))["_songFilename"]))
+            dens = min(max(float(d.get("densidade") or 1), 0.8), 1.3)
+            r = subprocess.run([PY, str(RAIZ / "generate.py"), str(tmp / "song.egg"), "--difs", d["dif"], "--densidade", str(dens), "--nome", "regerar", "--saida", str(tmp)],
+                               capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=RAIZ)
+            if not (tmp / "regerar-v4.zip").exists():
+                return self.manda({"erro": "gerador|" + (r.stdout + r.stderr)[-300:]}, cod=500)
+            trocar_dificuldade(zp, tmp / "regerar-v4.zip", d["dif"])
+            subprocess.run([PY, str(RAIZ / "report.py"), str(zp)], capture_output=True, cwd=RAIZ)  # relatorio do mapa inteiro, de novo
             return self.manda({"ok": True})
         if u.path == "/api/renomear":
             renomear(zp, (d.get("nome") or "").strip(), (d.get("artista") or "").strip())

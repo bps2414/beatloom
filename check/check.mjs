@@ -1,7 +1,7 @@
 // Valida um arquivo de dificuldade com a biblioteca bsmap e conta erros de paridade.
 // O laco de paridade e o mesmo do BeatSaber-MapCheck (src/ts/checks/notes/parity.ts), preset padrao.
 //   node check.mjs <bpm> <duracao_s> <arquivo.dat> [mais arquivos...]
-//   node check.mjs --json <bpm> <duracao_s> <arquivo.dat> ...   (saida para o relatorio.py, com as notas)
+//   node check.mjs --json <bpm> <duracao_s> <arquivo.dat> ...   (saida para o report.py, com as notas)
 import { readFileSync } from 'node:fs';
 import { loadDifficulty, loadInfo, TimeProcessor } from 'bsmap';
 import { Parity } from 'bsmap/extensions/parity';

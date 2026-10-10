@@ -2,7 +2,7 @@
 
 [Português (Brasil)](README.pt-BR.md)
 
-Beatloom turns a song into a Beat Saber map (Normal, Hard, Expert and Expert+) using rules and patterns taken from well-rated human maps. No model is trained. Everything runs on your own computer, on CPU.
+Beatloom turns a song into a Beat Saber map (Easy, Normal, Hard, Expert and Expert+) using rules and patterns taken from well-rated human maps. No model is trained. Everything runs on your own computer, on CPU.
 
 You paste a YouTube link or pick an audio file, wait a few minutes, watch the result in a 3D viewer, and get a zip ready for SongCore.
 
@@ -40,8 +40,8 @@ cd check && npm install && cd ..
 Build the pattern library. The repository does not ship it, because it is derived from other mappers' work. This downloads the note data (no audio) of up to 1000 well-rated maps from BeatSaver at one request per second, which takes about 20 minutes:
 
 ```
-.venv\Scripts\python ferramentas\baixar_mapas.py 1000
-.venv\Scripts\python ferramentas\extrair_padroes.py
+.venv\Scripts\python tools\download_maps.py 1000
+.venv\Scripts\python tools\extract_patterns.py
 ```
 
 Optional, for the 3D viewer inside the web page, get a copy of [ArcViewer](https://github.com/AllPoland/ArcViewer) (GPL-3, about 80 MB):
@@ -65,7 +65,7 @@ It opens http://localhost:8777 and only answers your own computer. Before genera
 Command line:
 
 ```
-.venv\Scripts\python gerar.py "song.mp3" --nome "Song name" --artista "Artist" --capa "picture.jpg"
+.venv\Scripts\python generate.py "song.mp3" --nome "Song name" --artista "Artist" --capa "picture.jpg"
 ```
 
 Name and artist are optional: without them the file tags are used, and failing that the cleaned file name ("Artist - Song"). The cover comes from `--capa`, else from the image embedded in the file, else a generic one. `--difs Normal,Hard` generates only some difficulties and `--densidade 0.8` (up to `1.3`) makes the map lighter or fuller.
@@ -74,14 +74,14 @@ The map goes to `saida\<name>-v4.zip` with `saida\<name>-v4.relatorio.txt` next 
 
 `--etapa 1|2|3|4` picks the generator stage (default 4): 1 simple rhythm with BeatKenja swings, 2 density follows energy and choruses repeat, 3 swings from human patterns, 4 instrument separation and walls.
 
-Other tools: `relatorio.py <zip>` re-runs the checks, `ferramentas\teste_cego.py <a.zip> <b.zip>` builds a blind A/B pair of the same song, and `ferramentas\lote.py <list.txt> <folder>` generates several songs at once and summarises the reports.
+Other tools: `report.py <zip>` re-runs the checks, `tools\blind_test.py <a.zip> <b.zip>` builds a blind A/B pair of the same song, and `tools\batch.py <list.txt> <folder>` generates several songs at once and summarises the reports.
 
 ## Folders
 
 ```
-gerar.py, app.py, relatorio.py   the three commands
-beatloom\                        the core: listening (audio.py), choosing swings (motor.py), checking (checks.py)
-ferramentas\                     pattern library, blind test, batch generation
+generate.py, app.py, report.py   the three commands
+beatloom\                        the core: listening (audio.py), choosing swings (engine.py), checking (checks.py)
+tools\                     pattern library, blind test, batch generation
 site\                            the web page
 check\                           bsmap validation (Node)
 docs\                            how it works

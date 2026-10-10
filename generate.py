@@ -1,6 +1,6 @@
-r"""Gera um mapa de Beat Saber (Normal, Hard, Expert e Expert+) a partir de um arquivo de audio.
+r"""Gera um mapa de Beat Saber (Easy, Normal, Hard, Expert e Expert+) a partir de um arquivo de audio.
 
-  .venv\Scripts\python.exe gerar.py <musica.mp3|ogg|wav> [--nome "Titulo"] [--artista "Nome"] [--capa imagem.jpg]
+  .venv\Scripts\python.exe generate.py <musica.mp3|ogg|wav> [--nome "Titulo"] [--artista "Nome"] [--capa imagem.jpg]
         [--difs Normal,Hard] [--densidade 0.8-1.3] [--album "Album"] [--ano 2024] [--link URL] [--etapa 1-4] [--tag texto]
 
 Nome e artista: o que voce passar, senao as tags do arquivo, senao o nome do arquivo limpo ("Artista - Musica").
@@ -25,6 +25,8 @@ from beatloom.audio import CACHE, CASAS, RAIZ, analisar, ffmpeg, sustentados
 # vazio = maior trecho sem nota (em batidas) que se aceita quando ha som marcante dentro | arcos = pode ter nota segurada
 # NJS e densidade seguem os mapas humanos bem avaliados (dados/tipico.json): a densidade fica perto do quarto mais leve deles
 DIFS = {
+    # Easy: 188 mapas humanos tem mediana NJS 11, 1,64 nota/s, 99% dos tempos na batida ou meia batida e 8% de diagonais
+    "Easy": dict(piso=0.82, rank=1, tps=1.25, gap=0.4, w4=0.0, duplas=0.04, njs=10, salto=23, vazio=6, arcos=False),
     # Normal: 274 mapas humanos tem mediana NJS 12, 97% dos tempos na batida ou meia batida e 17% de diagonais
     "Normal": dict(piso=1.05, rank=3, tps=1.8, gap=0.25, w4=0.0, duplas=0.05, njs=12, salto=25, vazio=4, arcos=False),
     "Hard": dict(piso=1.73, rank=5, tps=2.45, gap=0.16, w4=0.0, duplas=0.12, njs=14, salto=26, vazio=2, arcos=True),
@@ -338,7 +340,10 @@ def gerar(audio, nome=None, artista=None, etapa=4, tag="", saida=None, capa=None
     # o jogo toca o song.egg; a analise roda nele, para o mapa e o audio nunca sairem de sincronia
     egg = pasta / "song.egg"
     # bitexact: a mesma musica da sempre o mesmo song.egg, entao a analise (a parte demorada) sai do cache na segunda vez
-    ffmpeg("-i", audio, "-vn", "-map_metadata", "-1", "-fflags", "+bitexact", "-flags:a", "+bitexact", "-c:a", "libvorbis", "-q:a", "6", "-ar", "44100", "-f", "ogg", egg)
+    if audio.suffix.lower() == ".egg":  # ja e o audio de um mapa (regerar uma dificuldade): copia igual, para a analise sair do cache
+        shutil.copyfile(audio, egg)
+    else:
+        ffmpeg("-i", audio, "-vn", "-map_metadata", "-1", "-fflags", "+bitexact", "-flags:a", "+bitexact", "-c:a", "libvorbis", "-q:a", "6", "-ar", "44100", "-f", "ogg", egg)
     arq_capa = pasta / "cover.png"
     origem_capa = "escolhida" if capa and fazer_capa(capa, arq_capa) else "do arquivo de audio" if fazer_capa(audio, arq_capa) else "generica"
     if origem_capa == "generica":
@@ -367,9 +372,9 @@ def gerar(audio, nome=None, artista=None, etapa=4, tag="", saida=None, capa=None
                 notas, ig, rp = repetir_golpes(notas, an, dif, reacao)
                 extra = f" | compassos repetidos com desenho identico: {ig}/{rp}"
         else:
-            from beatloom import motor
+            from beatloom import engine
             pedidos = reservar_arcos(tempos, an) if etapa >= 4 and cfg["arcos"] else []
-            notas, extra, seg = motor.golpes(tempos, an, dif, reacao, etapa, cfg["njs"], pedidos)
+            notas, extra, seg = engine.golpes(tempos, an, dif, reacao, etapa, cfg["njs"], pedidos)
             notas = consertar(notas, dif, reacao)  # rede de seguranca: sobra rara do motor (so muda posicao)
             # arco = (nota da cabeca, nota da cauda); procura as duas depois do conserto, que pode ter mudado a posicao
             achar = lambda t, c: next(n for n in notas if abs(n[0] - t) < 0.001 and n[3] == c)
@@ -440,7 +445,7 @@ if __name__ == "__main__":
     a = ap.parse_args()
     zp, resumo = gerar(a.audio, a.nome, a.artista, a.etapa, a.tag, a.saida, a.capa, a.difs and a.difs.split(","), min(max(a.densidade, 0.5), 1.6),
                        a.album, a.ano, a.link)
-    from relatorio import relatorio
+    from report import relatorio
     txt, ok = relatorio(zp, a.humano)
     txt += "\n\nGERADOR (etapa %d)\n  " % a.etapa + "\n  ".join(resumo)
     zp.with_suffix(".relatorio.txt").write_text(txt, encoding="utf-8")

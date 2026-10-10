@@ -2,7 +2,7 @@
 
 [English](README.md)
 
-O Beatloom transforma uma música em um mapa de Beat Saber (Normal, Hard, Expert e Expert+) usando regras e padrões tirados de mapas humanos bem avaliados. Nenhum modelo é treinado. Tudo roda no seu computador, só com o processador.
+O Beatloom transforma uma música em um mapa de Beat Saber (Easy, Normal, Hard, Expert e Expert+) usando regras e padrões tirados de mapas humanos bem avaliados. Nenhum modelo é treinado. Tudo roda no seu computador, só com o processador.
 
 Você cola um link do YouTube ou escolhe um arquivo de áudio, espera alguns minutos, assiste ao resultado em um visualizador 3D e recebe um zip pronto para o SongCore.
 
@@ -40,8 +40,8 @@ cd check && npm install && cd ..
 Monte a biblioteca de padrões. Ela não vem no repositório porque é derivada do trabalho de outros mappers. Este passo baixa só as notas (sem áudio) de até 1000 mapas bem avaliados do BeatSaver, um pedido por segundo, uns 20 minutos:
 
 ```
-.venv\Scripts\python ferramentas\baixar_mapas.py 1000
-.venv\Scripts\python ferramentas\extrair_padroes.py
+.venv\Scripts\python tools\download_maps.py 1000
+.venv\Scripts\python tools\extract_patterns.py
 ```
 
 Opcional, para o visualizador 3D dentro da página: uma cópia do [ArcViewer](https://github.com/AllPoland/ArcViewer) (GPL-3, uns 80 MB):
@@ -65,7 +65,7 @@ Abre http://localhost:8777 e só responde ao seu próprio computador. Antes de g
 Pelo terminal:
 
 ```
-.venv\Scripts\python gerar.py "musica.mp3" --nome "Nome" --artista "Artista" --capa "foto.jpg"
+.venv\Scripts\python generate.py "musica.mp3" --nome "Nome" --artista "Artista" --capa "foto.jpg"
 ```
 
 Nome e artista são opcionais: sem eles valem as tags do arquivo e, na falta, o nome do arquivo limpo ("Artista - Música"). A capa vem de `--capa`, senão da imagem embutida no arquivo, senão sai uma genérica. `--difs Normal,Hard` gera só algumas dificuldades e `--densidade 0.8` (até `1.3`) deixa o mapa mais leve ou mais cheio.
@@ -74,14 +74,14 @@ O mapa sai em `saida\<nome>-v4.zip`, com `saida\<nome>-v4.relatorio.txt` ao lado
 
 `--etapa 1|2|3|4` escolhe a versão do gerador (padrão 4): 1 ritmo simples com golpes do BeatKenja, 2 densidade segue a energia e refrões repetem, 3 golpes de padrões humanos, 4 separação de instrumentos e paredes.
 
-Outras ferramentas: `relatorio.py <zip>` refaz as conferências, `ferramentas\teste_cego.py <a.zip> <b.zip>` monta um par A/B embaralhado da mesma música para comparar sem saber qual é qual, e `ferramentas\lote.py <lista.txt> <pasta>` gera várias músicas de uma vez e resume os relatórios.
+Outras ferramentas: `report.py <zip>` refaz as conferências, `tools\blind_test.py <a.zip> <b.zip>` monta um par A/B embaralhado da mesma música para comparar sem saber qual é qual, e `tools\batch.py <lista.txt> <pasta>` gera várias músicas de uma vez e resume os relatórios.
 
 ## Pastas
 
 ```
-gerar.py, app.py, relatorio.py   os três comandos
-beatloom\                        o miolo: ouvir (audio.py), escolher golpes (motor.py), conferir (checks.py)
-ferramentas\                     biblioteca de padrões, teste cego, geração em lote
+generate.py, app.py, report.py   os três comandos
+beatloom\                        o miolo: ouvir (audio.py), escolher golpes (engine.py), conferir (checks.py)
+tools\                     biblioteca de padrões, teste cego, geração em lote
 site\                            a página
 check\                           conferência com o bsmap (Node)
 docs\                            como funciona
