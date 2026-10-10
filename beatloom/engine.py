@@ -2,7 +2,8 @@
 
 Anda pela musica batida a batida. Para cada janela de 4, 2 ou 1 batidas procura na biblioteca um padrao humano com o
 MESMO ritmo, que encaixe no estado atual dos dois sabres (lado do golpe, rotacao do pulso, posicao) e passe pelas
-checagens (paridade sem aviso, bloqueio de visao, palmas, notas empilhadas, velocidade do braco). Compasso repetido
+checagens (paridade sem aviso, bloqueio de visao, palmas, notas empilhadas, velocidade do braco). Entre os que encaixam,
+os melhores sao ensaiados ate 8 batidas a frente e ganha o que deixa o resto da frase sair melhor. Compasso repetido
 tenta primeiro reusar o desenho do compasso original. Se nada servir, cai numa regra simples de sobe-desce.
 """
 import math, pickle, random
@@ -18,6 +19,8 @@ from beatloom.audio import CASAS, INSTRUMENTOS, RAIZ, bateria, voz
 MIN_MAO = {"Easy": 0.40, "Normal": 0.30, "Hard": 0.20, "Expert": 0.15, "ExpertPlus": 0.115}
 from beatloom.checks import SEM_CRUZAR, VEL_MAO  # teto de velocidade da mao e dificuldades em que o braco nunca cruza (nas outras, cruzar perde pontos)
 TENTATIVAS = 80
+EMENDA_RARA = 2.5  # pontos que perde o padrao que emenda no anterior com uma troca de posicao rara em mapa humano
+OLHAR, HORIZONTE, AMOSTRA_ADIANTE = 5, 8, 16  # dos melhores encaixes, quantos sao seguidos adiante; ate quantas batidas a frente; padroes provados por janela nesse ensaio
 VIRA = {0: 1, 1: 0, 2: 2, 3: 3, 4: 6, 6: 4, 5: 7, 7: 5}  # inverte o corte na vertical
 SOBE, DESCE = (0, 4, 5), (1, 6, 7)  # cortes para cima e para baixo
 
@@ -59,6 +62,29 @@ def biblioteca(dif):
         return pickle.load(f)
 
 
+def trocas_humanas(lib):
+    """As trocas de posicao da mesma mao que os mapas humanos fazem -> {(cor, (x, y, direcao) de antes, (x, y, direcao) de depois)}.
+    Saem da propria biblioteca (dentro de cada padrao e da nota anterior para a primeira dele). As mais raras, que somam 2% do total, ficam de fora."""
+    c = Counter()
+    for por_masc in lib.values():
+        for lista in por_masc.values():
+            for pad, pre, freq in lista:
+                ult = [p and p[:3] for p in pre]
+                for _, x, y, cor, d in pad:
+                    if ult[cor]:
+                        c[(cor, ult[cor], (x, y, d))] += freq
+                    ult[cor] = (x, y, d)
+    resto, fora = 0.02 * sum(c.values()), set()
+    for k, n in sorted(c.items(), key=lambda kv: kv[1]):
+        if (resto := resto - n) < 0:
+            break
+        fora.add(k)
+    return set(c) - fora
+
+
+_trocas = lru_cache(None)(lambda dif: trocas_humanas(biblioteca(dif)))
+
+
 class Maos:
     """Estado dos dois sabres: lado do ultimo golpe, rotacao do pulso, ultima nota e quando foi."""
 
@@ -85,7 +111,7 @@ def golpes(tempos, an, dif, reacao, etapa, njs=16, arcos=(), prefs=()):
     """tempos = {casa: 1|2}; arcos = [(casa_ini, casa_fim)] das notas seguradas pedidas.
     prefs = gostos de quem joga: "sem_topo" (nenhuma nota na linha de cima) e "sem_fila" (nenhuma nota logo atras de outra na mesma casa).
     Devolve (notas [(t_s, x, y, cor, dir)], texto de resumo, seguradas [(t_ini, t_fim, cor)], contagens do resumo)."""
-    lib, grade = biblioteca(dif), an["grade"]
+    lib, grade, humanas = biblioteca(dif), an["grade"], _trocas(dif)
     rng = random.Random(f"{an['hash']}-{dif}")
     min_mao, vel_mao = MIN_MAO[dif], VEL_MAO[dif]
     intens = [float(v) for v in an["intens"]]
@@ -131,7 +157,7 @@ def golpes(tempos, an, dif, reacao, etapa, njs=16, arcos=(), prefs=()):
         junto = cauda + novas
         if (checks.bloqueios_de_visao(junto, dif, reacao, checks.FOLGA_VB) or checks.palmas(junto) or checks.empilhadas(junto) or checks.atravessadas(novas)):
             return None
-        if dif in SEM_CRUZAR and any(t >= novas[0][0] for t in checks.cruzadas(junto)):
+        if dif in SEM_CRUZAR and any(t >= novas[0][0] for t in checks.cruzadas(notas[-12:] + novas, 0.41)):  # a cauda e curta aqui (o cruzamento olha 0,4 s para tras); 0,41 porque o mapa gravado arredonda os tempos
             return None
         for i, a in enumerate(junto):
             for z in junto[max(i + 1, len(cauda)):]:
@@ -152,8 +178,7 @@ def golpes(tempos, an, dif, reacao, etapa, njs=16, arcos=(), prefs=()):
                 return (L, b * CASAS, masc, o[1]) if o[0] == masc else None
         return None
 
-    def pontos(pad, pre, casa0):
-        maos = maos_atual[0]
+    def pontos(pad, pre, casa0, maos):
         """Quanto o padrao combina com a situacao: braco vindo do mesmo lugar que no mapa humano, e altura por instrumento."""
         p = 0.0
         for c in (0, 1):
@@ -165,6 +190,10 @@ def golpes(tempos, an, dif, reacao, etapa, njs=16, arcos=(), prefs=()):
             gap = casa0 + next((n[0] for n in pad if n[3] == c), 0) - u[1]
             if gap < min(pre[c][3], 3):
                 p -= 3  # no mapa humano o braco tinha mais tempo para chegar aqui
+        for c in (0, 1):  # a emenda: da ultima nota da mao para a primeira do padrao, uma troca que mapper humano quase nunca faz custa caro
+            u, n = maos.ult[c], next((n for n in pad if n[3] == c), None)
+            if u and n and casa0 + n[0] - u[1] <= 4 * CASAS and (c, u[2:5], (n[1], n[2], n[4])) not in humanas:
+                p -= EMENDA_RARA
         if alto is not None:
             for off, x, y, c, d in pad:
                 i = casa0 + off
@@ -192,6 +221,50 @@ def golpes(tempos, an, dif, reacao, etapa, njs=16, arcos=(), prefs=()):
         if dif not in SEM_CRUZAR:
             p -= 1.5 * len(checks.cruzadas([(float(grade[casa0 + o]), x, y, c, d) for o, x, y, c, d in pad]))
         return p
+
+    amostras = {}  # (casa0, L, n) -> padroes sorteados: o ensaio adiante prova os mesmos para todo candidato, senao compararia sorteios
+
+    def janela(b, maos, notas, n):
+        """A maior janela (4, 2 ou 1 batidas) a partir da batida b que tem padrao encaixando -> (L, mascara, [[pontos, padrao, (novas, maos)]]) ou None."""
+        k = comp_de.get(b)
+        pos = (b - ini_comp[k]) if k is not None else 0
+        for L in (4, 2, 1):
+            if pos % L or pos + L > tam or (b + L) > n_bat or any(x in reservada for x in range(b + 1, b + L)):
+                continue
+            casa0 = b * CASAS
+            masc = "".join(str(tempos.get(casa0 + i, 0)) for i in range(L * CASAS))
+            lista = lib[L].get(masc)
+            if not lista:
+                continue
+            if (casa0, L, n) not in amostras:
+                amostras[(casa0, L, n)] = rng.sample(lista, n) if len(lista) > n else list(lista)
+            achados = [[pontos(pad, pre, casa0, maos) + min(freq, 8) * 0.15 + rng.random() * 0.5, pad, r]
+                       for pad, pre, freq in amostras[(casa0, L, n)] if (r := tentar(pad, casa0, maos, notas))]
+            if achados:
+                return L, masc, achados
+        return None
+
+    def adiante(b, fim, maos, notas):
+        """Ensaio: com os bracos assim, quanto vale o que vem ate a batida `fim`? Segue pela melhor escolha de cada janela, com amostra pequena.
+        Janela maior e padrao que combina somam; desenho repetido que volta a caber soma mais; cair na regra simples desconta."""
+        v, peso = 0.0, 1.0
+        while b < min(fim, n_bat) and b not in reservada:
+            if not any((b * CASAS + i) in tempos for i in range(CASAS)):
+                b += 1
+                continue
+            o = original(b)
+            r = o and not any(x in reservada for x in range(b + 1, b + o[0])) and next(((r, inv) for vr, inv in variantes(o[3]) if (r := tentar(vr, o[1], maos, notas))), None)
+            if r:
+                v, L, r = v + (4 if r[1] else 8) * peso, o[0], r[0]
+            elif j := janela(b, maos, notas, AMOSTRA_ADIANTE):
+                L, _, achados = j
+                p, _, r = max(achados, key=lambda a: a[0])
+                v += peso * (0.5 * p + L)
+            else:
+                return v - 6 * peso
+            notas, maos = notas[-12:] + r[0], r[1]
+            b, peso = b + L, peso * 0.6
+        return v
 
     def regra(casas_da_batida):
         """Ultimo recurso: sobe-desce reto, uma mao por vez, cada mao no seu lado."""
@@ -278,37 +351,22 @@ def golpes(tempos, an, dif, reacao, etapa, njs=16, arcos=(), prefs=()):
                 o = None
             if o is not None:
                 continue
-        for L in (4, 2, 1):
-            if pos % L or pos + L > tam or (b + L) > n_bat or any(x in reservada for x in range(b + 1, b + L)):
-                continue
-            casa0 = b * CASAS
-            masc = "".join(str(tempos.get(casa0 + i, 0)) for i in range(L * CASAS))
-            lista = lib[L].get(masc)
-            if not lista:
-                continue
-            amostra = rng.sample(lista, min(TENTATIVAS, len(lista))) if len(lista) > TENTATIVAS else list(lista)
-            melhor = None
-            for pad, pre, freq in amostra:
-                r = tentar(pad, casa0)
-                if r:
-                    p = pontos(pad, pre, casa0) + min(freq, 8) * 0.15 + rng.random() * 0.5
-                    # antecipacao: vale muito deixar os bracos prontos para o desenho repetido que vem a seguir
-                    nb = next((x for x in range(b + L, min(b + L + 8, n_bat)) if any((x * CASAS + i) in tempos for i in range(CASAS))), None)
-                    prox = original(nb) if nb is not None else None
-                    if prox and tentar(prox[3], prox[1], r[1], notas_todas + r[0]):
-                        p += 20
-                    elif prox and any(tentar(v, prox[1], r[1], notas_todas + r[0]) for v, _ in variantes(prox[3])):
-                        p += 10
-                    if melhor is None or p > melhor[0]:
-                        melhor = (p, pad, r)
-            if melhor:
-                _, pad, r = melhor
-                usos[pad] += 1
-                notas_todas.extend(r[0]); maos_atual[0] = r[1]
-                usado[(k, pos, L)] = (masc, pad)
-                stats[f"padrao{L}"] += 1
-                b += L; feito = True
-                break
+        if j := janela(b, maos_atual[0], notas_todas, TENTATIVAS):
+            L, masc, achados = j
+            # antecipacao: vale muito deixar os bracos prontos para o desenho repetido que vem a seguir
+            nb = next((x for x in range(b + L, min(b + L + 8, n_bat)) if any((x * CASAS + i) in tempos for i in range(CASAS))), None)
+            if prox := original(nb) if nb is not None else None:
+                for a in achados:
+                    ns = notas_todas[-12:] + a[2][0]
+                    a[0] += 20 if tentar(prox[3], prox[1], a[2][1], ns) else 10 if any(tentar(v, prox[1], a[2][1], ns) for v, _ in variantes(prox[3])) else 0
+            # contexto maior: os melhores encaixes sao seguidos ate 8 batidas a frente, e ganha o que deixa o resto da frase sair melhor
+            achados.sort(key=lambda a: -a[0])
+            _, pad, r = max(achados[:OLHAR], key=lambda a: a[0] + adiante(b + L, b + HORIZONTE, a[2][1], notas_todas[-12:] + a[2][0]))
+            usos[pad] += 1
+            notas_todas.extend(r[0]); maos_atual[0] = r[1]
+            usado[(k, pos, L)] = (masc, pad)
+            stats[f"padrao{L}"] += 1
+            b += L; feito = True
         if not feito:
             regra([b * CASAS + i for i in range(CASAS) if (b * CASAS + i) in tempos])
             b += 1
@@ -338,6 +396,10 @@ def demo():
     linha, sentido = alvos_da_voz({"altura": alt, "silaba": [0, 4, 8, 12, 16, 70]})
     assert linha == {0: 1, 4: 1, 8: 2, 12: 1, 16: 0, 70: 1}, linha
     assert sentido == {8: 1, 12: -1, 16: -1}, sentido  # nota igual a anterior e silaba isolada nao tem sentido
+    # 100 vezes o sobe-desce no lugar e uma vez um salto de ponta a ponta: o salto e o 1% mais raro e fica de fora
+    desce, sobe = (0, 1, 0, 0, 1), (0, 1, 2, 0, 0)
+    lib = {1: {"1000": [((desce,), ((1, 2, 0, 4), None), 50), ((sobe,), ((1, 0, 1, 4), None), 50), (((0, 3, 2, 0, 0),), ((0, 0, 1, 4), None), 1)]}}
+    assert trocas_humanas(lib) == {(0, (1, 2, 0), (1, 0, 1)), (0, (1, 0, 1), (1, 2, 0))}, trocas_humanas(lib)
     print("engine ok")
 
 
