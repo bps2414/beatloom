@@ -63,8 +63,9 @@ class Maos:
         return True
 
 
-def golpes(tempos, an, dif, reacao, etapa, njs=16, arcos=()):
+def golpes(tempos, an, dif, reacao, etapa, njs=16, arcos=(), prefs=()):
     """tempos = {casa: 1|2}; arcos = [(casa_ini, casa_fim)] das notas seguradas pedidas.
+    prefs = gostos de quem joga: "sem_topo" (nenhuma nota na linha de cima) e "sem_fila" (nenhuma nota logo atras de outra na mesma casa).
     Devolve (notas [(t_s, x, y, cor, dir)], texto de resumo, seguradas [(t_ini, t_fim, cor)], contagens do resumo)."""
     lib, grade = biblioteca(dif), an["grade"]
     rng = random.Random(f"{an['hash']}-{dif}")
@@ -87,6 +88,8 @@ def golpes(tempos, an, dif, reacao, etapa, njs=16, arcos=()):
     stats = {"padrao4": 0, "padrao2": 0, "padrao1": 0, "regra": 0, "rep_tentou": 0, "rep_igual": 0, "rep_inv": 0, "descartadas": 0}
 
     colado = max(1.425 / njs, 0.12)  # cores diferentes na mesma casa precisam deste intervalo (MapCheck: hitboxInline)
+    topo = 1 if "sem_topo" in prefs else 2  # linha mais alta que pode ter nota
+    fila = checks.JANELA_FILA if "sem_fila" in prefs else 0
 
     def tentar(padrao, casa0, maos=None, notas=None):
         """Tenta colar o padrao a partir da casa0. Devolve (novas_notas, novas_maos) ou None."""
@@ -95,18 +98,18 @@ def golpes(tempos, an, dif, reacao, etapa, njs=16, arcos=()):
         for off, x, y, c, d in padrao:
             casa = casa0 + off
             t = float(grade[casa])
-            if not m.bate(t, casa, x, y, c, d, min_mao, vel_mao):
+            if y > topo or not m.bate(t, casa, x, y, c, d, min_mao, vel_mao):
                 return None
             novas.append((t, x, y, c, d))
         cauda = [n for n in notas[-12:] if n[0] >= novas[0][0] - reacao - 0.05]
         junto = cauda + novas
-        if (checks.bloqueios_de_visao(junto, dif, reacao) or checks.palmas(junto) or checks.empilhadas(junto) or checks.atravessadas(novas)):
+        if (checks.bloqueios_de_visao(junto, dif, reacao, checks.FOLGA_VB) or checks.palmas(junto) or checks.empilhadas(junto) or checks.atravessadas(novas)):
             return None
         if dif in SEM_CRUZAR and any(t >= novas[0][0] for t in checks.cruzadas(junto)):
             return None
         for i, a in enumerate(junto):
             for z in junto[max(i + 1, len(cauda)):]:
-                if a[3] != z[3] and (a[1], a[2]) == (z[1], z[2]) and 0.011 < z[0] - a[0] < colado:
+                if (a[1], a[2]) == (z[1], z[2]) and 0.011 < z[0] - a[0] < max(colado if a[3] != z[3] else 0, fila):
                     return None
         return novas, m
 
@@ -162,7 +165,7 @@ def golpes(tempos, an, dif, reacao, etapa, njs=16, arcos=()):
                 if postas >= q:
                     break
                 desce = maos.est[c][0] == "b"
-                for d, y in ((1, 0), (6 if c == 0 else 7, 0)) if desce else ((0, 2), (4 if c == 0 else 5, 2), (0, 0)):
+                for d, y in ((1, 0), (6 if c == 0 else 7, 0)) if desce else ((0, topo), (4 if c == 0 else 5, topo), (0, 0)):
                     x = (1 if y == 0 else 0) if c == 0 else (2 if y == 0 else 3)
                     r = tentar([(0, x, y, c, d)], casa)
                     if r:
@@ -179,7 +182,7 @@ def golpes(tempos, an, dif, reacao, etapa, njs=16, arcos=()):
     reservada = set(ini_arco) | {e // CASAS for _, e in arcos}
 
     def cabeca(c, sobe):
-        return (0, 1 + c, 0 if sobe else 2, c, 0 if sobe else 1)
+        return (0, 1 + c, 0 if sobe else topo, c, 0 if sobe else 1)
 
     def comecar_arco(s, e):
         maos = maos_atual[0]
@@ -194,7 +197,7 @@ def golpes(tempos, an, dif, reacao, etapa, njs=16, arcos=()):
     def terminar_arco(e, t0, quem):
         for c, sobe in quem.items():
             ponta, meio = (0, 1) if c == 0 else (3, 2)
-            for x, y in ((ponta, 1), (ponta, 0 if sobe else 2), (meio, 0 if sobe else 2), (ponta, 2 if sobe else 0)):
+            for x, y in ((ponta, 1), (ponta, 0 if sobe else topo), (meio, 0 if sobe else topo), (ponta, topo if sobe else 0)):
                 if r := tentar([(0, x, y, c, 1 if sobe else 0)], e):
                     notas_todas.extend(r[0]); maos_atual[0] = r[1]
                     seguradas.append((t0, float(grade[e]), c))

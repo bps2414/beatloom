@@ -17,6 +17,10 @@ IDA = {0: (1, 3, 6, 7), 1: (1, 2, 6, 7)}  # direcoes que so fazem sentido como g
 VEL_MAO = {"Easy": 6, "Normal": 6, "Hard": 8, "Expert": 10, "ExpertPlus": 12}
 SEM_CRUZAR = ("Easy", "Normal", "Hard")  # nestas o braco nunca cruza
 VB = {"Easy": (0.025, 1.2), "Normal": (0.05, 1), "Hard": (0.08, 0.75), "Expert": (0.1, 0.625), "ExpertPlus": (0.1, 0.5)}
+# quem GERA confere o bloqueio de visao com esta folga (s): o mapa gravado arredonda os tempos, e um intervalo exatamente no limite
+# (0,5 s no Expert+) passava no motor e falhava na conferencia final
+FOLGA_VB = 0.01
+JANELA_FILA = 0.3  # preferencia "sem_fila": duas notas na mesma casa a menos disto (s) contam como uma escondendo a outra
 
 
 def paridade_inicial(c, d):
@@ -144,10 +148,22 @@ def meio_salto(njs, bpm, offset=0.0):
     return max(h + offset, 0.25)
 
 
-def bloqueios_de_visao(notas, dificuldade, hjd_s):
+def enfileiradas(notas, janela=JANELA_FILA):
+    """Duas notas seguidas na mesma casa, de qualquer cor: a da frente esconde a de tras."""
+    notas, out = sorted(notas), []
+    for i, a in enumerate(notas):
+        for b in notas[i + 1:]:
+            if b[0] > a[0] + janela:
+                break
+            if (a[1], a[2]) == (b[1], b[2]) and b[0] - a[0] > 0.011:
+                out.append(b[0])
+    return out
+
+
+def bloqueios_de_visao(notas, dificuldade, hjd_s, folga=0.0):
     """Nota no centro da grade (linha do meio) seguida de nota atras dela, do mesmo lado (MapCheck: visionBlock)."""
     tmin, tmax = VB.get(dificuldade, VB["ExpertPlus"])
-    tmax = min(hjd_s, tmax)
+    tmin, tmax = tmin - folga, min(hjd_s, tmax) + folga
     out, midl, midr = [], None, None
     for n in sorted(notas):
         t, x, y = n[0], n[1], n[2]
@@ -184,6 +200,9 @@ def demo():
     assert cruzadas([(0, 2, 0, 0, 1), (0, 1, 0, 1, 1)]) == [0] and not cruzadas([(0, 1, 0, 0, 1), (0, 2, 0, 1, 1)])
     assert corridas([(0, 0, 0, 0, 1), (0.2, 3, 2, 0, 0)], 10) == [0.2] and not corridas([(0, 0, 0, 0, 1), (0.5, 3, 2, 0, 0)], 10)
     assert bloqueios_de_visao([(0, 1, 1, 0, 1), (0.3, 0, 0, 0, 0)], "Expert", 0.5) == [0.3]
+    # no limite de 0,5 s do Expert+ o arredondamento decide; com a folga de quem gera, pega dos dois lados
+    assert not bloqueios_de_visao([(0, 2, 1, 1, 7), (0.5000001, 3, 1, 0, 3)], "ExpertPlus", 1) and bloqueios_de_visao([(0, 2, 1, 1, 7), (0.5000001, 3, 1, 0, 3)], "ExpertPlus", 1, FOLGA_VB)
+    assert enfileiradas([(0, 1, 0, 0, 1), (0.2, 1, 0, 1, 1)]) == [0.2] and not enfileiradas([(0, 1, 0, 0, 1), (0.2, 2, 0, 1, 1), (0.5, 1, 0, 0, 0)])
     assert abs(meio_salto(16, 120) - 2) < 1e-9
     print("checks ok")
 

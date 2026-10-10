@@ -164,7 +164,7 @@ def golpes_beatkenja(tempos, bpm, grade, nome):
 
 
 def defeitos(notas, dif, reacao):
-    return len(checks.bloqueios_de_visao(notas, dif, reacao)) + len(checks.palmas(notas)) + len(checks.empilhadas(notas))
+    return len(checks.bloqueios_de_visao(notas, dif, reacao, checks.FOLGA_VB)) + len(checks.palmas(notas)) + len(checks.empilhadas(notas))
 
 
 def esforco(notas, dif):
@@ -173,21 +173,21 @@ def esforco(notas, dif):
             + (len(checks.cruzadas(notas)) if dif in checks.SEM_CRUZAR else 0))
 
 
-def consertar(notas, dif, reacao):
+def consertar(notas, dif, reacao, topo=2):
     """Tira bloqueios de visao, palmas e notas empilhadas mexendo so na POSICAO (a paridade nao depende dela)."""
     notas = list(notas)
     for _ in range(3):
         if not defeitos(notas, dif, reacao):
             break
         for k, (t, x, y, c, d) in enumerate(notas):
-            ruins = set(checks.bloqueios_de_visao(notas, dif, reacao)) | set(checks.palmas(notas)) | set(checks.empilhadas(notas))
+            ruins = set(checks.bloqueios_de_visao(notas, dif, reacao, checks.FOLGA_VB)) | set(checks.palmas(notas)) | set(checks.empilhadas(notas))
             perto = [t2 for t2 in ruins if -reacao - 0.01 <= t - t2 <= 0.011]
             if not perto:
                 continue
             base = defeitos(notas, dif, reacao)
             # tenta as casas da propria mao, das mais naturais para as menos
             lado = (0, 1) if c == 0 else (3, 2)
-            for nx, ny in [(lado[1], 0), (lado[0], 0), (lado[0], 1), (lado[0], 2), (lado[1], 2)]:
+            for nx, ny in [(lado[1], 0), (lado[0], 0), (lado[0], 1), (lado[0], 2), (lado[1], 2)][:5 if topo == 2 else 3]:
                 teste = notas[:k] + [(t, nx, ny, c, d)] + notas[k + 1:]
                 if defeitos(teste, dif, reacao) < base and esforco(teste[max(k - 8, 0):k + 9], dif) <= esforco(notas[max(k - 8, 0):k + 9], dif):
                     notas = teste
@@ -318,7 +318,7 @@ def salto_offset(njs, bpm, alvo):
     return round(max(alvo / (2 * njs * 60 / bpm), 0.25) - h, 2)
 
 
-def gerar(audio, nome=None, artista=None, etapa=4, tag="", saida=None, capa=None, difs=None, densidade=1.0, album=None, ano=None, link=None):
+def gerar(audio, nome=None, artista=None, etapa=4, tag="", saida=None, capa=None, difs=None, densidade=1.0, album=None, ano=None, link=None, prefs=()):
     audio = Path(audio)
     if not audio.exists():
         sys.exit(f"Arquivo nao encontrado: {audio}")
@@ -359,7 +359,7 @@ def gerar(audio, nome=None, artista=None, etapa=4, tag="", saida=None, capa=None
 
     ev = luzes(an, bpm)
     mapas, resumo = [], [f"capa {origem_capa} | densidade x{densidade:g}"]
-    ger = {"etapa": etapa, "capa": origem_capa.split()[-1], "densidade": densidade, "difs": {}}  # o mesmo resumo em numeros, para o .relatorio.json
+    ger = {"etapa": etapa, "capa": origem_capa.split()[-1], "densidade": densidade, "prefs": sorted(prefs), "difs": {}}  # o mesmo resumo em numeros, para o .relatorio.json
     for dif in difs:
         cfg = dict(DIFS[dif], tps=DIFS[dif]["tps"] * densidade)
         print(f"[2/4] {dif}: escolhendo os tempos e os golpes...", flush=True)
@@ -375,8 +375,8 @@ def gerar(audio, nome=None, artista=None, etapa=4, tag="", saida=None, capa=None
         else:
             from beatloom import engine
             pedidos = reservar_arcos(tempos, an) if etapa >= 4 and cfg["arcos"] else []
-            notas, extra, seg, ger["difs"][dif] = engine.golpes(tempos, an, dif, reacao, etapa, cfg["njs"], pedidos)
-            notas = consertar(notas, dif, reacao)  # rede de seguranca: sobra rara do motor (so muda posicao)
+            notas, extra, seg, ger["difs"][dif] = engine.golpes(tempos, an, dif, reacao, etapa, cfg["njs"], pedidos, prefs)
+            notas = consertar(notas, dif, reacao, 1 if "sem_topo" in prefs else 2)  # rede de seguranca: sobra rara do motor (so muda posicao)
             # arco = (nota da cabeca, nota da cauda); procura as duas depois do conserto, que pode ter mudado a posicao
             achar = lambda t, c: next(n for n in notas if abs(n[0] - t) < 0.001 and n[3] == c)
             arcos = [(achar(t0, c), achar(t1, c)) for t0, t1, c in seg]
@@ -442,10 +442,11 @@ if __name__ == "__main__":
     ap.add_argument("--densidade", type=float, default=1.0, help="multiplica a quantidade de notas (0.8 = mais leve, 1.3 = mais cheio)")
     ap.add_argument("--album"); ap.add_argument("--ano"); ap.add_argument("--link", help="de onde a musica veio")
     ap.add_argument("--etapa", type=int, default=4, choices=(1, 2, 3, 4))
+    ap.add_argument("--prefs", default="", help="gostos de quem joga, separados por virgula: sem_topo (nada na linha de cima), sem_fila (nada logo atras de outra nota na mesma casa)")
     ap.add_argument("--saida"); ap.add_argument("--humano", help="pasta de um mapa humano da mesma musica, para comparar os tempos")
     a = ap.parse_args()
     zp, resumo, ger = gerar(a.audio, a.nome, a.artista, a.etapa, a.tag, a.saida, a.capa, a.difs and a.difs.split(","), min(max(a.densidade, 0.5), 1.6),
-                       a.album, a.ano, a.link)
+                       a.album, a.ano, a.link, {p for p in a.prefs.split(",") if p in ("sem_topo", "sem_fila")})
     import report
     R = report.conferir(zp, a.humano)
     for D in R["difs"]:
