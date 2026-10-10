@@ -140,7 +140,7 @@ fieldset { border: 0; padding: 0; margin: 0; } legend { padding: 0; color: var(-
 .densidade { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; font-size: 14px; color: var(--texto-2); }
 .densidade input { grid-column: 1 / -1; width: 100%; accent-color: var(--dir); }
 .chave { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: start; cursor: pointer; } .chave input { margin-top: 1px; }
-.chave + .chave { margin-top: 12px; } .chave span { display: grid; } .chave b { font-weight: 600; }
+.chave + .chave, .chave + .escolha { margin-top: 12px; } .escolha small { display: block; margin-top: 6px; } .chave span { display: grid; } .chave b { font-weight: 600; }
 .solta { display: grid; gap: 2px; justify-items: center; padding: 18px; border: 1.5px dashed rgba(255, 255, 255, .28); border-radius: 10px; background: none; color: var(--texto-2); font-size: 14px; }
 .solta b { color: var(--texto); font-weight: 600; overflow-wrap: anywhere; } .solta:hover, .solta.sobre { border-color: var(--dir); background: rgba(47, 143, 255, .08); }
 .previa { display: grid; grid-template-columns: 76px 1fr; gap: 8px 12px; align-items: start; }

@@ -190,15 +190,15 @@ def defeitos(notas, dif, reacao):
     return len(checks.bloqueios_de_visao(notas, dif, reacao, checks.FOLGA_VB)) + len(checks.palmas(notas)) + len(checks.empilhadas(notas))
 
 
-def esforco(notas, dif):
+def esforco(notas, dif, prefs=()):
     """O que o conserto nao pode piorar ao mexer numa posicao: troca rapida demais para a mao, sabre atravessando nota, braco cruzado."""
     return (len(checks.corridas(notas, checks.VEL_MAO[dif])) + len(checks.atravessadas(notas))
-            + (len(checks.cruzadas(notas)) if dif in checks.SEM_CRUZAR else 0))
+            + (len(checks.cruzadas(notas)) if checks.teto_cruzadas(dif, prefs) is not None else 0))
 
 
-def consertar(notas, dif, reacao, topo=2):
+def consertar(notas, dif, reacao, prefs=()):
     """Tira bloqueios de visao, palmas e notas empilhadas mexendo so na POSICAO (a paridade nao depende dela)."""
-    notas = list(notas)
+    notas, topo = list(notas), 1 if "sem_topo" in prefs else 2
     for _ in range(3):
         if not defeitos(notas, dif, reacao):
             break
@@ -212,7 +212,7 @@ def consertar(notas, dif, reacao, topo=2):
             lado = (0, 1) if c == 0 else (3, 2)
             for nx, ny in [(lado[1], 0), (lado[0], 0), (lado[0], 1), (lado[0], 2), (lado[1], 2)][:5 if topo == 2 else 3]:
                 teste = notas[:k] + [(t, nx, ny, c, d)] + notas[k + 1:]
-                if defeitos(teste, dif, reacao) < base and esforco(teste[max(k - 8, 0):k + 9], dif) <= esforco(notas[max(k - 8, 0):k + 9], dif):
+                if defeitos(teste, dif, reacao) < base and esforco(teste[max(k - 8, 0):k + 9], dif, prefs) <= esforco(notas[max(k - 8, 0):k + 9], dif, prefs):
                     notas = teste
                     break
     return notas
@@ -224,16 +224,16 @@ PASSO = {0: (0, 1), 1: (0, -1), 2: (-1, 0), 3: (1, 0), 4: (-1, 1), 5: (1, 1), 6:
 PILHAS = {"Hard": 3, "Expert": 8, "ExpertPlus": 15}
 
 
-def empilhar(notas, peso, dif, reacao, topo=2, fila=False, presas=()):
+def empilhar(notas, peso, dif, reacao, prefs=(), presas=()):
     """Pilha em acento: nos ataques mais fortes a nota ganha outra da mesma cor na casa vizinha, na linha do corte, e um golpe so passa pelas duas.
 
     peso(t) = forca do ataque no instante t; presas = {(t, cor)} das notas que nao podem ganhar par (pontas de nota segurada).
     Do acento mais forte para o mais fraco, ate a cota da dificuldade, com 2 s entre uma pilha e outra. So onde a mao tem 0,25 s livres antes e
     depois e a nota a mais nao cria defeito nem esforco. Dupla ganha pilha nas duas maos ou em nenhuma. No Expert e no Expert+, a primeira
     pilha de corte reto para cima ou para baixo que tiver a coluna livre vira torre: uma por mapa. -> (notas, pilhas, torres)"""
-    notas = sorted(notas)
+    notas, topo, fila = sorted(notas), 1 if "sem_topo" in prefs else 2, "sem_fila" in prefs
     cota, feitas, torres, onde = round(PILHAS.get(dif, 0) * len(notas) / 1000), 0, 0, []
-    ruim = lambda ns: (defeitos(ns, dif, reacao), esforco(ns, dif), len(checks.enfileiradas(ns)) if fila else 0)
+    ruim = lambda ns: (defeitos(ns, dif, reacao), esforco(ns, dif, prefs), len(checks.enfileiradas(ns)) if fila else 0)
     por_t = {}
     for n in notas:
         por_t.setdefault(n[0], []).append(n)
@@ -478,11 +478,11 @@ def gerar(audio, nome=None, artista=None, etapa=4, tag="", saida=None, capa=None
             from beatloom import engine
             pedidos = reservar_arcos(tempos, an, cfg["piso"] * 1.06 * an["dur"]) if etapa >= 4 and cfg["arcos"] else []
             notas, extra, seg, ger["difs"][dif] = engine.golpes(tempos, an, dif, reacao, etapa, cfg["njs"], pedidos, prefs)
-            notas = consertar(notas, dif, reacao, 1 if "sem_topo" in prefs else 2)  # rede de seguranca: sobra rara do motor (so muda posicao)
+            notas = consertar(notas, dif, reacao, prefs)  # rede de seguranca: sobra rara do motor (so muda posicao)
             if etapa >= 4:  # vocabulario: pilha (e uma torre) nos acentos; o prato de ataque passa na frente, como nas duplas
                 fz = np.maximum(an["forca"], an["forca_inst"].max(0)) + (bateria(an) == 4) if "forca_inst" in an else an["forca"]
                 fz = fz * it_casa  # acento de trecho calmo vale menos: e nele que a mao esta livre, e as pilhas iam todas parar la
-                notas, np_, nt = empilhar(notas, lambda t: fz[casa_de[round(t, 4)]], dif, reacao, 1 if "sem_topo" in prefs else 2, "sem_fila" in prefs, {(t, c) for a, z, c in seg for t in (a, z)})
+                notas, np_, nt = empilhar(notas, lambda t: fz[casa_de[round(t, 4)]], dif, reacao, prefs, {(t, c) for a, z, c in seg for t in (a, z)})
                 ger["difs"][dif].update(pilhas=np_, torres=nt)
                 extra += f" | pilhas em acento: {np_}" + (f" e {nt} torre" if nt else "")
             # arco = (nota da cabeca, nota da cauda); procura as duas depois do conserto, que pode ter mudado a posicao
@@ -561,11 +561,11 @@ if __name__ == "__main__":
     ap.add_argument("--densidade", type=float, default=1.0, help="multiplica a quantidade de notas (0.8 = mais leve, 1.3 = mais cheio)")
     ap.add_argument("--album"); ap.add_argument("--ano"); ap.add_argument("--link", help="de onde a musica veio")
     ap.add_argument("--etapa", type=int, default=4, choices=(1, 2, 3, 4))
-    ap.add_argument("--prefs", default="", help="gostos de quem joga, separados por virgula: sem_topo (nada na linha de cima), sem_fila (nada logo atras de outra nota na mesma casa)")
+    ap.add_argument("--prefs", default="", help="gostos de quem joga, separados por virgula: sem_topo (nada na linha de cima), sem_fila (nada logo atras de outra nota na mesma casa), cruzar_nunca ou cruzar_livre (bracos cruzados; sem nenhum dos dois, pouco)")
     ap.add_argument("--saida"); ap.add_argument("--humano", help="pasta de um mapa humano da mesma musica, para comparar os tempos")
     a = ap.parse_args()
     zp, resumo, ger = gerar(a.audio, a.nome, a.artista, a.etapa, a.tag, a.saida, a.capa, a.difs and a.difs.split(","), min(max(a.densidade, 0.5), 1.6),
-                       a.album, a.ano, a.link, {p for p in a.prefs.split(",") if p in ("sem_topo", "sem_fila")})
+                       a.album, a.ano, a.link, {p for p in a.prefs.split(",") if p in ("sem_topo", "sem_fila", "cruzar_nunca", "cruzar_livre")})
     import report
     R = report.conferir(zp, a.humano)
     for D in R["difs"]:

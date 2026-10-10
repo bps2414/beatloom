@@ -17,6 +17,13 @@ IDA = {0: (1, 3, 6, 7), 1: (1, 2, 6, 7)}  # direcoes que so fazem sentido como g
 # Sem este teto saiam trocas de posicao que o braco nao acompanha (dificuldade artificial).
 VEL_MAO = {"Easy": 6, "Normal": 6, "Hard": 8, "Expert": 10, "ExpertPlus": 12}
 SEM_CRUZAR = ("Easy", "Normal", "Hard")  # nestas o braco nunca cruza
+# preferencia "bracos cruzados": nunca = 0, livre = sem teto, pouco (o padrao) = este teto a cada mil notas, que e o quarto dos mapas humanos que menos cruza
+CRUZA_POUCO = {"Expert": 8, "ExpertPlus": 20}
+
+
+def teto_cruzadas(dif, prefs=()):
+    """Quantos bracos cruzados a cada mil notas o mapa pode ter (None = quantos sairem)."""
+    return 0 if dif in SEM_CRUZAR or "cruzar_nunca" in prefs else None if "cruzar_livre" in prefs else CRUZA_POUCO[dif]
 VB = {"Easy": (0.025, 1.2), "Normal": (0.05, 1), "Hard": (0.08, 0.75), "Expert": (0.1, 0.625), "ExpertPlus": (0.1, 0.5)}
 # quem GERA confere o bloqueio de visao com esta folga (s): o mapa gravado arredonda os tempos, e um intervalo exatamente no limite
 # (0,5 s no Expert+) passava no motor e falhava na conferencia final
@@ -199,6 +206,7 @@ def demo():
     assert atravessadas([(0, 0, 1, 0, 4), (0, 1, 0, 1, 6)]) == [0]
     assert not atravessadas([(0, 1, 0, 0, 1), (0, 2, 0, 1, 1)])  # dupla para baixo lado a lado
     assert cruzadas([(0, 2, 0, 0, 1), (0, 1, 0, 1, 1)]) == [0] and not cruzadas([(0, 1, 0, 0, 1), (0, 2, 0, 1, 1)])
+    assert [teto_cruzadas("Hard", {"cruzar_livre"}), teto_cruzadas("Expert"), teto_cruzadas("Expert", {"cruzar_nunca"}), teto_cruzadas("ExpertPlus", {"cruzar_livre"})] == [0, 8, 0, None]
     assert corridas([(0, 0, 0, 0, 1), (0.2, 3, 2, 0, 0)], 10) == [0.2] and not corridas([(0, 0, 0, 0, 1), (0.5, 3, 2, 0, 0)], 10)
     assert bloqueios_de_visao([(0, 1, 1, 0, 1), (0.3, 0, 0, 0, 0)], "Expert", 0.5) == [0.3]
     # no limite de 0,5 s do Expert+ o arredondamento decide; com a folga de quem gera, pega dos dois lados

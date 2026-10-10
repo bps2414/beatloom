@@ -46,7 +46,7 @@ def dados_do_link(j):
 
 
 def config():
-    padrao = {"lingua": None, "quest_ip": "", "difs": list(DIFS), "densidade": 1.0, "modo": "completo", "sem_topo": False, "sem_fila": False, "pronto": False}
+    padrao = {"lingua": None, "quest_ip": "", "difs": list(DIFS), "densidade": 1.0, "modo": "completo", "sem_topo": False, "sem_fila": False, "cruzar": "pouco", "pronto": False}
     try:
         return {**padrao, **json.loads(CONFIG.read_text(encoding="utf-8"))}
     except (OSError, ValueError):
@@ -66,6 +66,8 @@ def gravar_config(d):
         c["densidade"] = min(max(float(d["densidade"]), 0.8), 1.3)
     if d.get("modo") in ("completo", "rapido"):
         c["modo"] = d["modo"]
+    if d.get("cruzar") in ("nunca", "pouco", "livre"):
+        c["cruzar"] = d["cruzar"]
     for k in ("pronto", "sem_topo", "sem_fila"):
         if isinstance(d.get(k), bool):
             c[k] = d[k]
@@ -76,7 +78,7 @@ def gravar_config(d):
 def prefs():
     """Os gostos de quem joga, do jeito que o generate.py recebe em --prefs."""
     c = config()
-    return ",".join(k for k in ("sem_topo", "sem_fila") if c.get(k))
+    return ",".join([k for k in ("sem_topo", "sem_fila") if c.get(k)] + [f"cruzar_{c['cruzar']}"] * (c.get("cruzar") in ("nunca", "livre")))  # "pouco" e o padrao do gerador
 
 
 def guardar_fila():

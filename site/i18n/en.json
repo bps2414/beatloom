@@ -64,6 +64,11 @@
   "sem_topo_sub": "No note at the highest position, the one that makes you raise your arm.",
   "sem_fila": "No note hidden behind another",
   "sem_fila_sub": "Two notes in a row never come in the same spot less than 0.3 s apart.",
+  "cruzar": "Crossed arms",
+  "cruzar_nunca": "Never",
+  "cruzar_pouco": "A little",
+  "cruzar_livre": "Free",
+  "cruzar_sub": "When the left hand hits on the right side, or the other way round. Only happens on Expert and Expert+; on the other difficulties the arms never cross.",
 
   "duracao": "Length",
   "tag_falhou": "a check failed",

@@ -64,6 +64,11 @@
   "sem_topo_sub": "Nenhuma nota na altura mais alta, a que obriga a levantar o braço.",
   "sem_fila": "Sem nota escondida atrás de outra",
   "sem_fila_sub": "Duas notas seguidas nunca vêm no mesmo lugar com menos de 0,3 s entre elas.",
+  "cruzar": "Braços cruzados",
+  "cruzar_nunca": "Nunca",
+  "cruzar_pouco": "Pouco",
+  "cruzar_livre": "Livre",
+  "cruzar_sub": "Quando a mão esquerda vai bater do lado direito, ou o contrário. Só acontece no Expert e no Expert+; nas outras dificuldades os braços nunca cruzam.",
 
   "duracao": "Duração",
   "tag_falhou": "conferência falhou",

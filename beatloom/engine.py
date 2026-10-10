@@ -17,7 +17,7 @@ from beatloom.audio import CASAS, INSTRUMENTOS, RAIZ, bateria, voz
 
 # menor intervalo entre dois golpes da MESMA mao (s): limita a velocidade do braco por dificuldade
 MIN_MAO = {"Easy": 0.40, "Normal": 0.30, "Hard": 0.20, "Expert": 0.15, "ExpertPlus": 0.115}
-from beatloom.checks import SEM_CRUZAR, VEL_MAO  # teto de velocidade da mao e dificuldades em que o braco nunca cruza (nas outras, cruzar perde pontos)
+from beatloom.checks import VEL_MAO  # teto de velocidade da mao
 TENTATIVAS = 80
 EMENDA_RARA = 2.5  # pontos que perde o padrao que emenda no anterior com uma troca de posicao rara em mapa humano
 OLHAR, HORIZONTE, AMOSTRA_ADIANTE = 5, 8, 16  # dos melhores encaixes, quantos sao seguidos adiante; ate quantas batidas a frente; padroes provados por janela nesse ensaio
@@ -124,7 +124,8 @@ class Maos:
 
 def golpes(tempos, an, dif, reacao, etapa, njs=16, arcos=(), prefs=()):
     """tempos = {casa: 1|2}; arcos = [(casa_ini, casa_fim)] das notas seguradas pedidas.
-    prefs = gostos de quem joga: "sem_topo" (nenhuma nota na linha de cima) e "sem_fila" (nenhuma nota logo atras de outra na mesma casa).
+    prefs = gostos de quem joga: "sem_topo" (nenhuma nota na linha de cima), "sem_fila" (nenhuma nota logo atras de outra na mesma casa)
+    e os bracos cruzados: "cruzar_nunca", "cruzar_livre" ou, sem nenhum dos dois, pouco (checks.teto_cruzadas).
     Devolve (notas [(t_s, x, y, cor, dir)], texto de resumo, seguradas [(t_ini, t_fim, cor)], contagens do resumo)."""
     lib, grade, humanas = biblioteca(dif), an["grade"], _trocas(dif)
     rng = random.Random(f"{an['hash']}-{dif}")
@@ -162,6 +163,15 @@ def golpes(tempos, an, dif, reacao, etapa, njs=16, arcos=(), prefs=()):
     colado = max(1.425 / njs, 0.12)  # cores diferentes na mesma casa precisam deste intervalo (MapCheck: hitboxInline)
     topo = 1 if "sem_topo" in prefs else 2  # linha mais alta que pode ter nota
     fila = checks.JANELA_FILA if "sem_fila" in prefs else 0
+    teto, cruzes = checks.teto_cruzadas(dif, prefs), [0]  # bracos cruzados a cada mil notas que o mapa aceita, e quantos ja tem
+
+    def cruza(notas, novas):
+        """Quantas vezes as notas novas cruzam os bracos. A cauda de tentar() e curta para isto (o cruzamento olha 0,4 s para tras); 0,41 porque o mapa gravado arredonda os tempos."""
+        return sum(t >= novas[0][0] for t in checks.cruzadas(notas[-12:] + novas, 0.41))
+
+    def por(r):
+        cruzes[0] += cruza(notas_todas, r[0])
+        notas_todas.extend(r[0]); maos_atual[0] = r[1]
 
     def tentar(padrao, casa0, maos=None, notas=None):
         """Tenta colar o padrao a partir da casa0. Devolve (novas_notas, novas_maos) ou None."""
@@ -177,8 +187,8 @@ def golpes(tempos, an, dif, reacao, etapa, njs=16, arcos=(), prefs=()):
         junto = cauda + novas
         if (checks.bloqueios_de_visao(junto, dif, reacao, checks.FOLGA_VB) or checks.palmas(junto) or checks.empilhadas(junto) or checks.atravessadas(novas)):
             return None
-        if dif in SEM_CRUZAR and any(t >= novas[0][0] for t in checks.cruzadas(notas[-12:] + novas, 0.41)):  # a cauda e curta aqui (o cruzamento olha 0,4 s para tras); 0,41 porque o mapa gravado arredonda os tempos
-            return None
+        if teto is not None and (n := cruza(notas, novas)) and cruzes[0] + n > teto * (len(notas_todas) + len(novas)) / 1000:
+            return None  # acima do teto de bracos cruzados; o ensaio adiante conta so os que o mapa ja tem, o que basta
         for i, a in enumerate(junto):
             for z in junto[max(i + 1, len(cauda)):]:
                 if (a[1], a[2]) == (z[1], z[2]) and 0.011 < z[0] - a[0] < max(colado if a[3] != z[3] else 0, fila):
@@ -248,7 +258,7 @@ def golpes(tempos, an, dif, reacao, etapa, njs=16, arcos=(), prefs=()):
             if dif in ("Easy", "Normal") and d >= 4:
                 p -= 0.6  # Easy e Normal: golpe simples, pouca diagonal
         p -= 0.35 * min(usos[pad], 6)
-        if dif not in SEM_CRUZAR:
+        if teto != 0:
             p -= 1.5 * len(checks.cruzadas([(float(grade[casa0 + o]), x, y, c, d) for o, x, y, c, d in pad]))
         return p
 
@@ -311,7 +321,7 @@ def golpes(tempos, an, dif, reacao, etapa, njs=16, arcos=(), prefs=()):
                     x = (1 if y == 0 else 0) if c == 0 else (2 if y == 0 else 3)
                     r = tentar([(0, x, y, c, d)], casa)
                     if r:
-                        notas_todas.extend(r[0]); maos_atual[0] = maos = r[1]
+                        por(r); maos = r[1]
                         postas += 1
                         break
             stats["descartadas"] += q - postas
@@ -331,7 +341,7 @@ def golpes(tempos, an, dif, reacao, etapa, njs=16, arcos=(), prefs=()):
         sobe = {c: maos.est[c][0] == "f" for c in (0, 1)}
         for cores in ((0, 1), (0,), (1,)):
             if r := tentar([cabeca(c, sobe[c]) for c in cores], s):
-                notas_todas.extend(r[0]); maos_atual[0] = r[1]
+                por(r)
                 fim_arco[e // CASAS] = (e, float(grade[s]), {c: sobe[c] for c in cores})
                 return True
         return False
@@ -341,7 +351,7 @@ def golpes(tempos, an, dif, reacao, etapa, njs=16, arcos=(), prefs=()):
             ponta, meio = (0, 1) if c == 0 else (3, 2)
             for x, y in ((ponta, 1), (ponta, 0 if sobe else topo), (meio, 0 if sobe else topo), (ponta, topo if sobe else 0)):
                 if r := tentar([(0, x, y, c, 1 if sobe else 0)], e):
-                    notas_todas.extend(r[0]); maos_atual[0] = r[1]
+                    por(r)
                     seguradas.append((t0, float(grade[e]), c))
                     break
             else:
@@ -372,7 +382,7 @@ def golpes(tempos, an, dif, reacao, etapa, njs=16, arcos=(), prefs=()):
             stats["rep_tentou"] += 1
             for v, tipo in versoes(o, b):
                 if r := tentar(v, o[1]):
-                    notas_todas.extend(r[0]); maos_atual[0] = r[1]
+                    por(r)
                     usado[(k, pos, o[0])] = (o[2], o[3])
                     stats[f"rep_{tipo}"] += 1; stats[f"padrao{o[0]}"] += 1
                     b += o[0]
@@ -394,7 +404,7 @@ def golpes(tempos, an, dif, reacao, etapa, njs=16, arcos=(), prefs=()):
             achados.sort(key=lambda a: -a[0])
             _, pad, r = max(achados[:OLHAR], key=lambda a: a[0] + adiante(b + L, b + HORIZONTE, a[2][1], notas_todas[-12:] + a[2][0]))
             usos[pad] += 1
-            notas_todas.extend(r[0]); maos_atual[0] = r[1]
+            por(r)
             usado[(k, pos, L)] = (masc, pad)
             stats[f"padrao{L}"] += 1
             b += L; feito = True
