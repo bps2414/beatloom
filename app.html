@@ -71,6 +71,9 @@ h2 { font: 700 18px/1.2 var(--titulo); letter-spacing: -.02em; margin: 0 0 8px; 
 
 .controles { display: flex; align-items: center; gap: 14px; margin-top: 14px; flex-wrap: wrap; }
 .controles { color: var(--tinta-2); font-size: 14px; }
+.difs { display: flex; border: 1.5px solid var(--tinta); border-radius: 999px; overflow: hidden; }
+.difs button { border: 0; background: none; padding: 7px 14px; cursor: pointer; font: 500 14px var(--texto); color: var(--tinta); }
+.difs button[aria-pressed="true"] { background: var(--tinta); color: #fff; }
 
 .resumo { margin-top: 26px; display: grid; grid-template-columns: 1fr auto; gap: 18px 28px; align-items: start; }
 .veredito { font: 700 22px/1.15 var(--titulo); letter-spacing: -.025em; margin: 0; }
@@ -129,7 +132,7 @@ details.rel pre { font: 13px/1.5 ui-monospace, Consolas, monospace; background: 
       <iframe id="visor" title="ArcViewer" allow="autoplay; fullscreen" allowfullscreen hidden></iframe>
       <div class="convite" id="convite" data-t="convite"></div>
     </div>
-    <p class="controles" id="controles" hidden><span data-t="visor"></span>
+    <p class="controles" id="controles" hidden><span class="difs" id="difs" role="group"></span><span data-t="visor"></span>
       <a id="fora" target="_blank" rel="noopener" data-t="cheia"></a></p>
     <section class="resumo" id="resumo" hidden>
       <div><p class="veredito" id="veredito"></p><p class="numeros" id="numeros"></p></div>
@@ -155,7 +158,7 @@ const T = {
   pt: { titulo: "Sua música vira um mapa de Beat Saber", sub: "Hard, Expert e Expert+, com zip pronto para o Quest.", link: "Cole um link do YouTube",
     ou: "ou", escolha: "escolha um arquivo de áudio", trocar_arq: "trocar", trocar: "Trocar o nome que aparece no jogo", nome: "Nome da música", artista: "Artista",
     gerar: "Gerar mapa", mapas: "Seus mapas", sem_mapas: "Nenhum mapa ainda. Cole um link acima para gerar o primeiro.",
-    convite: "Escolha um mapa na lista para assistir antes de jogar", visor: "Visualizador: ArcViewer. Espaço toca e pausa; a dificuldade troca no menu dele.",
+    convite: "Escolha um mapa na lista para assistir antes de jogar", visor: "Espaço toca e pausa. Trocar de dificuldade recarrega o visualizador (ArcViewer).",
     sem_visor: "O visualizador 3D não está instalado. Veja no README como baixar o ArcViewer.", cheia: "Abrir em tela cheia", baixar: "Baixar zip", quest: "Mandar ao Quest",
     rel: "Relatório completo", fila: "Na fila", comecando: "Começando…", metas_ok: "Metas ok", ver_rel: "Ver relatório",
     v_sem: "Este mapa ainda não foi conferido", v_ok: "Passou em todas as conferências", v_nao: "Alguma conferência falhou", notas: "notas", vel: "velocidade", sem_rel: "Sem relatório.",
@@ -168,7 +171,7 @@ const T = {
   en: { titulo: "Your song becomes a Beat Saber map", sub: "Hard, Expert and Expert+, in a zip ready for the Quest.", link: "Paste a YouTube link",
     ou: "or", escolha: "choose an audio file", trocar_arq: "change", trocar: "Change the name shown in the game", nome: "Song name", artista: "Artist",
     gerar: "Generate map", mapas: "Your maps", sem_mapas: "No maps yet. Paste a link above to generate the first one.",
-    convite: "Pick a map from the list to watch it before you play", visor: "Viewer: ArcViewer. Space plays and pauses; change difficulty in its menu.",
+    convite: "Pick a map from the list to watch it before you play", visor: "Space plays and pauses. Switching difficulty reloads the viewer (ArcViewer).",
     sem_visor: "The 3D viewer is not installed. See the README for how to download ArcViewer.", cheia: "Open full screen", baixar: "Download zip", quest: "Send to Quest",
     rel: "Full report (in Portuguese)", fila: "Queued", comecando: "Starting…", metas_ok: "Checks passed", ver_rel: "See report",
     v_sem: "This map has not been checked yet", v_ok: "Passed every check", v_nao: "A check failed", notas: "notes", vel: "speed", sem_rel: "No report.",
@@ -254,12 +257,23 @@ async function atualizar() {
 async function abrir(zip) {
   atual = zip;
   mapa = await api("/api/mapa?zip=" + encodeURIComponent(zip));
-  const visor = "/arcviewer/?noProxy=true&difficulty=Expert&url=" + encodeURIComponent(location.origin + "/zip/" + encodeURIComponent(zip));
-  if (temVisor) { $("visor").src = visor; $("fora").href = visor; }
+  const box = $("difs"); box.innerHTML = "";
+  for (const d of mapa.difs) {
+    const b = document.createElement("button"); b.textContent = NOMES[d.nome] || d.nome; b.dataset.n = d.nome;
+    b.onclick = () => verDif(d.nome); box.append(b);
+  }
+  verDif(mapa.difs.some((d) => d.nome === dif) ? dif : mapa.difs.some((d) => d.nome === "Expert") ? "Expert" : mapa.difs[0].nome);
   $("visor").hidden = !temVisor; $("controles").hidden = !temVisor; $("convite").hidden = temVisor;
   $("resumo").hidden = false; $("quest-saida").hidden = true;
   $("baixar").href = "/api/zip?zip=" + encodeURIComponent(zip);
   pintar(); atualizar();
+}
+let dif = "Expert";
+function verDif(nome) {  // trocar de dificuldade recarrega o ArcViewer ja nela (uns segundos)
+  dif = nome;
+  for (const b of $("difs").children) b.setAttribute("aria-pressed", b.dataset.n === nome);
+  const visor = `/arcviewer/?noProxy=true&difficulty=${nome}&url=` + encodeURIComponent(location.origin + "/zip/" + encodeURIComponent(atual));
+  if (temVisor) { $("visor").src = visor; $("fora").href = visor; }
 }
 function pintar() {
   if (!temVisor) $("convite").textContent = t("sem_visor");
