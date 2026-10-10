@@ -196,10 +196,16 @@ Roadmap bloco 3 item 9 (atualizar os mapas antigos de uma vez, análise em camad
 Execute os itens 1 a 5 do bloco 1.3 do roadmap, um por vez. Antes do item 2, confira se o Beat Saber do Quest respeita as cores gravadas no mapa. A cada item: confira que o mapa passa na conferência e faça commit. Não pare para aprovar entre itens. No fim, atualize o roadmap, push, e me diga duas músicas para eu ver.
 ```
 
-1.3, segunda parte (correntes e arcos, bombas e paredes, modos de jogo, opções do mapa: itens 6 a 9 e 11):
+1.3, segunda parte, o que vale mais (correntes e arcos, bombas e paredes: itens 6 e 7; Opus 5.5 médio, porque mexe no motor de golpes):
 
 ```text
-Execute os itens 6, 7, 8, 9 e 11 do bloco 1.3 do roadmap, um por vez. No item 11 só aparece na tela o que o gerador já sabe fazer. A cada item: meça com tools/medir.py, confira que o mapa passa na conferência e faça commit. Não pare para aprovar entre itens. No fim, atualize o roadmap, push, e me diga duas músicas para eu testar.
+Execute os itens 6 e 7 do bloco 1.3 do roadmap (correntes e arcos melhores; bombas e paredes com função), um por vez. Respeite as preferências sem_topo e sem_fila e a paridade. A cada item: meça antes e depois com tools/medir.py, confira que o mapa passa na conferência, desfaça se piorar, e faça commit. Não pare para aprovar entre itens. No fim, atualize o roadmap, push, e me diga duas músicas para eu testar.
+```
+
+1.3, o resto da segunda parte, quando der vontade (velocidade por trecho e opções do mapa: itens 9 e 11; modos de jogo, item 8, só se o dono jogar Um Sabre ou 360):
+
+```text
+Execute os itens 9 e 11 do bloco 1.3 do roadmap, um por vez. No item 11 só aparece na tela o que o gerador já sabe fazer. A cada item: confira que o mapa passa na conferência e faça commit. No fim, atualize o roadmap, push.
 ```
 
 1.3 item 10, Chroma (depois da primeira parte do 1.3):
