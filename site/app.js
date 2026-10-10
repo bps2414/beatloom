@@ -78,7 +78,7 @@ function previa(d, capa, info) {  // capa, nome e artista antes de gerar, para a
 function semPrevia() { $("previa").hidden = true; $("nome").value = ""; $("artista").value = ""; extra = {}; miniatura = null; lista = null; }
 function abrirNovo() {
   if ($("d-novo").open) return;
-  $("erro").hidden = true; alternadores("escolha", cfg.difs); $("dens").value = cfg.densidade; dens("dens"); $("rapido").checked = cfg.modo === "rapido";
+  $("erro").hidden = true; alternadores("escolha", cfg.difs); $("dens").value = cfg.densidade; dens("dens"); $("rapido").checked = cfg.modo === "rapido"; $("sabres").checked = !!cfg.sabres_capa;
   $("d-novo").showModal();
 }
 $("novo").onclick = $("vz-novo").onclick = abrirNovo;
@@ -118,7 +118,7 @@ $("form").onsubmit = async (e) => {
     const link = $("link").value.trim(), difs = marcadasEm("escolha");
     if (!difs.length) throw new Error(t("sem_dif"));
     if (!link && arquivo && !subido) subido = await api("/api/arquivo?nome=" + enc(arquivo.name), arquivo, true);
-    const comum = { difs, densidade: +$("dens").value, modo: $("rapido").checked ? "rapido" : "completo" };
+    const comum = { difs, densidade: +$("dens").value, modo: $("rapido").checked ? "rapido" : "completo", sabres_capa: $("sabres").checked };
     if (link && lista) {  // um trabalho por faixa, na fila; o servidor pula as que ja tem mapa e refaz as que falharam na conferencia
       const r = await api("/api/gerar", { lista: lista.map((m) => ({ link: m.link, titulo: m.nome, capa: m.capa })), ...comum });
       if (r.pulados || r.refeitos) avisar(t("lista_repetida", { novos: r.novos, pulados: r.pulados, refeitos: r.refeitos }));
@@ -397,13 +397,14 @@ async function verConfig() {
   cfg = await api("/api/config");
   $("c-cache").textContent = t("cache_tam", { n: mb(cfg.cache) }); $("c-torch").textContent = t(cfg.placa ? "motor_placa" : "motor_cpu");
   $("c-dens").value = cfg.densidade; dens("c-dens"); $("c-rapido").checked = cfg.modo === "rapido";
-  $("c-sem-topo").checked = !!cfg.sem_topo; $("c-sem-fila").checked = !!cfg.sem_fila;
+  $("c-sem-topo").checked = !!cfg.sem_topo; $("c-sem-fila").checked = !!cfg.sem_fila; $("c-sabres").checked = !!cfg.sabres_capa;
   for (const b of $("c-cruzar").children) b.setAttribute("aria-pressed", b.dataset.v === cfg.cruzar);
   alternadores("c-difs", cfg.difs, () => (marcadasEm("c-difs").length ? salvar({ difs: marcadasEm("c-difs") }) : verConfig()));  // a ultima marcada nao sai
 }
 $("c-dens").onchange = () => salvar({ densidade: +$("c-dens").value });
 $("c-sem-topo").onchange = () => salvar({ sem_topo: $("c-sem-topo").checked });
 $("c-sem-fila").onchange = () => salvar({ sem_fila: $("c-sem-fila").checked });
+$("c-sabres").onchange = () => salvar({ sabres_capa: $("c-sabres").checked });
 for (const b of $("c-cruzar").children) b.onclick = async () => { await salvar({ cruzar: b.dataset.v }); verConfig(); };
 $("c-rapido").onchange = () => salvar({ modo: $("c-rapido").checked ? "rapido" : "completo" });
 $("c-limpar").onclick = async () => {

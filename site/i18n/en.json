@@ -64,6 +64,8 @@
   "sem_topo_sub": "No note at the highest position, the one that makes you raise your arm.",
   "sem_fila": "No note hidden behind another",
   "sem_fila_sub": "Two notes in a row never come in the same spot less than 0.3 s apart.",
+  "sabres_capa": "Sabers and notes in the cover colors",
+  "sabres_capa_sub": "The map lights already use the colors of the song cover. When on, so do the sabers and notes, as long as the two tones are clearly different; otherwise they stay the usual red and blue.",
   "cruzar": "Crossed arms",
   "cruzar_nunca": "Never",
   "cruzar_pouco": "A little",

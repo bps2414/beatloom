@@ -3,8 +3,10 @@
 Uma deixa e (segundo, luz, acao, cor, brilho). luz: 0 fundo, 1 aneis, 2 lasers da esquerda, 3 lasers da direita, 4 centro.
 acao: 0 apaga, 1 acende, 2 clarao (estoura e fica aceso), 3 pulso (estoura e some). cor: 0 e 1 sao as duas cores do mapa, 2 e branco.
 As outras deixas sao (segundo, GIRO ou ZOOM, 0, 0, 0) para os aneis e (segundo, VEL_E ou VEL_D, velocidade, 0, 0) para os lasers.
+
+As cores saem da capa (cores): um par para o mapa e outro para o reforco ("boost"), que entra na queda (reforco).
 """
-import sys
+import colorsys, subprocess, sys
 
 import numpy as np
 
@@ -74,7 +76,69 @@ def basicos(D, bt):
     return [{"b": b, "et": e, "i": int(v), "f": f} for (b, e), (v, f) in sorted(ev.items())]
 
 
+def reforco(an, bt, pt=None):
+    """Eventos de reforco de cor: o segundo par de cores entra em cada queda e sai no fim dela."""
+    bat, ic, pt = an["batidas"], an["ini_comp"], partes(an) if pt is None else pt
+    q = [p == "queda" for p in pt]
+    return [{"b": round(bt(float(bat[ic[k]])), 3), "o": q[k]} for k in range(len(q)) if q[k] != (k > 0 and q[k - 1])]
+
+
+def paleta(px):
+    """Pixels RGB de 0 a 1, [n, 3] -> ((cor A, cor B), (A do reforco, B do reforco)) ou None.
+
+    A e o tom que mais aparece na imagem; B e o segundo, se estiver a pelo menos 60 graus de A na roda de cores, senao e o tom oposto a A (a maioria
+    das capas tem um tom so, e duas luzes da mesma cor nao servem). O par do reforco sao os dois tons seguintes, ou os do primeiro par girados 30 graus
+    quando a capa nao tem mais tons. Sai tudo com brilho cheio e bastante saturacao, porque luz escura nao aparece.
+    None = capa cinza (menos de 8% de pixels com cor): o mapa fica com as cores do jogo.
+    """
+    px = np.asarray(px, float)
+    v, mn = px.max(1), px.min(1)
+    sat = np.where(v > 0, (v - mn) / np.maximum(v, 1e-9), 0)
+    c = (sat >= 0.3) & (v >= 0.25)
+    if c.mean() < 0.08:
+        return None
+    r, g, b = px[c].T
+    d = np.maximum(v[c] - mn[c], 1e-9)
+    tom = np.where(v[c] == r, (g - b) / d % 6, np.where(v[c] == g, (b - r) / d + 2, (r - g) / d + 4)) / 6
+    N = 24  # fatias de 15 graus
+    h = np.bincount((tom * N).astype(int) % N, weights=sat[c] * v[c], minlength=N)
+    h = (np.roll(h, 1) + 2 * h + np.roll(h, -1)) / 4
+    dist = lambda i: np.minimum(abs(np.arange(N) - i), N - abs(np.arange(N) - i))  # de cada fatia ate a fatia i, em fatias
+    tem = lambda resto: resto.max() >= 0.04 * h.sum()  # um tom que quase nao aparece nao conta
+    a = int(np.argmax(h))
+    b = int(np.argmax(h * (dist(a) >= 4))) if tem(h * (dist(a) >= 4)) else (a + N // 2) % N
+    # reforco: o terceiro e o quarto tons da capa (a 45 graus ou mais do primeiro par); o que faltar e um do primeiro par girado 30 graus
+    resto = h * (dist(a) >= 3) * (dist(b) >= 3)
+    a2 = int(np.argmax(resto)) if tem(resto) else (a + 2) % N
+    resto = resto * (dist(a2) >= 4)
+    b2 = int(np.argmax(resto)) if tem(resto) else max((a + 2) % N, (b + 2) % N, key=lambda i: dist(a2)[i])
+    na_fatia = lambda i: sat[c][(tom * N).astype(int) % N == i]
+    cor = lambda i: tuple(round(x, 3) for x in colorsys.hsv_to_rgb((i + 0.5) / N, float(np.clip(np.median(na_fatia(i)) if len(na_fatia(i)) else 1, 0.7, 1)), 1.0))
+    return (cor(a), cor(b)), (cor(a2), cor(b2))
+
+
+def cores(imagem):
+    """A paleta (ver paleta) de um arquivo de imagem, ou None se nao der para ler."""
+    r = subprocess.run(["ffmpeg", "-loglevel", "error", "-i", str(imagem), "-vf", "scale=48:48", "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], capture_output=True)
+    return paleta(np.frombuffer(r.stdout, np.uint8).reshape(-1, 3) / 255) if r.returncode == 0 and len(r.stdout) == 48 * 48 * 3 else None
+
+
+def contraste(a, b):
+    """Dois tons servem para sabre e nota? So se estiverem a 90 graus ou mais um do outro: com menos, na pressa, uma nota parece a outra."""
+    d = abs(colorsys.rgb_to_hsv(*a)[0] - colorsys.rgb_to_hsv(*b)[0])
+    return min(d, 1 - d) >= 0.25
+
+
 def demo():
+    rng = np.random.default_rng(0)
+    cinza, verm, azul, verde = rng.random((300, 1)) * np.ones((1, 3)), [0.8, 0.1, 0.1] + rng.random((300, 3)) * 0.1, [0.1, 0.2, 0.9] + rng.random((200, 3)) * 0.1, [0.1, 0.6, 0.3] + rng.random((100, 3)) * 0.05
+    assert paleta(cinza) is None and paleta(np.vstack([cinza, verm]))[0] == ((1.0, 0.259, 0.153), (0.0, 0.875, 1.0))  # cinza; e um tom so, que ganha o oposto
+    (a, b), (a2, b2) = paleta(np.vstack([cinza, verm, azul, verde]))
+    assert a[0] == 1 and a[2] < 0.3 and b[2] == 1 and b[0] < 0.3 and contraste(a, b), (a, b)  # vermelho na frente (aparece mais), depois azul; os dois de brilho cheio
+    assert a2[1] == 1 and max(a2[0], a2[2]) < 0.6 and b2 not in (a, b), (a2, b2)  # o reforco comeca pelo verde, o terceiro tom
+    assert not contraste((1, 0, 0), (1, 0.8, 0)) and contraste((1, 0, 0), (0, 0.4, 1))
+    an_r = {"batidas": np.arange(21.0), "ini_comp": np.arange(0, 21, 4)}
+    assert reforco(an_r, lambda t: t, ["verso", "queda", "queda", "verso", "queda"]) == [{"b": 4.0, "o": True}, {"b": 12.0, "o": False}, {"b": 16.0, "o": True}]
     # 4 compassos de 4 batidas, uma por segundo: verso, pausa, queda, queda. Bumbo na batida 1 de cada compasso, caixa na 3, prato de ataque abrindo a queda
     pc = np.zeros(65, int)
     pc[[0, 16, 32, 48]], pc[[8, 24, 40, 56]], pc[32] = 1, 2, 4

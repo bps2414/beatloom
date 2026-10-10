@@ -440,9 +440,18 @@ def gerar(audio, nome=None, artista=None, etapa=4, tag="", saida=None, capa=None
     casa_de = {round(float(t), 4): i for i, t in enumerate(an["grade"])}
     it_casa = np.asarray(an["intens"])[np.clip(np.searchsorted(an["ini_comp"] * CASAS, np.arange(len(an["grade"])), "right") - 1, 0, len(an["intens"]) - 1)]  # intensidade do compasso de cada casa
     bt = lambda t: round(bt_(t), 4)
-    ev = luzes.basicos(luzes.deixas(an), bt)
-    mapas, resumo = [], [f"capa {origem_capa} | densidade x{densidade:g}"]
-    ger = {"etapa": etapa, "capa": origem_capa.split()[-1], "densidade": densidade, "prefs": sorted(prefs), "difs": {}}  # o mesmo resumo em numeros, para o .relatorio.json
+    ev, boost = luzes.basicos(luzes.deixas(an), bt), luzes.reforco(an, bt)
+    # cores da capa: as luzes sempre; sabres e notas so se a pessoa pediu e os dois tons forem bem diferentes. O SongCore le isto do _customData de cada dificuldade
+    pal = luzes.cores(arq_capa) if origem_capa != "generica" else None
+    rgb = lambda c: dict(zip("rgb", c))
+    cores_mapa = {}
+    if pal:
+        cores_mapa = {"_envColorLeft": rgb(pal[0][0]), "_envColorRight": rgb(pal[0][1]), "_envColorLeftBoost": rgb(pal[1][0]), "_envColorRightBoost": rgb(pal[1][1])}
+        if "sabres_capa" in prefs and luzes.contraste(*pal[0]):
+            cores_mapa.update(_colorLeft=rgb(pal[0][0]), _colorRight=rgb(pal[0][1]))
+    hexa = [["#%02x%02x%02x" % tuple(round(x * 255) for x in c) for c in par] for par in pal or ()]
+    mapas, resumo = [], [f"capa {origem_capa} | densidade x{densidade:g} | cores " + (" ".join(hexa[0]) + ", na queda " + " ".join(hexa[1]) + (" (sabres tambem)" if "_colorLeft" in cores_mapa else "") if pal else "do jogo")]
+    ger = {"etapa": etapa, "capa": origem_capa.split()[-1], "densidade": densidade, "prefs": sorted(prefs), "cores": hexa, "sabres": "_colorLeft" in cores_mapa, "difs": {}}  # o mesmo resumo em numeros, para o .relatorio.json
     for dif in difs:
         cfg = dict(DIFS[dif], tps=DIFS[dif]["tps"] * densidade)
         print(f"[2/4] {dif}: escolhendo os tempos e os golpes...", flush=True)
@@ -479,11 +488,11 @@ def gerar(audio, nome=None, artista=None, etapa=4, tag="", saida=None, capa=None
             # arco (nota segurada): sai da nota da cabeca e chega na nota da cauda, as duas da mesma cor
             "sliders": [{"c": a[3], "b": bt(a[0]), "x": a[1], "y": a[2], "d": a[4], "mu": 1, "tb": bt(z[0]), "tx": z[1], "ty": z[2], "tc": z[4], "tmu": 1, "m": 0}
                         for a, z in arcos],
-            "burstSliders": [], "waypoints": [], "basicBeatmapEvents": ev, "colorBoostBeatmapEvents": [],
+            "burstSliders": [], "waypoints": [], "basicBeatmapEvents": ev, "colorBoostBeatmapEvents": boost,
             "lightColorEventBoxGroups": [], "lightRotationEventBoxGroups": [], "lightTranslationEventBoxGroups": [],
             "basicEventTypesWithKeywords": {"d": []}, "useNormalEventsAsCompatibleEvents": False}))
         mapas.append({"_difficulty": dif, "_difficultyRank": cfg["rank"], "_beatmapFilename": arq,
-                      "_noteJumpMovementSpeed": cfg["njs"], "_noteJumpStartBeatOffset": off})
+                      "_noteJumpMovementSpeed": cfg["njs"], "_noteJumpStartBeatOffset": off, **({"_customData": cores_mapa} if cores_mapa else {})})
         resumo.append(f"{dif}: {len(notas)} notas{extra}")
 
     # previa: comeca no trecho de 4 compassos mais intenso
@@ -542,11 +551,11 @@ if __name__ == "__main__":
     ap.add_argument("--densidade", type=float, default=1.0, help="multiplica a quantidade de notas (0.8 = mais leve, 1.3 = mais cheio)")
     ap.add_argument("--album"); ap.add_argument("--ano"); ap.add_argument("--link", help="de onde a musica veio")
     ap.add_argument("--etapa", type=int, default=4, choices=(1, 2, 3, 4))
-    ap.add_argument("--prefs", default="", help="gostos de quem joga, separados por virgula: sem_topo (nada na linha de cima), sem_fila (nada logo atras de outra nota na mesma casa), cruzar_nunca ou cruzar_livre (bracos cruzados; sem nenhum dos dois, pouco)")
+    ap.add_argument("--prefs", default="", help="gostos de quem joga, separados por virgula: sem_topo (nada na linha de cima), sem_fila (nada logo atras de outra nota na mesma casa), cruzar_nunca ou cruzar_livre (bracos cruzados; sem nenhum dos dois, pouco), sabres_capa (sabres e notas com as cores da capa)")
     ap.add_argument("--saida"); ap.add_argument("--humano", help="pasta de um mapa humano da mesma musica, para comparar os tempos")
     a = ap.parse_args()
     zp, resumo, ger = gerar(a.audio, a.nome, a.artista, a.etapa, a.tag, a.saida, a.capa, a.difs and a.difs.split(","), min(max(a.densidade, 0.5), 1.6),
-                       a.album, a.ano, a.link, {p for p in a.prefs.split(",") if p in ("sem_topo", "sem_fila", "cruzar_nunca", "cruzar_livre")})
+                       a.album, a.ano, a.link, {p for p in a.prefs.split(",") if p in ("sem_topo", "sem_fila", "cruzar_nunca", "cruzar_livre", "sabres_capa")})
     import report
     R = report.conferir(zp, a.humano)
     for D in R["difs"]:

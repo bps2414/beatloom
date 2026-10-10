@@ -46,7 +46,7 @@ def dados_do_link(j):
 
 
 def config():
-    padrao = {"lingua": None, "quest_ip": "", "difs": list(DIFS), "densidade": 1.0, "modo": "completo", "sem_topo": False, "sem_fila": False, "cruzar": "pouco", "pronto": False}
+    padrao = {"lingua": None, "quest_ip": "", "difs": list(DIFS), "densidade": 1.0, "modo": "completo", "sem_topo": False, "sem_fila": False, "cruzar": "pouco", "sabres_capa": False, "pronto": False}
     try:
         return {**padrao, **json.loads(CONFIG.read_text(encoding="utf-8"))}
     except (OSError, ValueError):
@@ -68,17 +68,18 @@ def gravar_config(d):
         c["modo"] = d["modo"]
     if d.get("cruzar") in ("nunca", "pouco", "livre"):
         c["cruzar"] = d["cruzar"]
-    for k in ("pronto", "sem_topo", "sem_fila"):
+    for k in ("pronto", "sem_topo", "sem_fila", "sabres_capa"):
         if isinstance(d.get(k), bool):
             c[k] = d[k]
     CONFIG.write_text(json.dumps(c, indent=1), encoding="utf-8")
     return c
 
 
-def prefs():
-    """Os gostos de quem joga, do jeito que o generate.py recebe em --prefs."""
+def prefs(sabres=None):
+    """Os gostos de quem joga, do jeito que o generate.py recebe em --prefs. `sabres` = o que a pessoa marcou no dialogo de mapa novo; sem isso vale a Configuracao."""
     c = config()
-    return ",".join([k for k in ("sem_topo", "sem_fila") if c.get(k)] + [f"cruzar_{c['cruzar']}"] * (c.get("cruzar") in ("nunca", "livre")))  # "pouco" e o padrao do gerador
+    c["sabres_capa"] = c.get("sabres_capa") if sabres is None else sabres
+    return ",".join([k for k in ("sem_topo", "sem_fila", "sabres_capa") if c.get(k)] + [f"cruzar_{c['cruzar']}"] * (c.get("cruzar") in ("nunca", "livre")))  # "pouco" e o padrao do gerador
 
 
 def guardar_fila():
@@ -98,16 +99,20 @@ def ler_fila():
 
 
 def egg_do_mapa(zp, onde):
-    """Poe o audio do mapa em .cache\\regerar\\<onde>. Devolve (pasta, etapa em que o mapa foi feito, dificuldades que ele tem)."""
+    """Poe o audio do mapa em .cache\\regerar\\<onde>, e a capa se ela for da musica. Devolve (pasta, etapa em que o mapa foi feito, dificuldades que ele tem, argumento --capa do gerador)."""
     tmp = RAIZ / ".cache" / "regerar" / onde
     shutil.rmtree(tmp, ignore_errors=True)
     tmp.mkdir(parents=True)
     with zipfile.ZipFile(zp) as z:
         info = json.loads(z.read("Info.dat").decode("utf-8-sig"))
         (tmp / "song.egg").write_bytes(z.read(info["_songFilename"]))
+        capa = []
+        if ((ler_relatorio(zp) or {}).get("gerador") or {}).get("capa") not in (None, "generica"):  # da capa saem as cores do mapa; a generica (e a de mapa antigo, que nao diz qual e) nao conta
+            (tmp / "cover.png").write_bytes(z.read(info["_coverImageFilename"]))
+            capa = ["--capa", str(tmp / "cover.png")]
     etapa = (re.search(r"auto v([1-4])", info.get("_songSubName", "")) or ["", "4"])[1]  # o mapa refeito sai no mesmo modo (completo ou rapido)
     difs = [b["_difficulty"] for s in info["_difficultyBeatmapSets"] if s["_beatmapCharacteristicName"] == "Standard" for b in s["_difficultyBeatmaps"]]
-    return tmp, etapa, [x for x in DIFS if x in difs]
+    return tmp, etapa, [x for x in DIFS if x in difs], capa
 
 
 def enviados():
@@ -142,10 +147,10 @@ def rodar(trab):
         if refaz:  # refaz as notas de um mapa pronto com as regras e os gostos de agora; o audio sai do zip, entao a analise ja esta no cache
             zp = SAIDA / refaz
             ger = (ler_relatorio(zp) or {}).get("gerador") or {}
-            tmp, etapa, difs = egg_do_mapa(zp, "fila")
+            tmp, etapa, difs, capa = egg_do_mapa(zp, "fila")
             trab["difs"] = difs
             cmd = [PY, "-u", str(RAIZ / "generate.py"), str(tmp / "song.egg"), "--etapa", etapa, "--densidade", str(ger.get("densidade") or 1), "--difs", ",".join(difs),
-                   "--nome", "regerar", "--saida", str(tmp), "--prefs", prefs()]
+                   "--nome", "regerar", "--saida", str(tmp), "--prefs", prefs(), *capa]
         else:
             if trab.get("link"):
                 passo("baixando")
@@ -163,7 +168,7 @@ def rodar(trab):
             trab["titulo"] = d.get("nome") or Path(audio).stem
             cmd = [PY, "-u", str(RAIZ / "generate.py"), audio, "--etapa", str(trab.get("etapa") or 4), "--densidade", str(trab.get("densidade") or 1)]
             cmd += ["--difs", ",".join(trab["difs"])] if trab.get("difs") else []
-            cmd += ["--prefs", prefs()]
+            cmd += ["--prefs", prefs(trab.get("sabres_capa"))]
             for k in ("nome", "artista", "album", "ano", "link", "capa"):
                 cmd += [f"--{k}", str(d[k])] if d.get(k) else []
         p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8", errors="replace", cwd=RAIZ)
@@ -192,7 +197,8 @@ def rodar(trab):
             subprocess.run([PY, str(RAIZ / "report.py"), str(zp)], capture_output=True, cwd=RAIZ)  # relatorio do mapa inteiro, de novo
             R = ler_relatorio(zp)
             if R:  # o report.py nao sabe como o mapa foi gerado: a densidade e os gostos ficam para a proxima vez
-                R["gerador"] = {**ger, "prefs": [x for x in prefs().split(",") if x]}
+                ng = (ler_relatorio(novo) or {}).get("gerador") or {}
+                R["gerador"] = {**ger, **{k: ng[k] for k in ("cores", "sabres") if k in ng}, "prefs": [x for x in prefs().split(",") if x]}
                 zp.with_suffix(".relatorio.json").write_text(json.dumps(R, ensure_ascii=False), encoding="utf-8")
             trab["zip"] = zp.name
         elif not trab.get("zip"):
@@ -434,7 +440,7 @@ class H(BaseHTTPRequestHandler):
                 novos.append({"id": int(time.time() * 1000) + i, "estado": "na fila", "passos": [], "progresso": None, "capa": capa, "titulo": str(d.get("nome") or d.get("titulo") or "").strip() or link or Path(arq).name,
                               "link": link or None, "arquivo": arq, **{k: str(d.get(k) or "").strip() or None for k in ("nome", "artista", "album", "ano")},
                               "difs": [x for x in DIFS if x in (d.get("difs") or DIFS)] or list(DIFS),
-                              "densidade": min(max(float(d.get("densidade") or 1), 0.8), 1.3),
+                              "densidade": min(max(float(d.get("densidade") or 1), 0.8), 1.3), "sabres_capa": d["sabres_capa"] if isinstance(d.get("sabres_capa"), bool) else None,
                               "etapa": 3 if (d.get("modo") or config()["modo"]) == "rapido" else 4})  # rapido = sem separar instrumentos (etapa 3 do gerador)
             if not novos and not pulados:
                 return self.manda({"erro": "vazio"}, cod=400)
@@ -512,10 +518,10 @@ class H(BaseHTTPRequestHandler):
         if u.path == "/api/regerar":  # refaz uma dificuldade de um mapa pronto (outra quantidade de notas), sem mexer nas outras
             if d.get("dif") not in DIFS:
                 return self.manda({"erro": "invalido"}, cod=400)
-            tmp, etapa, _ = egg_do_mapa(zp, "um")  # o audio sai do proprio mapa, entao a analise ja esta no cache
+            tmp, etapa, _, capa = egg_do_mapa(zp, "um")  # o audio sai do proprio mapa, entao a analise ja esta no cache
             novo = tmp / f"regerar-v{etapa}.zip"
             dens = min(max(float(d.get("densidade") or 1), 0.8), 1.3)
-            r = subprocess.run([PY, str(RAIZ / "generate.py"), str(tmp / "song.egg"), "--difs", d["dif"], "--densidade", str(dens), "--etapa", etapa, "--nome", "regerar", "--saida", str(tmp), "--prefs", prefs()],
+            r = subprocess.run([PY, str(RAIZ / "generate.py"), str(tmp / "song.egg"), "--difs", d["dif"], "--densidade", str(dens), "--etapa", etapa, "--nome", "regerar", "--saida", str(tmp), "--prefs", prefs(), *capa],
                                capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=RAIZ)
             if not novo.exists():
                 return self.manda({"erro": "gerador|" + (r.stdout + r.stderr)[-300:]}, cod=500)

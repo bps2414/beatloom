@@ -64,6 +64,8 @@
   "sem_topo_sub": "Nenhuma nota na altura mais alta, a que obriga a levantar o braço.",
   "sem_fila": "Sem nota escondida atrás de outra",
   "sem_fila_sub": "Duas notas seguidas nunca vêm no mesmo lugar com menos de 0,3 s entre elas.",
+  "sabres_capa": "Sabres e notas com as cores da capa",
+  "sabres_capa_sub": "As luzes do mapa já saem com as cores da capa da música. Ligado, os sabres e as notas também, quando os dois tons são bem diferentes um do outro; senão ficam o vermelho e o azul de sempre.",
   "cruzar": "Braços cruzados",
   "cruzar_nunca": "Nunca",
   "cruzar_pouco": "Pouco",
