@@ -77,11 +77,7 @@ Pedido do dono: melhorar o mapa, deixar mais bonito, usar mais recursos do próp
 
 Um por sessão, para colar como está. Entre parênteses, o modelo sugerido.
 
-1.0 (Sonnet 5.5 alto):
-
-```text
-Roadmap 1.0 mínimo: script de medição nas músicas que já tenho em saida, sem mapa humano. Mostre os números de hoje e faça commit e push ao final.
-```
+1.0: feito em 10/10/2026 (`tools/medir.py`), não precisa rodar de novo. Falta só a parte opcional, comparar com o Beat Sage e o TopMapper.
 
 1.1 inteira (Opus 5.5 médio):
 
