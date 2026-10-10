@@ -98,8 +98,6 @@ Para proteger as músicas que já ficaram boas, acrescente a qualquer pedido: "E
 
 ## 5. Projeto
 
-- Rodar os `--demo` e o `tools/check_i18n.py` na CI a cada push.
-- Notas de release agrupadas (novidades, correções) em vez da lista crua de commits.
 - Assinar o instalador, para o SmartScreen não assustar. Custa um certificado.
 
 ## Fora do roadmap

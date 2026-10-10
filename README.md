@@ -130,7 +130,9 @@ Each module has a minimal test: `python generate.py --demo`, `python -m beatloom
 
 ### Release
 
-`git tag v1.0.1` and `git push origin v1.0.1` make CI (`.github\workflows\release.yml`) build `beatloom-setup.exe` with Inno Setup (`installer\beatloom.iss`) and publish the release with the list of commits since the previous tag.
+Write the `## v1.2.0` section in [CHANGELOG.md](CHANGELOG.md) (in Portuguese), commit, and push the tag: `git tag v1.2.0` and `git push origin v1.2.0`. CI (`.github\workflows\release.yml`) builds `beatloom-setup.exe` with Inno Setup (`installer\beatloom.iss`) and publishes the release with that section and, folded, the list of commits since the previous tag.
+
+On every push, `.github\workflows\ci.yml` runs the `--demo` checks and `tools\check_i18n.py`.
 
 ### Colab and Kaggle
 
