@@ -83,7 +83,7 @@ The link can be a YouTube playlist: each track is queued and becomes a map, one 
 
 The installer and the release come from CI (`.github\workflows\release.yml`): `git tag v1.0.1` and `git push origin v1.0.1` build `beatloom-setup.exe` with Inno Setup (`installer\beatloom.iss`) and publish the release with the list of commits since the previous tag.
 
-To generate in bulk on a Google Colab GPU (a YouTube playlist or a folder of audio files in your Drive), open [colab/beatloom.ipynb](https://colab.research.google.com/github/bps2414/beatloom/blob/main/colab/beatloom.ipynb). Each person runs it in their own account; the zips go to their Drive. It has no page and no viewer.
+To generate in bulk on a Google Colab GPU (a YouTube playlist or a folder of audio files in your Drive), open [colab/beatloom.ipynb](https://colab.research.google.com/github/bps2414/beatloom/blob/main/colab/beatloom.ipynb). The same notebook runs on Kaggle (import the file there; the zips come out in the Output tab). Each person runs it in their own account; on Colab the zips go to their Drive. It has no page and no viewer.
 
 On the page, "fast mode" (in the new-map dialog, or as the default in settings) generates at stage 3: about 6 times faster, without separating the instruments, so no held notes and no walls.
 
