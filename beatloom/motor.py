@@ -5,16 +5,18 @@ MESMO ritmo, que encaixe no estado atual dos dois sabres (lado do golpe, rotacao
 checagens (paridade sem aviso, bloqueio de visao, palmas, notas empilhadas, velocidade do braco). Compasso repetido
 tenta primeiro reusar o desenho do compasso original. Se nada servir, cai numa regra simples de sobe-desce.
 """
-import pickle, random
+import math, pickle, random
+from collections import Counter
 from functools import lru_cache
 
 import numpy as np
 
-import checks
-from audio import CASAS, INSTRUMENTOS, RAIZ
+from beatloom import checks
+from beatloom.audio import CASAS, INSTRUMENTOS, RAIZ
 
 # menor intervalo entre dois golpes da MESMA mao (s): limita a velocidade do braco por dificuldade
-MIN_MAO = {"Hard": 0.20, "Expert": 0.15, "ExpertPlus": 0.115}
+MIN_MAO = {"Normal": 0.30, "Hard": 0.20, "Expert": 0.15, "ExpertPlus": 0.115}
+from beatloom.checks import SEM_CRUZAR, VEL_MAO  # teto de velocidade da mao e dificuldades em que o braco nunca cruza (nas outras, cruzar perde pontos)
 TENTATIVAS = 80
 VIRA = {0: 1, 1: 0, 2: 2, 3: 3, 4: 6, 6: 4, 5: 7, 7: 5}  # inverte o corte na vertical
 
@@ -34,7 +36,7 @@ def variantes(pad):
 def biblioteca(dif):
     arq = RAIZ / "dados" / f"padroes_{dif}.pkl"
     if not arq.exists():
-        raise SystemExit(f"Falta a biblioteca de padroes ({arq.name}). Rode baixar_mapas.py e depois extrair_padroes.py.")
+        raise SystemExit(f"Falta a biblioteca de padroes ({arq.name}). Rode ferramentas\\baixar_mapas.py e depois ferramentas\\extrair_padroes.py.")
     with open(arq, "rb") as f:
         return pickle.load(f)
 
@@ -51,20 +53,24 @@ class Maos:
         m.est, m.ult = dict(self.est), dict(self.ult)
         return m
 
-    def bate(self, t, casa, x, y, c, d, min_mao):
+    def bate(self, t, casa, x, y, c, d, min_mao, vel_mao=99):
         """Aplica uma nota. Devolve False se quebra paridade (erro ou aviso) ou se o braco nao da tempo."""
         st, e, r = checks.paridade(*self.est[c], c, d)
-        if st != "ok" or (self.ult[c] and t - self.ult[c][0] < min_mao):
+        u = self.ult[c]
+        if st != "ok" or (u and (t - u[0] < min_mao or math.hypot(x - u[2], y - u[3]) > vel_mao * (t - u[0]))):
             return False
         self.est[c], self.ult[c] = (e, r), (t, casa, x, y, d)
         return True
 
 
-def golpes(tempos, an, dif, reacao, etapa, njs=16):
-    """tempos = {casa: 1|2}. Devolve (notas [(t_s, x, y, cor, dir)], texto de resumo)."""
+def golpes(tempos, an, dif, reacao, etapa, njs=16, arcos=()):
+    """tempos = {casa: 1|2}; arcos = [(casa_ini, casa_fim)] das notas seguradas pedidas.
+    Devolve (notas [(t_s, x, y, cor, dir)], texto de resumo, seguradas [(t_ini, t_fim, cor)])."""
     lib, grade = biblioteca(dif), an["grade"]
     rng = random.Random(f"{an['hash']}-{dif}")
-    min_mao = MIN_MAO[dif]
+    min_mao, vel_mao = MIN_MAO[dif], VEL_MAO[dif]
+    intens = [float(v) for v in an["intens"]]
+    usos = Counter()  # quantas vezes cada desenho ja saiu: repetir sempre o mesmo cansa
     tam = int(an["batidas_por_compasso"])
     ini_comp = [int(v) for v in an["ini_comp"]]
     comp_de = {b: k for k, (a, z) in enumerate(zip(ini_comp[:-1], ini_comp[1:])) for b in range(a, z)}
@@ -89,12 +95,14 @@ def golpes(tempos, an, dif, reacao, etapa, njs=16):
         for off, x, y, c, d in padrao:
             casa = casa0 + off
             t = float(grade[casa])
-            if not m.bate(t, casa, x, y, c, d, min_mao):
+            if not m.bate(t, casa, x, y, c, d, min_mao, vel_mao):
                 return None
             novas.append((t, x, y, c, d))
         cauda = [n for n in notas[-12:] if n[0] >= novas[0][0] - reacao - 0.05]
         junto = cauda + novas
-        if (checks.bloqueios_de_visao(junto, dif, reacao) or checks.palmas(junto) or checks.empilhadas(junto)):
+        if (checks.bloqueios_de_visao(junto, dif, reacao) or checks.palmas(junto) or checks.empilhadas(junto) or checks.atravessadas(novas)):
+            return None
+        if dif in SEM_CRUZAR and any(t >= novas[0][0] for t in checks.cruzadas(junto)):
             return None
         for i, a in enumerate(junto):
             for z in junto[max(i + 1, len(cauda)):]:
@@ -131,6 +139,16 @@ def golpes(tempos, an, dif, reacao, etapa, njs=16):
         if alto is not None:
             for off, x, y, c, d in pad:
                 p += 0.6 if (y >= 1) == bool(alto[casa0 + off]) else -0.3
+        # manha: trecho forte pede desenho aberto (linhas de cima, pontas, diagonais); trecho calmo pede sobe-desce simples embaixo
+        it = intens[min(comp_de.get(casa0 // CASAS, 0), len(intens) - 1)]
+        for off, x, y, c, d in pad:
+            aberto = y >= 1 or x in (0, 3) or d >= 4
+            p += (0.3 if aberto else -0.1) if it >= 0.6 else (0.3 if not aberto else -0.2) if it <= 0.3 else 0
+            if dif == "Normal" and d >= 4:
+                p -= 0.6  # Normal: golpe simples, pouca diagonal
+        p -= 0.35 * min(usos[pad], 6)
+        if dif not in SEM_CRUZAR:
+            p -= 1.5 * len(checks.cruzadas([(float(grade[casa0 + o]), x, y, c, d) for o, x, y, c, d in pad]))
         return p
 
     def regra(casas_da_batida):
@@ -154,9 +172,46 @@ def golpes(tempos, an, dif, reacao, etapa, njs=16):
             stats["descartadas"] += q - postas
         stats["regra"] += 1
 
+    # nota segurada: as duas maos cortam juntas no comeco, o arco liga cada uma a nota do fim, cortada no sentido contrario.
+    # O desenho preferido sobe de baixo para cima no meio e termina descendo nas pontas; se o braco estiver do outro lado, o inverso.
+    ini_arco = {s // CASAS: (s, e) for s, e in arcos}
+    fim_arco, seguradas = {}, []  # batida do fim -> (casa do fim, t do comeco, maos que seguram)
+    reservada = set(ini_arco) | {e // CASAS for _, e in arcos}
+
+    def cabeca(c, sobe):
+        return (0, 1 + c, 0 if sobe else 2, c, 0 if sobe else 1)
+
+    def comecar_arco(s, e):
+        maos = maos_atual[0]
+        sobe = {c: maos.est[c][0] == "f" for c in (0, 1)}
+        for cores in ((0, 1), (0,), (1,)):
+            if r := tentar([cabeca(c, sobe[c]) for c in cores], s):
+                notas_todas.extend(r[0]); maos_atual[0] = r[1]
+                fim_arco[e // CASAS] = (e, float(grade[s]), {c: sobe[c] for c in cores})
+                return True
+        return False
+
+    def terminar_arco(e, t0, quem):
+        for c, sobe in quem.items():
+            ponta, meio = (0, 1) if c == 0 else (3, 2)
+            for x, y in ((ponta, 1), (ponta, 0 if sobe else 2), (meio, 0 if sobe else 2), (ponta, 2 if sobe else 0)):
+                if r := tentar([(0, x, y, c, 1 if sobe else 0)], e):
+                    notas_todas.extend(r[0]); maos_atual[0] = r[1]
+                    seguradas.append((t0, float(grade[e]), c))
+                    break
+            else:
+                stats["descartadas"] += 1
+
     n_bat = (len(grade) - 1) // CASAS
     b = 0
     while b < n_bat:
+        if b in fim_arco:
+            terminar_arco(*fim_arco.pop(b))
+            b += 1
+            continue
+        if b in ini_arco and comecar_arco(*ini_arco[b]):
+            b += 1
+            continue
         if not any((b * CASAS + i) in tempos for i in range(CASAS)):
             b += 1
             continue
@@ -166,6 +221,8 @@ def golpes(tempos, an, dif, reacao, etapa, njs=16):
         o = original(b)  # compasso repetido: primeiro o mesmo padrao do original
         if o is None and k is not None and rep[k] != k and any((rep[k], pos, L) in usado for L in (4, 2, 1)):
             stats["rep_tentou"] += 1  # o ritmo saiu diferente do original
+        if o is not None and any(x in reservada for x in range(b + 1, b + o[0])):
+            o = None
         if o is not None:
             stats["rep_tentou"] += 1
             for v, invertido in variantes(o[3]):
@@ -180,7 +237,7 @@ def golpes(tempos, an, dif, reacao, etapa, njs=16):
             if o is not None:
                 continue
         for L in (4, 2, 1):
-            if pos % L or pos + L > tam or (b + L) > n_bat:
+            if pos % L or pos + L > tam or (b + L) > n_bat or any(x in reservada for x in range(b + 1, b + L)):
                 continue
             casa0 = b * CASAS
             masc = "".join(str(tempos.get(casa0 + i, 0)) for i in range(L * CASAS))
@@ -204,6 +261,7 @@ def golpes(tempos, an, dif, reacao, etapa, njs=16):
                         melhor = (p, pad, r)
             if melhor:
                 _, pad, r = melhor
+                usos[pad] += 1
                 notas_todas.extend(r[0]); maos_atual[0] = r[1]
                 usado[(k, pos, L)] = (masc, pad)
                 stats[f"padrao{L}"] += 1
@@ -221,4 +279,4 @@ def golpes(tempos, an, dif, reacao, etapa, njs=16):
         rit = [n[2] >= 1 for n in notas_todas if not alto[casa_de[round(n[0], 4)]]]
         resumo += (f" | notas fora da linha de baixo: {np.mean(mel) if mel else 0:.0%} das {len(mel)} em ataques de voz/melodia"
                    f" contra {np.mean(rit) if rit else 0:.0%} das {len(rit)} em ataques de bateria/baixo")
-    return sorted(notas_todas), resumo
+    return sorted(notas_todas), resumo, seguradas

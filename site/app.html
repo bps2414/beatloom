@@ -39,6 +39,22 @@ details.opc { font-size: 14px; color: var(--tinta-2); }
 details.opc summary { cursor: pointer; }
 details.opc div { display: grid; gap: 8px; margin-top: 8px; }
 details.opc .campo { padding: 10px 12px; border-width: 1px; border-color: var(--linha); }
+.previa { display: grid; grid-template-columns: 72px 1fr; gap: 10px 12px; align-items: start; }
+.previa img, .previa .sem-capa { width: 72px; height: 72px; border-radius: 8px; object-fit: cover; background: linear-gradient(135deg, #1e3a8a, #db2777); }
+.previa .campos { display: grid; gap: 6px; min-width: 0; }
+.previa .campo { padding: 8px 10px; border-width: 1px; border-color: var(--linha); }
+.previa small { grid-column: 1 / -1; color: var(--tinta-2); font-size: 13px; }
+fieldset.escolha { border: 0; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 14px; }
+fieldset.escolha legend { padding: 0; color: var(--tinta-2); margin-bottom: 4px; }
+fieldset.escolha label { display: flex; align-items: center; gap: 5px; cursor: pointer; }
+.densidade { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; font-size: 14px; color: var(--tinta-2); }
+.densidade input { grid-column: 1 / -1; width: 100%; accent-color: var(--tinta); }
+.ficha { display: grid; grid-template-columns: 96px 1fr; gap: 16px; align-items: center; margin-top: 22px; }
+.ficha img { width: 96px; height: 96px; border-radius: 12px; object-fit: cover; background: var(--palco); }
+.ficha h2 { font-size: 24px; margin: 0; }
+.ficha p { margin: 2px 0 0; color: var(--tinta-2); overflow-wrap: anywhere; }
+.ficha .mini { display: flex; gap: 14px; margin-top: 6px; }
+.ficha .mini button { background: none; border: 0; padding: 0; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; font-size: 14px; color: var(--tinta); }
 .acao { padding: 14px 18px; border: 0; border-radius: 10px; background: var(--tinta); color: #fff; font: 600 16px var(--texto); cursor: pointer; }
 .acao:hover { background: #2a2760; }
 .acao:disabled { opacity: .5; cursor: default; }
@@ -111,9 +127,14 @@ details.rel pre { font: 13px/1.5 ui-monospace, Consolas, monospace; background: 
       <input class="campo" id="link" type="url" inputmode="url" data-tp="link" autocomplete="off">
       <div class="arquivo"><span id="arq-nome"></span> <button type="button" id="arq-btn"></button>
         <input type="file" id="arq" accept="audio/*,.egg" hidden></div>
-      <details class="opc"><summary data-t="trocar"></summary>
-        <div><input class="campo" id="nome" data-tp="nome">
-          <input class="campo" id="artista" data-tp="artista"></div></details>
+      <div class="previa" id="previa" hidden>
+        <img id="p-capa" alt=""><div class="sem-capa" id="p-sem" hidden></div>
+        <div class="campos"><input class="campo" id="nome" data-tp="nome"><input class="campo" id="artista" data-tp="artista"></div>
+        <small id="p-info"></small>
+      </div>
+      <fieldset class="escolha" id="escolha"><legend data-t="quais"></legend></fieldset>
+      <label class="densidade"><span data-t="densidade"></span><span id="dens-v"></span>
+        <input type="range" id="dens" min="0.8" max="1.3" step="0.05" value="1"></label>
       <button class="acao" id="gerar" data-t="gerar"></button>
       <p class="erro" id="erro" role="alert" hidden></p>
     </form>
@@ -134,6 +155,11 @@ details.rel pre { font: 13px/1.5 ui-monospace, Consolas, monospace; background: 
     </div>
     <p class="controles" id="controles" hidden><span class="difs" id="difs" role="group"></span><span data-t="visor"></span>
       <a id="fora" target="_blank" rel="noopener" data-t="cheia"></a></p>
+    <section class="ficha" id="ficha" hidden>
+      <img id="f-capa" alt="">
+      <div><h2 id="f-nome"></h2><p id="f-info"></p>
+        <div class="mini"><button type="button" id="renomear" data-t="renomear"></button><button type="button" id="apagar" data-t="apagar"></button></div></div>
+    </section>
     <section class="resumo" id="resumo" hidden>
       <div><p class="veredito" id="veredito"></p><p class="numeros" id="numeros"></p></div>
       <div class="botoes">
@@ -155,7 +181,7 @@ const NOMES = { Hard: "Hard", Expert: "Expert", ExpertPlus: "Expert+", Normal: "
 
 let mapa = null, temVisor = true;
 const T = {
-  pt: { titulo: "Sua música vira um mapa de Beat Saber", sub: "Hard, Expert e Expert+, com zip pronto para o Quest.", link: "Cole um link do YouTube",
+  pt: { titulo: "Sua música vira um mapa de Beat Saber", sub: "Normal, Hard, Expert e Expert+, com zip pronto para o Quest.", link: "Cole um link do YouTube",
     ou: "ou", escolha: "escolha um arquivo de áudio", trocar_arq: "trocar", trocar: "Trocar o nome que aparece no jogo", nome: "Nome da música", artista: "Artista",
     gerar: "Gerar mapa", mapas: "Seus mapas", sem_mapas: "Nenhum mapa ainda. Cole um link acima para gerar o primeiro.",
     convite: "Escolha um mapa na lista para assistir antes de jogar", visor: "Espaço toca e pausa. Trocar de dificuldade recarrega o visualizador (ArcViewer).",
@@ -167,8 +193,12 @@ const T = {
     empacotando: "Empacotando…", conferindo: "Conferindo o mapa…", ytdlp: "O yt-dlp não conseguiu baixar esse link.", gerador: "O gerador parou:",
     recusado: "Pedido recusado.", nao_existe: "Isso não existe.", sem_mapa: "Não achei esse mapa.", grande: "Arquivo grande demais (limite de 300 MB).",
     tipo: "Use um arquivo de áudio: mp3, ogg, wav, m4a, flac ou opus.", invalido: "Pedido inválido.", link_ruim: "Isso não parece um link. Cole o endereço completo, começando com https://",
-    vazio: "Cole um link ou escolha um arquivo de áudio.", sem_sync: "Não achei o mapa ou o sync.py." },
-  en: { titulo: "Your song becomes a Beat Saber map", sub: "Hard, Expert and Expert+, in a zip ready for the Quest.", link: "Paste a YouTube link",
+    vazio: "Cole um link ou escolha um arquivo de áudio.", sem_sync: "Não achei o mapa ou o sync.py.",
+    quais: "Dificuldades", densidade: "Quantidade de notas", leve: "mais leve", normal: "normal", cheio: "mais cheio", procurando: "Procurando os dados da música…",
+    confira: "Confira o nome e o artista antes de gerar.", sem_dif: "Marque pelo menos uma dificuldade.", renomear: "Trocar nome", apagar: "Apagar mapa",
+    novo_nome: "Nome da música:", novo_artista: "Artista:", confirma_apagar: "Apagar este mapa da lista? Ele vai para a pasta saida\\lixeira.",
+    arcos: "notas seguradas", capa_arq: "capa do arquivo", capa_gen: "sem capa no arquivo: vai a genérica", fonte: "fonte" },
+  en: { titulo: "Your song becomes a Beat Saber map", sub: "Normal, Hard, Expert and Expert+, in a zip ready for the Quest.", link: "Paste a YouTube link",
     ou: "or", escolha: "choose an audio file", trocar_arq: "change", trocar: "Change the name shown in the game", nome: "Song name", artista: "Artist",
     gerar: "Generate map", mapas: "Your maps", sem_mapas: "No maps yet. Paste a link above to generate the first one.",
     convite: "Pick a map from the list to watch it before you play", visor: "Space plays and pauses. Switching difficulty reloads the viewer (ArcViewer).",
@@ -180,7 +210,11 @@ const T = {
     empacotando: "Packing…", conferindo: "Checking the map…", ytdlp: "yt-dlp could not download this link.", gerador: "The generator stopped:",
     recusado: "Request refused.", nao_existe: "That does not exist.", sem_mapa: "Map not found.", grande: "File too large (300 MB limit).",
     tipo: "Use an audio file: mp3, ogg, wav, m4a, flac or opus.", invalido: "Invalid request.", link_ruim: "That does not look like a link. Paste the full address, starting with https://",
-    vazio: "Paste a link or choose an audio file.", sem_sync: "Map or sync.py not found." },
+    vazio: "Paste a link or choose an audio file.", sem_sync: "Map or sync.py not found.",
+    quais: "Difficulties", densidade: "Amount of notes", leve: "lighter", normal: "normal", cheio: "fuller", procurando: "Looking up the song…",
+    confira: "Check the name and artist before generating.", sem_dif: "Tick at least one difficulty.", renomear: "Rename", apagar: "Delete map",
+    novo_nome: "Song name:", novo_artista: "Artist:", confirma_apagar: "Remove this map from the list? It goes to the saida\\lixeira folder.",
+    arcos: "held notes", capa_arq: "cover from the file", capa_gen: "no cover in the file: the generic one will be used", fonte: "source" },
 };
 let lingua = "pt";
 try { lingua = localStorage.getItem("lingua") || (navigator.language.startsWith("pt") ? "pt" : "en"); } catch (e) {}
@@ -191,24 +225,59 @@ function traduzir() {
   for (const e of document.querySelectorAll("[data-t]")) e.textContent = t(e.dataset.t);
   for (const e of document.querySelectorAll("[data-tp]")) { e.placeholder = t(e.dataset.tp); e.setAttribute("aria-label", t(e.dataset.tp)); }
   $("lingua").textContent = lingua === "pt" ? "English" : "Português";
-  $("arq").onchange(); atualizar.chave = null;
+  $("arq-nome").textContent = arquivo ? arquivo.name : t("ou"); $("arq-btn").textContent = t(arquivo ? "trocar_arq" : "escolha");
+  $("dens").oninput(); atualizar.chave = null;
   if (mapa) pintar();
 }
 $("lingua").onclick = () => { lingua = lingua === "pt" ? "en" : "pt"; try { localStorage.setItem("lingua", lingua); } catch (e) {} traduzir(); atualizar(); };
 
 // ---------- gerar
-let arquivo = null;
+let arquivo = null, subido = null, extra = {};
 $("arq-btn").onclick = () => $("arq").click();
-$("arq").onchange = () => { arquivo = $("arq").files[0] || null; $("arq-nome").textContent = arquivo ? arquivo.name : t("ou"); $("arq-btn").textContent = t(arquivo ? "trocar_arq" : "escolha"); };
+$("dens").oninput = () => { const v = +$("dens").value; $("dens-v").textContent = t(v < 0.98 ? "leve" : v > 1.02 ? "cheio" : "normal") + " (×" + v.toFixed(2) + ")"; };
+// previa: mostra capa, nome e artista antes de gerar, para a pessoa corrigir
+function previa(d, capa, info) {
+  extra = { album: d.album, ano: d.ano };
+  $("previa").hidden = false; $("nome").value = d.nome || ""; $("artista").value = d.artista || "";
+  $("p-capa").hidden = !capa; $("p-sem").hidden = !!capa; if (capa) $("p-capa").src = capa;
+  $("p-info").textContent = [d.album, d.ano, info, t("confira")].filter(Boolean).join(" · ");
+}
+function semPrevia() { $("previa").hidden = true; $("nome").value = ""; $("artista").value = ""; extra = {}; }
+let ultimoLink = "";
+async function verLink() {
+  const link = $("link").value.trim();
+  if (link === ultimoLink) return;
+  ultimoLink = link;
+  if (!/^https?:\/\/\S+$/.test(link)) return semPrevia();
+  $("previa").hidden = false; $("p-info").textContent = t("procurando");
+  try { const d = await api("/api/previa", { link }); if ($("link").value.trim() === link) previa(d, d.capa, ""); }
+  catch (x) { if ($("link").value.trim() === link) { semPrevia(); $("erro").textContent = x.message; $("erro").hidden = false; } }
+}
+$("link").onchange = verLink;
+$("link").onpaste = () => setTimeout(verLink, 0);
+$("arq").onchange = async () => {
+  arquivo = $("arq").files[0] || null; subido = null;
+  $("arq-nome").textContent = arquivo ? arquivo.name : t("ou"); $("arq-btn").textContent = t(arquivo ? "trocar_arq" : "escolha");
+  if (!arquivo) return semPrevia();
+  $("link").value = ""; ultimoLink = ""; $("erro").hidden = true;
+  try {
+    subido = await api("/api/arquivo?nome=" + encodeURIComponent(arquivo.name), arquivo, true);
+    const capa = "/api/capa?arquivo=" + encodeURIComponent(subido.base) + "&v=" + Date.now();
+    const tem = (await fetch(capa)).ok;
+    previa(subido, tem ? capa : null, t(tem ? "capa_arq" : "capa_gen"));
+  } catch (x) { $("erro").textContent = x.message; $("erro").hidden = false; }
+};
 $("form").onsubmit = async (e) => {
   e.preventDefault();
   const erro = $("erro"); erro.hidden = true; $("gerar").disabled = true;
   try {
     const link = $("link").value.trim();
-    let arq = null;
-    if (!link && arquivo) arq = (await api("/api/arquivo?nome=" + encodeURIComponent(arquivo.name), arquivo, true)).arquivo;
-    await api("/api/gerar", { link, arquivo: arq, nome: $("nome").value, artista: $("artista").value });
-    $("link").value = ""; $("nome").value = ""; $("artista").value = ""; $("arq").value = ""; $("arq").onchange();
+    const difs = [...$("escolha").querySelectorAll("input:checked")].map((c) => c.value);
+    if (!difs.length) throw new Error(t("sem_dif"));
+    if (!link && arquivo && !subido) subido = await api("/api/arquivo?nome=" + encodeURIComponent(arquivo.name), arquivo, true);
+    await api("/api/gerar", { link, arquivo: link ? null : subido && subido.arquivo, nome: $("nome").value, artista: $("artista").value, ...extra, difs, densidade: +$("dens").value });
+    $("link").value = ""; ultimoLink = ""; $("arq").value = ""; arquivo = subido = null; semPrevia();
+    $("arq-nome").textContent = t("ou"); $("arq-btn").textContent = t("escolha");
     atualizar();
   } catch (x) { erro.textContent = x.message; erro.hidden = false; }
   $("gerar").disabled = false;
@@ -228,7 +297,8 @@ async function atualizar() {
     d.className = "trabalho " + (tr.estado === "erro" ? "erro-t" : tr.estado === "rodando" ? "rodando" : "");
     const b = document.createElement("b"); b.textContent = tr.titulo;
     const s = document.createElement("span");
-    s.textContent = tr.estado === "erro" ? erroT(tr.erro) : tr.estado === "na fila" ? t("fila") : t(tr.passos.at(-1) || "comecando");
+    const [passo, qual] = (tr.passos.at(-1) || "comecando").split("|");  // "golpes|Hard (2/4)"
+    s.textContent = tr.estado === "erro" ? erroT(tr.erro) : tr.estado === "na fila" ? t("fila") : t(passo) + (qual ? " " + qual.replace("ExpertPlus", "Expert+") : "");
     d.append(b, s); $("trabalhos").append(d);
   }
   primeira = false;
@@ -249,6 +319,10 @@ async function atualizar() {
   if (!e.mapas.length) ul.innerHTML = "";
   atualizar.chave = chave;
   $("quest").hidden = !e.quest; temVisor = e.visor;
+  if (!$("escolha").querySelector("input")) for (const d of e.difs) {  // uma caixa por dificuldade, todas marcadas
+    const l = document.createElement("label"), c = document.createElement("input");
+    c.type = "checkbox"; c.value = d; c.checked = true; l.append(c, NOMES[d] || d); $("escolha").append(l);
+  }
   clearTimeout(atualizar.t);
   atualizar.t = setTimeout(atualizar, ativo ? 1200 : 6000);
 }
@@ -264,7 +338,8 @@ async function abrir(zip) {
   }
   verDif(mapa.difs.some((d) => d.nome === dif) ? dif : mapa.difs.some((d) => d.nome === "Expert") ? "Expert" : mapa.difs[0].nome);
   $("visor").hidden = !temVisor; $("controles").hidden = !temVisor; $("convite").hidden = temVisor;
-  $("resumo").hidden = false; $("quest-saida").hidden = true;
+  $("resumo").hidden = false; $("ficha").hidden = false; $("quest-saida").hidden = true;
+  $("f-capa").src = "/api/capa?zip=" + encodeURIComponent(zip) + "&v=" + Date.now();
   $("baixar").href = "/api/zip?zip=" + encodeURIComponent(zip);
   pintar(); atualizar();
 }
@@ -280,9 +355,24 @@ function pintar() {
   const ok = mapa.relatorio.includes("TODAS AS METAS OK");
   $("veredito").textContent = t(!mapa.relatorio ? "v_sem" : ok ? "v_ok" : "v_nao");
   $("veredito").className = "veredito " + (ok ? "ok" : "nao");
-  $("numeros").textContent = mapa.difs.map((d) => `${NOMES[d.nome]}: ${d.notas.length} ${t("notas")}, ${t("vel")} ${d.njs}`).join(". ") + ".";
+  $("numeros").textContent = mapa.difs.map((d) => `${NOMES[d.nome]}: ${d.notas} ${t("notas")}${d.arcos ? `, ${d.arcos} ${t("arcos")}` : ""}, ${t("vel")} ${d.njs}`).join(". ") + ".";
+  $("f-nome").textContent = mapa.nome;
+  const info = $("f-info"); info.textContent = [mapa.artista, mapa.album, mapa.ano, Math.round(mapa.bpm) + " BPM"].filter(Boolean).join(" · ");
+  if (/^https?:\/\//.test(mapa.link || "")) { const a = document.createElement("a"); a.href = mapa.link; a.target = "_blank"; a.rel = "noopener"; a.textContent = t("fonte"); info.append(" · ", a); }
   $("rel").textContent = mapa.relatorio || t("sem_rel");
 }
+$("renomear").onclick = async () => {
+  const nome = prompt(t("novo_nome"), mapa.nome); if (nome === null) return;
+  const artista = prompt(t("novo_artista"), mapa.artista); if (artista === null) return;
+  await api("/api/renomear", { zip: atual, nome, artista }); atualizar.chave = null; abrir(atual);
+};
+$("apagar").onclick = async () => {
+  if (!confirm(t("confirma_apagar"))) return;
+  await api("/api/apagar", { zip: atual });
+  atual = mapa = null; atualizar.chave = null;
+  for (const id of ["ficha", "resumo", "controles", "visor"]) $(id).hidden = true;
+  $("visor").src = "about:blank"; $("convite").hidden = false; $("convite").textContent = t("convite"); atualizar();
+};
 $("quest").onclick = async () => {
   if (!atual || !confirm(t("confirma"))) return;
   const s = $("quest-saida"); s.hidden = false; s.textContent = t("mandando"); $("quest").disabled = true;

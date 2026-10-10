@@ -5,7 +5,7 @@ Tudo em segundos. A grade tem 4 "casas" por batida (1/4 de batida). O resultado 
 import hashlib, json, os, subprocess, sys
 from pathlib import Path
 
-RAIZ = Path(__file__).parent
+RAIZ = Path(__file__).parent.parent  # a pasta do projeto
 CACHE = RAIZ / ".cache"
 # o C: quase nao tem espaco: todo cache vai pro F:
 os.environ.setdefault("TORCH_HOME", str(CACHE / "torch"))
@@ -193,6 +193,45 @@ def analisar(caminho, instrumentos=False):
         res["forca_inst"] = np.array(f_inst)  # [instrumento, casa], na ordem de INSTRUMENTOS
     arq.write_text(json.dumps({k: v.tolist() if isinstance(v, np.ndarray) else v for k, v in res.items()}))
     return res
+
+
+def sustentados(an):
+    """Notas longas de voz ou melodia (o "ahhh" segurado) -> [(casa_ini, casa_fim)]. Precisa dos instrumentos separados.
+
+    Vale quando ha um ataque forte do instrumento, o volume dele se mantem por pelo menos 1,5 batida (e 0,7 s),
+    nao entra outro ataque forte no meio e a nota (altura) fica a mesma.
+    """
+    pasta = CACHE / "analise" / an["hash"]
+    arq = pasta / "sustentados.json"
+    if arq.exists():
+        return [tuple(v) for v in json.loads(arq.read_text())]
+    import librosa
+    g, out = np.asarray(an["grade"]), []
+    n = len(g) - 1
+    for nome in ("vocals", "other"):
+        w = pasta / "stems" / f"{nome}.wav"
+        if not w.exists() or f"nivel_{nome}" not in an:
+            continue
+        y, _ = librosa.load(w, sr=SR, mono=True)
+        rms = librosa.feature.rms(y=y, frame_length=2048, hop_length=512)[0]
+        nota = librosa.feature.chroma_stft(y=y, sr=SR, hop_length=512).argmax(0)
+        fr = np.clip((g * SR / 512).astype(int), 0, len(rms) - 1)
+        vol = np.array([rms[a:max(b, a + 1)].mean() for a, b in zip(fr[:-1], fr[1:])])
+        alto, niv = np.percentile(vol, 75), an[f"nivel_{nome}"]
+        i = 0
+        while i < n:
+            j = i + 1
+            if niv[i] == 2 and vol[i] >= alto:
+                while j < n and niv[j] < 2 and vol[j] >= 0.5 * vol[i]:
+                    j += 1
+                tom = nota[fr[i]:fr[j]]
+                if (j - i >= CASAS * 1.5 and g[j] - g[i] >= 0.7 and len(tom) and np.mean(tom == np.bincount(tom).argmax()) >= 0.7
+                        and not any(a < j and i < b for a, b in out)):
+                    out.append((i, j))
+            i = j
+    out.sort()
+    arq.write_text(json.dumps(out))
+    return out
 
 
 if __name__ == "__main__":

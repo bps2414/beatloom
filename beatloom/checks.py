@@ -12,6 +12,10 @@ ROT = {0: {"f": [180, 0, -90, 90, -135, 135, -45, 45], "b": [0, 180, 90, -90, 45
        1: {"f": [-180, 0, -90, 90, -135, 135, -45, 45], "b": [0, -180, 90, -90, 45, -45, 135, -135]}}
 LIMITE = {0: (-155, 195), 1: (-195, 155)}
 IDA = {0: (1, 3, 6, 7), 1: (1, 2, 6, 7)}  # direcoes que so fazem sentido como golpe de ida
+# maior velocidade da mesma mao entre duas notas seguidas (casas da grade por segundo): perto do 1% mais rapido dos mapas humanos.
+# Sem este teto saiam trocas de posicao que o braco nao acompanha (dificuldade artificial).
+VEL_MAO = {"Easy": 6, "Normal": 6, "Hard": 8, "Expert": 10, "ExpertPlus": 12}
+SEM_CRUZAR = ("Easy", "Normal", "Hard")  # nestas o braco nunca cruza
 VB = {"Easy": (0.025, 1.2), "Normal": (0.05, 1), "Hard": (0.08, 0.75), "Expert": (0.1, 0.625), "ExpertPlus": (0.1, 0.5)}
 
 
@@ -90,6 +94,48 @@ def empilhadas(notas):
     return out
 
 
+def atravessadas(notas):
+    """Dupla em que o sabre de uma mao passa pela nota da outra cor: a outra nota esta colada, na linha do corte
+    (antes ou depois). Em mapa humano bem avaliado isso aparece em menos de 0,3 a cada mil notas."""
+    notas, out = sorted(notas), []
+    for i, a in enumerate(notas):
+        for b in notas[i + 1:]:
+            if b[0] > a[0] + 0.01:
+                break
+            if a[3] == b[3] or a[4] > 7 or b[4] > 7:
+                continue
+            dist = math.hypot(a[1] - b[1], a[2] - b[2])
+            # ponta a ponta (um apontando para o outro pelo meio) ja e palma; aqui basta um dos cortes estar na linha
+            if 0 < dist <= 1.5 and any(min(abs((ANG[p[4]] - math.degrees(math.atan2(q[2] - p[2], q[1] - p[1])) - 90) % 180),
+                                           180 - abs((ANG[p[4]] - math.degrees(math.atan2(q[2] - p[2], q[1] - p[1])) - 90) % 180)) <= 25
+                                       for p, q in ((a, b), (b, a))):
+                out.append(a[0])
+                break
+    return out
+
+
+def cruzadas(notas, janela=0.4):
+    """Bracos cruzados: nota vermelha a direita da azul quando a outra mao bateu junto ou ha menos de `janela` segundos."""
+    out, ult = [], {}
+    for n in sorted(notas):
+        o = ult.get(1 - n[3])
+        if o and n[0] - o[0] <= janela and (n[1] > o[1] if n[3] == 0 else n[1] < o[1]):
+            out.append(n[0])
+        ult[n[3]] = n
+    return out
+
+
+def corridas(notas, limite):
+    """Troca de posicao da mesma mao mais rapida que `limite` casas da grade por segundo."""
+    out, ult = [], {}
+    for n in sorted(notas):
+        o = ult.get(n[3])
+        if o and n[0] - o[0] > 0.02 and math.hypot(n[1] - o[1], n[2] - o[2]) > limite * (n[0] - o[0]) + 1e-6:
+            out.append(n[0])
+        ult[n[3]] = n
+    return out
+
+
 def meio_salto(njs, bpm, offset=0.0):
     """Meio salto em batidas (bsmap njs.js). Tempo de reacao = 60/bpm * isto."""
     h = 4.0
@@ -132,6 +178,11 @@ def demo():
     assert palma((0, 1, 0, 0, 3), (0, 2, 0, 1, 2))
     assert not palma((0, 1, 0, 0, 1), (0, 2, 0, 1, 1))
     assert empilhadas([(0, 1, 0, 0, 1), (0, 1, 0, 1, 1)]) == [0]
+    # vermelha subindo para a esquerda em (0,1) vem de (1,0), onde esta a azul: o sabre passa por ela
+    assert atravessadas([(0, 0, 1, 0, 4), (0, 1, 0, 1, 6)]) == [0]
+    assert not atravessadas([(0, 1, 0, 0, 1), (0, 2, 0, 1, 1)])  # dupla para baixo lado a lado
+    assert cruzadas([(0, 2, 0, 0, 1), (0, 1, 0, 1, 1)]) == [0] and not cruzadas([(0, 1, 0, 0, 1), (0, 2, 0, 1, 1)])
+    assert corridas([(0, 0, 0, 0, 1), (0.2, 3, 2, 0, 0)], 10) == [0.2] and not corridas([(0, 0, 0, 0, 1), (0.5, 3, 2, 0, 0)], 10)
     assert bloqueios_de_visao([(0, 1, 1, 0, 1), (0.3, 0, 0, 0, 0)], "Expert", 0.5) == [0.3]
     assert abs(meio_salto(16, 120) - 2) < 1e-9
     print("checks ok")

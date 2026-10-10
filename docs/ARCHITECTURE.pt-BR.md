@@ -2,6 +2,8 @@
 
 [English](ARCHITECTURE.md)
 
+Os arquivos citados ficam em: `gerar.py`, `app.py` e `relatorio.py` na raiz; `audio.py`, `motor.py` e `checks.py` em `beatloom\`; o resto em `ferramentas\` e `site\`.
+
 Este texto explica o caminho que uma música percorre até virar um mapa, peça por peça, sem pressupor que você programa.
 
 ## A ideia em uma frase
@@ -21,7 +23,7 @@ O Beatloom responde a duas perguntas, uma depois da outra: **quando** vai ter no
  3. QUAL NOTA    motor.py     posição, cor e direção de cada nota
         │
         ▼
- 4. ENFEITAR     gerar.py     luzes e paredes
+ 4. ENFEITAR     gerar.py     notas seguradas, luzes e paredes
         │
         ▼
  5. EMPACOTAR    gerar.py     Info.dat, dificuldades, song.egg, capa → zip
@@ -46,19 +48,22 @@ Antes de tudo, a música é convertida para o formato que o jogo usa (`song.egg`
 - **Ataques.** Um ataque é o instante em que um som começa (uma batida de caixa, uma nota de guitarra). Para cada casa da grade fica anotado se ali tem ataque forte, fraco ou nenhum, e a força dele.
 - **Energia por compasso.** Um número de 0 a 1 que diz o quanto cada compasso é intenso. É isso que faz o refrão ter mais notas que o verso.
 - **Compassos repetidos.** Compara o som dos compassos entre si. Quando um é igual a outro que já passou (o refrão voltando), fica anotado de qual ele é cópia.
+- **Notas longas.** Quando a voz ou a melodia ataca e segura a mesma nota por pelo menos uma batida e meia (o "ahhh"), sem outro ataque forte no meio, o trecho fica anotado para virar nota segurada.
 - **Instrumentos separados.** Um programa chamado Demucs separa a música em bateria, baixo, voz e resto. É a parte demorada (alguns minutos). Medimos que os ataques da bateria isolada acertam mais que os da música inteira, então eles valem mais.
 
-Tudo isso fica guardado em `.cache\`, então gerar de novo a mesma música é rápido.
+Tudo isso fica guardado em `.cache\`, então gerar de novo a mesma música leva segundos em vez de minutos.
 
 ## 2. Quando vai ter nota (`gerar.py`, função `escolher_tempos`)
 
-Cada dificuldade tem um **orçamento**: quantos instantes com nota por segundo ela mira (Hard 2,3; Expert 3,1; Expert+ 3,9) e o menor intervalo permitido entre duas notas.
+Cada dificuldade tem um **orçamento**: quantos instantes com nota por segundo ela mira (Normal 1,8; Hard 2,45; Expert 3,3; Expert+ 4,1) e o menor intervalo permitido entre duas notas. Os números ficam perto do quarto mais leve dos mapas humanos de cada dificuldade.
 
 1. **Candidatas.** Toda casa com ataque é candidata, menos as dos primeiros 2 segundos e dos últimos 3 (folga para você se preparar e para a música acabar).
-2. **Prioridade.** Cada candidata ganha uma nota de prioridade: força do ataque × posição na batida. Em cima da batida vale mais; no meio vale um pouco menos; nas casas de 1/4 vale pouco no Expert e zero no Hard. É por isso que o Hard não tem notas rápidas.
+2. **Prioridade.** Cada candidata ganha uma nota de prioridade: força do ataque × posição na batida. Em cima da batida vale mais; no meio vale um pouco menos; nas casas de 1/4 vale pouco no Expert e zero no Normal e no Hard. É por isso que eles não têm notas rápidas.
 3. **Orçamento por compasso.** O orçamento total é repartido entre os compassos conforme a energia de cada um. Dentro do compasso, as candidatas de maior prioridade entram primeiro, respeitando o intervalo mínimo.
-4. **Refrão repetido.** Um compasso marcado como cópia de outro recebe o mesmo ritmo do original, em vez de sortear de novo.
-5. **Notas duplas.** Os ataques mais fortes em cima da batida, com espaço antes e depois, viram dupla (as duas mãos juntas). Se a música é lenta e não chega à densidade mínima da dificuldade, a proporção de duplas sobe, em vez de inventar nota onde não há som.
+4. **Refrão repetido.** Um compasso marcado como cópia de outro recebe o mesmo ritmo do original, em vez de sortear de novo. Se ele tiver ataques que o original não tinha, completa até o orçamento dele.
+5. **Trecho vazio.** Se sobra um trecho de 2 batidas ou mais sem nota (4 no Normal) com pelo menos 3 ataques fortes dentro, o ataque mais forte ganha nota, até não sobrar trecho assim.
+6. **Respiro antes do refrão.** Quando a energia sobe de um compasso para o outro, a batida anterior fica sem nota e a primeira batida do trecho forte entra com nota dupla.
+7. **Notas duplas.** Os ataques mais fortes em cima da batida, com espaço antes e depois, viram dupla (as duas mãos juntas). Se a música é lenta e não chega à densidade mínima da dificuldade, a proporção de duplas sobe, em vez de inventar nota onde não há som.
 
 O resultado desta etapa é só uma lista: "nestas casas tem nota; nestas, dupla".
 
@@ -77,6 +82,12 @@ O motor anda pela música batida a batida:
 
 **Altura por instrumento.** Entre padrões equivalentes, bateria tende a ficar embaixo e voz e melodia em cima.
 
+**Verso diferente de refrão.** Trecho intenso prefere desenhos abertos (linhas de cima, pontas, diagonais); trecho calmo prefere sobe e desce simples embaixo. Um desenho que já saiu muitas vezes perde pontos, para não repetir sempre o mesmo.
+
+**Velocidade do braço.** Cada dificuldade tem um teto para a distância que a mesma mão percorre entre duas notas (6, 8, 10 e 12 casas por segundo), tirado do 1% mais rápido dos mapas humanos. No Normal e no Hard os braços nunca cruzam; no Expert e no Expert+ cruzar perde pontos. O Normal também evita diagonais.
+
+**Notas seguradas.** Onde há nota longa na música, as duas mãos cortam juntas no começo (de baixo para cima, ou o inverso se o braço estiver do outro lado), um arco liga cada nota à nota do fim, cortada no sentido contrário, e não há nada no meio. O Normal não usa.
+
 **Rede de segurança.** No fim, uma passada conserta sobras raras mexendo só na posição das notas (isso nunca altera a paridade).
 
 Os defeitos evitados:
@@ -84,6 +95,7 @@ Os defeitos evitados:
 - **Bloqueio de visão**: uma nota no meio da tela escondendo a que vem logo atrás.
 - **Palma**: as duas mãos obrigadas a se cruzar ou se bater.
 - **Nota empilhada**: duas notas no mesmo lugar ao mesmo tempo.
+- **Sabre atravessando**: numa dupla, o sabre de uma mão passando pela nota da outra cor.
 
 ## 4. Luzes e paredes (`gerar.py`)
 
@@ -94,14 +106,16 @@ Os defeitos evitados:
 
 Durante todo o processo o tempo é contado em segundos. Só na hora de escrever o arquivo ele é convertido para a unidade do jogo (batidas). Isso evita erros de arredondamento.
 
-O zip leva: `Info.dat` (nome, BPM, dificuldades), um arquivo por dificuldade, `song.egg` e a capa. A prévia que toca no menu do jogo começa no trecho mais intenso da música. A velocidade das notas é 14, 16 e 18 (o valor típico dos mapas humanos da biblioteca).
+O zip leva: `Info.dat` (nome, BPM, dificuldades), um arquivo por dificuldade (formato v3, que é o que aceita arcos), `song.egg` e a capa. A prévia que toca no menu do jogo começa no trecho mais intenso da música. A velocidade das notas é 12, 14, 16 e 18 (o valor típico dos mapas humanos da biblioteca).
+
+**Nome, artista e capa.** Valem, nesta ordem: o que você escreveu; a faixa e o artista que o yt-dlp informa; as tags do arquivo; o título do vídeo ou o nome do arquivo limpo ("Artista - Música", sem "Official Video" nem "feat."). A capa vem da imagem que você indicar, da miniatura do vídeo ou da imagem embutida no arquivo, cortada em quadrado; só na falta de tudo sai a genérica. Álbum, ano e link não têm campo próprio no `Info.dat`: ficam em `_customData`, que o jogo ignora e o site mostra.
 
 ## 6. Conferir (`relatorio.py`, `checks.py`, `check\check.mjs`)
 
 O mapa pronto é lido de volta e passa por dois juízes:
 
 - **bsmap**, uma biblioteca da comunidade, confere se o formato é válido e conta erros de paridade. É a opinião de fora.
-- **Nossas regras** (`checks.py`), que são as mesmas usadas pelo motor na etapa 3: bloqueio de visão, palma, nota empilhada, notas na batida, folga no começo e no fim, notas por segundo dentro da faixa.
+- **Nossas regras** (`checks.py`), que são as mesmas usadas pelo motor na etapa 3: bloqueio de visão, palma, nota empilhada, sabre atravessando nota, notas na batida, folga no começo e no fim, notas por segundo dentro da faixa.
 
 O relatório marca cada meta com `[ok]` ou `[FALHOU]` e fica salvo ao lado do zip. Passar em tudo quer dizer "jogável e sem defeito conhecido". Não quer dizer "divertido": isso nenhuma regra mede.
 
@@ -116,17 +130,17 @@ O relatório marca cada meta com `[ok]` ou `[FALHOU]` e fica salvo ao lado do zi
 | 3 | igual à 2 | motor próprio com padrões humanos |
 | 4 | igual à 2, com instrumentos separados | motor próprio, altura por instrumento, paredes |
 
-## O site (`app.py`, `app.html`)
+## O site (`app.py`, `site\app.html`)
 
-É um servidor pequeno que só atende o seu próprio computador. Ele faz três coisas: recebe o link ou arquivo e chama o `gerar.py` (um mapa por vez, porque a análise usa o processador inteiro), lista os zips de `saida\`, e entrega o zip ao ArcViewer, o visualizador 3D embutido na página. Os links são baixados pelo yt-dlp. Nada é enviado para fora.
+É um servidor pequeno que só atende o seu próprio computador. Antes de gerar ele mostra a capa e os dados da música para você corrigir e deixa escolher dificuldades e quantidade de notas. Ele faz três coisas: recebe o link ou arquivo e chama o `gerar.py` (um mapa por vez, porque a análise usa o processador inteiro), lista os zips de `saida\`, e entrega o zip ao ArcViewer, o visualizador 3D embutido na página. Os links são baixados pelo yt-dlp. Nada é enviado para fora. Também troca o nome de um mapa pronto, manda para `saida\lixeira` e envia ao Quest (com a hora no nome da pasta, para não ser confundido com uma versão antiga).
 
-## A biblioteca de padrões (`baixar_mapas.py`, `extrair_padroes.py`)
+## A biblioteca de padrões (`ferramentas\baixar_mapas.py`, `ferramentas\extrair_padroes.py`)
 
-`baixar_mapas.py` busca no BeatSaver mapas com nota alta e muitos votos, feitos por pessoas, sem mods, e guarda só os arquivos de notas (o áudio é descartado). `extrair_padroes.py` corta esses mapas nas janelas descritas acima, também em versão espelhada (esquerda ↔ direita), e grava um arquivo por dificuldade em `dados\`.
+`ferramentas\baixar_mapas.py` busca no BeatSaver mapas com nota alta e muitos votos, feitos por pessoas, sem mods, e guarda só os arquivos de notas (o áudio é descartado). `ferramentas\extrair_padroes.py` corta esses mapas nas janelas descritas acima, também em versão espelhada (esquerda ↔ direita), e grava um arquivo por dificuldade em `dados\`.
 
 ## O que ele ainda não sabe fazer
 
 - Notas mais rápidas que 1/4 de batida, tercinas e swing.
-- Bombas, arcos, correntes e notas de ponto.
+- Bombas, correntes e notas de ponto.
 - Entender a estrutura da música além de "este compasso é igual àquele" e "este é mais intenso".
-- Saber se o mapa ficou divertido. Para isso existe o `teste_cego.py`: ele embaralha duas versões da mesma música como A e B para você jogar sem saber qual é qual.
+- Saber se o mapa ficou divertido. Para isso existe o `ferramentas\teste_cego.py`: ele embaralha duas versões da mesma música como A e B para você jogar sem saber qual é qual.

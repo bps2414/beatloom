@@ -1,6 +1,6 @@
 r"""Monta a biblioteca de padroes a partir dos mapas humanos em dados\mapas (ver baixar_mapas.py).
 
-  .venv\Scripts\python.exe extrair_padroes.py
+  .venv\Scripts\python.exe ferramentas\extrair_padroes.py
 
 Um padrao e o que um mapper humano colocou numa janela de 1, 2 ou 4 batidas, guardado pela "mascara" de ritmo
 (quantas notas em cada casa de 1/4). So entram janelas limpas: tudo na grade de 1/4, sem bombas, sem notas de ponto,
@@ -11,9 +11,10 @@ import json, pickle, statistics, sys
 from collections import Counter, defaultdict
 from pathlib import Path
 
-import checks
+RAIZ = Path(__file__).parent.parent
+sys.path.insert(0, str(RAIZ))  # a raiz do projeto, onde esta a pasta beatloom
+from beatloom import checks
 
-RAIZ = Path(__file__).parent
 DADOS = RAIZ / "dados"
 ESPELHO = {0: 0, 1: 1, 2: 3, 3: 2, 4: 5, 5: 4, 6: 7, 7: 6}
 JANELAS = (4, 2, 1)
@@ -103,7 +104,8 @@ def janelas_do_mapa(notas, bombas, correntes):
 
 def main():
     meta = [json.loads(l) for l in (DADOS / "meta.jsonl").read_text(encoding="utf-8").splitlines()]
-    lib = {d: {L: defaultdict(Counter) for L in JANELAS} for d in ("Hard", "Expert", "ExpertPlus")}
+    meta = list({m["id"]: m for m in meta}.values())  # mapa baixado de novo (dificuldades a mais): vale a ultima linha
+    lib = {d: {L: defaultdict(Counter) for L in JANELAS} for d in ("Normal", "Hard", "Expert", "ExpertPlus")}
     usados = Counter()
     for m in meta:
         for dif in m["diffs"]:
@@ -113,7 +115,7 @@ def main():
             except Exception as e:
                 print("pulei", arq, e)
                 continue
-            if lido is None:
+            if lido is None or dif not in lib:
                 continue
             usados[dif] += 1
             for L, masc, jan, pre in janelas_do_mapa(*lido):

@@ -10,8 +10,8 @@ from pathlib import Path
 
 import numpy as np
 
-import checks
-from audio import RAIZ, analisar
+from beatloom import checks
+from beatloom.audio import RAIZ, analisar
 
 # faixa de notas por segundo de cada dificuldade (wiki do BSMG)
 NPS = {"Easy": (0.82, 2.29), "Normal": (1.05, 3.41), "Hard": (1.73, 5.22), "Expert": (2.42, 7.81), "ExpertPlus": (3.21, 10.66)}
@@ -84,6 +84,8 @@ def relatorio(mapa, humano=None):
         reacao, salto = 60 / bpm * hjd, njs * 60 / bpm * hjd * 2
         vb = checks.bloqueios_de_visao(notas, nome, reacao)
         pal, emp = checks.palmas(notas), checks.empilhadas(notas)
+        atr = checks.atravessadas(notas)
+        cru, cor = checks.cruzadas(notas), checks.corridas(notas, checks.VEL_MAO.get(nome, 12))
         casa = grade[np.clip(np.searchsorted(grade, ts), 1, len(grade) - 1)]
         casa0 = grade[np.clip(np.searchsorted(grade, ts) - 1, 0, len(grade) - 1)]
         na_grade = float(np.mean(np.minimum(np.abs(casa - ts), np.abs(casa0 - ts)) <= 0.03))
@@ -98,6 +100,7 @@ def relatorio(mapa, humano=None):
             ("bloqueios de visao = 0", not vb, f"{len(vb)}" + (f" (ex.: {vb[0]:.1f}s)" if vb else "")),
             ("palmas = 0", not pal, f"{len(pal)}" + (f" (ex.: {pal[0]:.1f}s)" if pal else "")),
             ("notas empilhadas = 0", not emp, f"{len(emp)}" + (f" (ex.: {emp[0]:.1f}s)" if emp else "")),
+            ("duplas com sabre passando pela outra nota = 0", not atr, f"{len(atr)}" + (f" (ex.: {atr[0]:.1f}s)" if atr else "")),
             (">= 95% dos tempos na grade de 1/4 (30 ms)", na_grade >= 0.95, f"{na_grade:.1%}"),
             ("folga no inicio >= 1,5 s", ini >= 1.5, f"{ini:.2f} s"),
             ("folga no fim >= 2 s", fim >= 2, f"{fim:.2f} s"),
@@ -108,6 +111,8 @@ def relatorio(mapa, humano=None):
             if not ok:
                 falhas.append(f"{nome}: {txt} ({val})")
         L.append(f"  notas {len(notas)} em {len(ts)} tempos | {duplas} duplas | bombas {len(r['bombas'])} | paredes {len(r['paredes'])} | eventos de luz {r['eventos']}")
+        ex = lambda v: f"{len(v)} ({1000 * len(v) / len(notas):.0f} a cada mil notas" + (", ex.: " + ", ".join(f"{t:.1f}s" for t in v[:3]) if v else "") + ")"
+        L.append(f"  notas seguradas (arcos) {r.get('arcos', 0)} | bracos cruzados {ex(cru)} | trocas de posicao rapidas demais para a mao {ex(cor)}")
         L.append(f"  maior pausa sem nota {pausa:.1f} s | sobra de musica depois da ultima nota {fim:.1f} s | distancia de salto {salto:.1f} m | tempo de reacao {reacao * 1000:.0f} ms")
         L.append(f"  tempos com ataque forte detectado a ate 50 ms: {perto(ts, fortes, 0.05):.0%} | ataques fortes que viraram nota: {perto(fortes, ts, 0.05):.0%}")
         dirs = np.bincount([n[4] for n in notas], minlength=9)
