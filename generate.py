@@ -267,6 +267,51 @@ def empilhar(notas, peso, dif, reacao, prefs=(), presas=()):
     return notas, feitas - torres, torres
 
 
+# correntes a cada mil notas. Nos mapas humanos em formato novo metade nao tem nenhuma e o quarto que mais usa tem de 6 a 10 (Hard, Expert, Expert+);
+# quase todas com 1 casa de comprimento, 4 elos e a cauda 1/16 de batida depois da cabeca. Easy e Normal ficam sem.
+CORRENTES = {"Hard": 4, "Expert": 6, "ExpertPlus": 8}
+ARCOS_MIL = 40  # teto de arcos de frase a cada mil notas; nos mapas humanos a mediana de arcos e 59 e o quarto que menos usa tem 25
+
+
+def acorrentar(notas, peso, seco, dif, reacao, presas=(), topo=2):
+    """Corrente em ataque seco: a nota vira a cabeca de uma corrente que segue 1 casa na linha do corte. O golpe e o mesmo, entao a paridade nao muda.
+
+    peso(t) = forca do ataque; seco(t) = o som e forte e some logo (nada soa na meia batida seguinte); presas = {(t, cor)} das pontas de arco.
+    Do ataque mais forte para o mais fraco, ate a cota, com 1 s entre uma e outra. So onde a cauda cabe na grade, a mao tem 0,25 s livres depois,
+    nenhuma outra nota passa pela casa da cauda ate 0,4 s depois e a cauda nao tapa a visao de quem vem atras. -> [(nota da cabeca, (x, y) da cauda)]"""
+    notas, out = sorted(notas), []
+    cota = round(CORRENTES.get(dif, 0) * len(notas) / 1000)
+    for n in sorted(notas, key=lambda n: -peso(n[0])):
+        if len(out) >= cota:
+            break
+        t, x, y, c, d = n
+        tx, ty = x + PASSO[d][0], y + PASSO[d][1]
+        if (not seco(t) or (t, c) in presas or not (0 <= tx <= 3 and 0 <= ty <= topo) or any(abs(t - a[0]) < 1 for a, _ in out)
+                or any(m is not n and (m[3] == c and -0.01 <= m[0] - t < 0.25 or (m[1], m[2]) == (tx, ty) and -0.05 <= m[0] - t <= 0.4) for m in notas)
+                or checks.bloqueios_de_visao([(t, tx, ty, c, d)] + [m for m in notas if t < m[0] <= t + reacao + 0.02], dif, reacao, checks.FOLGA_VB)):
+            continue
+        out.append((n, (tx, ty)))
+    return sorted(out)
+
+
+def arcos_de_frase(notas, altura, casa, presas=()):
+    """Arco seguindo a nota cantada: quando a mesma mao bate duas vezes enquanto o cantor segura a MESMA nota (de 1 a 4 batidas), um arco liga as duas.
+    Nenhuma nota sai do mapa. O arco sai no sentido do corte da primeira e chega no sentido do corte da segunda, que e o caminho que o braco ja faz.
+
+    altura = nota cantada em cada casa (None sem voz); casa(t) = casa da grade; presas = {(t, cor)} das notas que ja tem arco.
+    Pilha nao ganha arco. Os mais longos primeiro, ate ARCOS_MIL a cada mil notas. -> [(nota da cabeca, nota da cauda)]"""
+    notas, out, ult = sorted(notas), [], {}
+    so = lambda n: sum(m[0] == n[0] and m[3] == n[3] for m in notas[max(notas.index(n) - 3, 0):notas.index(n) + 4]) == 1 and (n[0], n[3]) not in presas
+    for n in notas:
+        a, ult[n[3]] = ult.get(n[3]), n
+        if a is None or a[0] == n[0]:
+            continue
+        i, j = casa(a[0]), casa(n[0])
+        if CASAS <= j - i <= 4 * CASAS and altura[i] is not None and all(v == altura[i] for v in altura[i:j]) and so(a) and so(n):
+            out.append((a, n))
+    return sorted(sorted(out, key=lambda v: v[0][0] - v[1][0])[:round(ARCOS_MIL * len(notas) / 1000)])
+
+
 def repetir_golpes(notas, an, dif, reacao):
     """Etapa 2: compasso repetido recebe o mesmo desenho do original, quando isso nao cria erro. -> (notas, iguais, repetidos)"""
     g, ic = an["grade"], an["ini_comp"] * CASAS
@@ -479,6 +524,12 @@ def gerar(audio, nome=None, artista=None, etapa=4, tag="", saida=None, capa=None
             cores_mapa.update(_colorLeft=rgb(pal[0][0]), _colorRight=rgb(pal[0][1]))
     hexa = [["#%02x%02x%02x" % tuple(round(x * 255) for x in c) for c in par] for par in pal or ()]
     mapas, resumo = [], [f"capa {origem_capa} | densidade x{densidade:g} | cores " + (" ".join(hexa[0]) + ", na queda " + " ".join(hexa[1]) + (" (sabres tambem)" if "_colorLeft" in cores_mapa else "") if pal else "do jogo") + f" | cenario {ambiente.removesuffix('Environment')} (musica de clima {clima(an)})"]
+    # ataque seco (pede corrente): forte, sem outro ataque na meia batida seguinte e sem voz segurando a nota
+    seco, alt = None, None
+    if etapa >= 4 and "forca_inst" in an:
+        alt = voz(an)["altura"]
+        niv = np.max([an["nivel"]] + [an[f"nivel_{s}"] for s in ("drums", "bass", "other", "vocals")], axis=0)
+        seco = [bool(niv[i] == 2 and not niv[i + 1:i + 3].any() and all(v is None for v in alt[i + 1:i + 3])) for i in range(len(niv))]
     ger = {"etapa": etapa, "capa": origem_capa.split()[-1], "densidade": densidade, "prefs": sorted(prefs), "cores": hexa, "sabres": "_colorLeft" in cores_mapa, "clima": clima(an), "ambiente": ambiente, "difs": {}}  # o mesmo resumo em numeros, para o .relatorio.json
     for dif in difs:
         cfg = dict(DIFS[dif], tps=DIFS[dif]["tps"] * densidade)
@@ -486,7 +537,7 @@ def gerar(audio, nome=None, artista=None, etapa=4, tag="", saida=None, capa=None
         off = salto_offset(cfg["njs"], bpm, cfg["salto"])
         reacao = 60 / bpm * checks.meio_salto(cfg["njs"], bpm, off)
         tempos = escolher_tempos(an, cfg, etapa)
-        extra, arcos = "", []
+        extra, arcos, elos = "", [], []
         if etapa <= 2:
             notas = consertar(golpes_beatkenja(tempos, bpm, an["grade"], dif), dif, reacao)
             if etapa == 2:
@@ -507,6 +558,12 @@ def gerar(audio, nome=None, artista=None, etapa=4, tag="", saida=None, capa=None
             achar = lambda t, c: next(n for n in notas if abs(n[0] - t) < 0.001 and n[3] == c)
             arcos = [(achar(t0, c), achar(t1, c)) for t0, t1, c in seg]
             extra += f" | notas seguradas: {len(arcos)}" + (" (em " + ", ".join(sorted({f'{a[0]:.1f}s' for a, _ in arcos}, key=lambda s: float(s[:-1]))) + ")" if arcos else "")
+            if seco and cfg["arcos"]:  # arcos de frase (a voz segura a nota entre dois golpes da mesma mao) e correntes nos ataques secos; as notas nao mudam
+                frase = arcos_de_frase(notas, alt, lambda t: casa_de[round(t, 4)], {(n[0], n[3]) for a in arcos for n in a})
+                arcos += frase
+                elos = acorrentar(notas, lambda t: fz[casa_de[round(t, 4)]], lambda t: seco[casa_de[round(t, 4)]], dif, reacao, {(n[0], n[3]) for a in arcos for n in a}, 1 if "sem_topo" in prefs else 2)
+                ger["difs"][dif].update(arcos_frase=len(frase), correntes=len(elos))
+                extra += f" | arcos seguindo a voz: {len(frase)} | correntes em ataque seco: {len(elos)}"
         par = paredes(notas, an, bt, [a for a, _ in arcos]) if etapa >= 4 else []
         arq = f"{dif}Standard.dat"
         (pasta / arq).write_text(json.dumps({
@@ -516,7 +573,9 @@ def gerar(audio, nome=None, artista=None, etapa=4, tag="", saida=None, capa=None
             # arco (nota segurada): sai da nota da cabeca e chega na nota da cauda, as duas da mesma cor
             "sliders": [{"c": a[3], "b": bt(a[0]), "x": a[1], "y": a[2], "d": a[4], "mu": 1, "tb": bt(z[0]), "tx": z[1], "ty": z[2], "tc": z[4], "tmu": 1, "m": 0}
                         for a, z in arcos],
-            "burstSliders": [], "waypoints": [], "basicBeatmapEvents": ev, "colorBoostBeatmapEvents": boost,
+            # corrente: a cabeca e a propria nota; a cauda vem 1/16 de batida depois, 1 casa adiante na linha do corte
+            "burstSliders": [{"c": n[3], "b": bt(n[0]), "x": n[1], "y": n[2], "d": n[4], "tb": round(bt(n[0]) + 0.0625, 4), "tx": tx, "ty": ty, "sc": 4, "s": 1} for n, (tx, ty) in elos],
+            "waypoints": [], "basicBeatmapEvents": ev, "colorBoostBeatmapEvents": boost,
             "lightColorEventBoxGroups": ev_cor, "lightRotationEventBoxGroups": ev_rot, "lightTranslationEventBoxGroups": [],
             "basicEventTypesWithKeywords": {"d": []}, "useNormalEventsAsCompatibleEvents": False}))
         mapas.append({"_difficulty": dif, "_difficultyRank": cfg["rank"], "_beatmapFilename": arq,
@@ -564,6 +623,15 @@ def demo():
     ns = [(float(t), 1, 0 if t % 2 == 0 else 2, 0, 1 if t % 2 == 0 else 0) for t in range(200)]
     com, p, tr = empilhar(ns, lambda t: {50: 9, 100: 8}.get(t, 0), "Expert", 0.5)
     assert (p, tr) == (1, 1) and [n[1:] for n in com if n[0] == 50] == [(1, 0, 0, 1), (1, 1, 0, 1), (1, 2, 0, 1)] and [n[1:] for n in com if n[0] == 100] == [(1, 0, 0, 1), (1, 1, 0, 1)], (p, tr)
+    # corrente: cota de 1 no Expert; a nota do segundo 0 desce da linha de cima e a cauda cai 1 casa abaixo. Sem casa para a cauda (corte para cima na linha de cima),
+    # com nota passando na casa da cauda logo depois, ou no Normal, nao sai
+    assert acorrentar(ns, lambda t: {51: 9}.get(t, 0), lambda t: t == 51, "Expert", 0.5) == [] and acorrentar(ns, lambda t: {50: 9}.get(t, 0), lambda t: True, "Normal", 0.5) == []
+    ch = [(0.0, 1, 2, 0, 1)] + [(float(t), 2, 0, 1, 1) for t in range(1, 200)]
+    assert acorrentar(ch, lambda t: -t, lambda t: True, "Expert", 0.5) == [((0.0, 1, 2, 0, 1), (1, 1))] and acorrentar(ch + [(0.3, 1, 1, 1, 0)], lambda t: -t, lambda t: t == 0, "Expert", 0.5) == []
+    # arco de frase: a voz segura a nota 60 das casas 0 a 9; a vermelha bate nas casas 0 e 4 (1 batida) e ganha arco; a azul bate em 0 e 2 (meia batida) e nao ganha
+    fr = [(0.0, 1, 0, 0, 1), (0.0, 2, 0, 1, 1), (0.5, 2, 1, 1, 0), (1.0, 1, 1, 0, 0), (3.0, 1, 0, 0, 1)] + [(float(t), 2, 0, 1, 1) for t in range(10, 160)]
+    assert arcos_de_frase(fr, [60.0] * 10 + [None] * 700, lambda t: round(t * 4)) == [((0.0, 1, 0, 0, 1), (1.0, 1, 1, 0, 0))]
+    assert arcos_de_frase(fr, [60.0] * 10 + [None] * 700, lambda t: round(t * 4), {(1.0, 0)}) == []
     assert empilhar(ns, lambda t: t, "Normal", 0.5) == (ns, 0, 0) and sum(n[0] == 50 for n in empilhar(ns, lambda t: -abs(t - 50), "Expert", 0.5, presas={(50.0, 0)})[0]) == 1
     # corredor: batidas de 0,5 s; a nota na ponta em 1,0 s barra o comeco e o trecho livre vai de 1,5 a 3,5 s (4 batidas). Com uma parede de 2,5 a 3,0 s, para nela
     assert corredor([1.0, 4.5], np.arange(0, 20, 0.5), [(0, 16)]) == [(1.5, 3.5)] and corredor([1.0, 4.5], np.arange(0, 20, 0.5), [(0, 16)], [(2.5, 3.0)]) == [(1.5, 2.5)]

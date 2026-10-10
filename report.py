@@ -99,7 +99,7 @@ def conferir(mapa, humano=None):
         ]
         dirs = np.bincount([n[4] for n in notas], minlength=9)
         D.update(notas=len(notas), tempos=len(ts), duplas=sum(1 for a, b in zip(notas, notas[1:]) if abs(a[0] - b[0]) < 0.005), bombas=len(r["bombas"]),
-                 paredes=len(r["paredes"]), luzes=r["eventos"], arcos=r.get("arcos", 0), nps=nps,
+                 paredes=len(r["paredes"]), luzes=r["eventos"], arcos=r.get("arcos", 0), correntes=r.get("correntes", 0), nps=nps,
                  cruzadas=onde(checks.cruzadas(notas)), corridas=onde(checks.corridas(notas, checks.VEL_MAO.get(nome, 12))),
                  maior_pausa=float(max(np.diff(ts))) if len(ts) > 1 else 0, sobra_fim=fim, salto_m=salto, reacao_ms=reacao * 1000,
                  ataques_precisao=perto(ts, fortes, 0.05), ataques_cobertura=perto(fortes, ts, 0.05),
@@ -166,7 +166,7 @@ def texto(R):
                 falhas.append(f"{nome}: {txt} ({val})")
         L.append(f"  notas {D['notas']} em {D['tempos']} tempos | {D['duplas']} duplas | bombas {D['bombas']} | paredes {D['paredes']} | eventos de luz {D['luzes']}")
         ex = lambda v: f"{v['n']} ({1000 * v['n'] / D['notas']:.0f} a cada mil notas" + (", ex.: " + ", ".join(f"{t:.1f}s" for t in v["ex"]) if v["ex"] else "") + ")"
-        L.append(f"  notas seguradas (arcos) {D['arcos']} | bracos cruzados {ex(D['cruzadas'])} | trocas de posicao rapidas demais para a mao {ex(D['corridas'])}")
+        L.append(f"  notas seguradas (arcos) {D['arcos']} | correntes {D.get('correntes', 0)} | bracos cruzados {ex(D['cruzadas'])} | trocas de posicao rapidas demais para a mao {ex(D['corridas'])}")
         L.append(f"  maior pausa sem nota {D['maior_pausa']:.1f} s | sobra de musica depois da ultima nota {D['sobra_fim']:.1f} s | distancia de salto {D['salto_m']:.1f} m | tempo de reacao {D['reacao_ms']:.0f} ms")
         L.append(f"  tempos com ataque forte detectado a ate 50 ms: {D['ataques_precisao']:.0%} | ataques fortes que viraram nota: {D['ataques_cobertura']:.0%}")
         dirs, lin = D["direcoes"], D["linhas"]
