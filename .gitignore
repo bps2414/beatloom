@@ -8,9 +8,12 @@ saida/
 ref/
 dados/
 dados_download.log
-# third-party tools you download yourself
+# third-party tools: the setup screen downloads the first two, BeatKenja you download yourself
 arcviewer/
+bin/
 beatkenja/
+# your settings
+beatloom.json
 # folders BeatKenja drops in the working directory
 /assets/
 /CustomWIPLevels/

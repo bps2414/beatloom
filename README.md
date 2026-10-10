@@ -29,38 +29,39 @@ How it works, step by step: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Setup
 
-You need Python 3.12, [ffmpeg](https://ffmpeg.org/), [Node.js](https://nodejs.org/), and optionally [yt-dlp](https://github.com/yt-dlp/yt-dlp) for links. Developed on Windows; nothing is known to be Windows-only, but other systems are untested.
+On Windows, download the zip of the latest [release](https://github.com/bps2414/beatloom/releases), unzip it and double-click `start.bat`. You do not need to install anything first.
+
+The first time, `start.bat` downloads Python 3.12 and the packages (about 2 GB, several minutes) into the Beatloom folder, then opens the page. The page shows what is still missing and downloads it with a progress bar, also into the Beatloom folder:
+
+- ffmpeg and Node.js (required).
+- The pattern library (required). The repository does not ship it, because it is derived from other mappers' work. The page downloads the note data (no audio) of 1000 well-rated maps from BeatSaver at one request per second, which takes about 20 minutes. If you close it, it resumes where it stopped.
+- [ArcViewer](https://github.com/AllPoland/ArcViewer) (GPL-3, about 80 MB), for the 3D viewer inside the page. Optional.
+- ADB, to send maps to a Quest over Wi-Fi. Optional.
+
+Nothing is installed on Windows itself; deleting the folder removes everything. On a PC with an NVIDIA card `start.bat` installs the CUDA build of torch, otherwise the CPU build.
+
+### By hand
+
+You need Python 3.12, [ffmpeg](https://ffmpeg.org/) and [Node.js](https://nodejs.org/). Developed on Windows; nothing in the generator is known to be Windows-only, but other systems are untested and the setup screen only knows the Windows downloads.
 
 ```
 python -m venv .venv
 .venv\Scripts\pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu
 cd check && npm install && cd ..
-```
-
-Build the pattern library. The repository does not ship it, because it is derived from other mappers' work. This downloads the note data (no audio) of up to 1000 well-rated maps from BeatSaver at one request per second, which takes about 20 minutes:
-
-```
 .venv\Scripts\python tools\download_maps.py 1000
 .venv\Scripts\python tools\extract_patterns.py
-```
-
-Optional, for the 3D viewer inside the web page, get a copy of [ArcViewer](https://github.com/AllPoland/ArcViewer) (GPL-3, about 80 MB):
-
-```
 git clone --depth 1 -b deploy https://github.com/AllPoland/ArcViewer.git arcviewer
 ```
 
-Optional, only for generator stages 1 and 2: Java and `BeatKenja.jar` from [BeatKenja](https://github.com/Chrisvenator/BeatKenja) inside a `beatkenja` folder.
+The last line is optional (3D viewer). Also optional, only for generator stages 1 and 2: Java and `BeatKenja.jar` from [BeatKenja](https://github.com/Chrisvenator/BeatKenja) inside a `beatkenja` folder.
 
 ## Use
 
-Web page (English and Portuguese):
-
-```
-.venv\Scripts\python app.py
-```
+Web page (English and Portuguese): double-click `start.bat`, or run `.venv\Scripts\python app.py`.
 
 It opens http://localhost:8777 and only answers your own computer. Before generating, the page shows the cover, name and artist so you can fix them, and lets you choose the difficulties and the amount of notes. Each finished map can be renamed, deleted (it goes to `saida\lixeira`) and sent to the Quest.
+
+Quest: the first time, plug the headset in with a USB cable (developer mode on), accept the prompt inside the headset and click "Find the Quest over USB" in Settings. After that maps go over Wi-Fi. The page shows whether the Quest is reachable and which maps are already on it, and can delete them from the headset. Your choices (language, Quest address, default difficulties) are kept in `beatloom.json`.
 
 Command line:
 
@@ -79,8 +80,11 @@ Other tools: `report.py <zip>` re-runs the checks, `tools\blind_test.py <a.zip> 
 ## Folders
 
 ```
+start.bat                        installs what is missing and opens the page
 generate.py, app.py, report.py   the three commands
-beatloom\                        the core: listening (audio.py), choosing swings (engine.py), checking (checks.py)
+beatloom\                        the core: listening (audio.py), choosing swings (engine.py), checking (checks.py),
+                                 first-run downloads (preparo.py), Quest over ADB (quest.py)
+bin\                             programs the setup screen downloads (not in the repository)
 tools\                     pattern library, blind test, batch generation
 site\                            the web page
 check\                           bsmap validation (Node)

@@ -36,7 +36,7 @@ def variantes(pad):
 def biblioteca(dif):
     arq = RAIZ / "dados" / f"padroes_{dif}.pkl"
     if not arq.exists():
-        raise SystemExit(f"Falta a biblioteca de padroes ({arq.name}). Rode tools\\download_maps.py e depois tools\\extract_patterns.py.")
+        raise SystemExit(f"Falta a biblioteca de padroes ({arq.name}). Abra o site (start.bat) e instale-a na tela de preparo, ou rode tools\\download_maps.py e depois tools\\extract_patterns.py.")
     with open(arq, "rb") as f:
         return pickle.load(f)
 

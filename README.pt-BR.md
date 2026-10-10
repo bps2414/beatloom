@@ -29,38 +29,39 @@ Como funciona, passo a passo: [docs/ARCHITECTURE.pt-BR.md](docs/ARCHITECTURE.pt-
 
 ## Instalação
 
-Precisa de Python 3.12, [ffmpeg](https://ffmpeg.org/), [Node.js](https://nodejs.org/) e, para colar links, [yt-dlp](https://github.com/yt-dlp/yt-dlp). Feito no Windows; nada é sabidamente exclusivo do Windows, mas outros sistemas não foram testados.
+No Windows, baixe o zip da última [release](https://github.com/bps2414/beatloom/releases), descompacte e dê dois cliques em `start.bat`. Não precisa instalar nada antes.
+
+Na primeira vez o `start.bat` baixa o Python 3.12 e os pacotes (uns 2 GB, vários minutos) para dentro da pasta do Beatloom e abre a página. A página mostra o que ainda falta e baixa com barra de progresso, também para dentro da pasta do Beatloom:
+
+- ffmpeg e Node.js (obrigatórios).
+- A biblioteca de padrões (obrigatória). Ela não vem no repositório porque é derivada do trabalho de outros mappers. A página baixa só as notas (sem áudio) de 1000 mapas bem avaliados do BeatSaver, um pedido por segundo, uns 20 minutos. Se você fechar, continua de onde parou.
+- O [ArcViewer](https://github.com/AllPoland/ArcViewer) (GPL-3, uns 80 MB), para o visualizador 3D dentro da página. Opcional.
+- O ADB, para mandar mapas a um Quest pelo Wi-Fi. Opcional.
+
+Nada é instalado no Windows em si; apagar a pasta remove tudo. Em PC com placa NVIDIA o `start.bat` instala o torch com CUDA; nos outros, o de CPU.
+
+### À mão
+
+Precisa de Python 3.12, [ffmpeg](https://ffmpeg.org/) e [Node.js](https://nodejs.org/). Feito no Windows; nada no gerador é sabidamente exclusivo do Windows, mas outros sistemas não foram testados e a tela de preparo só conhece os downloads de Windows.
 
 ```
 python -m venv .venv
 .venv\Scripts\pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu
 cd check && npm install && cd ..
-```
-
-Monte a biblioteca de padrões. Ela não vem no repositório porque é derivada do trabalho de outros mappers. Este passo baixa só as notas (sem áudio) de até 1000 mapas bem avaliados do BeatSaver, um pedido por segundo, uns 20 minutos:
-
-```
 .venv\Scripts\python tools\download_maps.py 1000
 .venv\Scripts\python tools\extract_patterns.py
-```
-
-Opcional, para o visualizador 3D dentro da página: uma cópia do [ArcViewer](https://github.com/AllPoland/ArcViewer) (GPL-3, uns 80 MB):
-
-```
 git clone --depth 1 -b deploy https://github.com/AllPoland/ArcViewer.git arcviewer
 ```
 
-Opcional, só para as etapas 1 e 2 do gerador: Java e o `BeatKenja.jar` do [BeatKenja](https://github.com/Chrisvenator/BeatKenja) em uma pasta `beatkenja`.
+A última linha é opcional (visualizador 3D). Também opcional, só para as etapas 1 e 2 do gerador: Java e o `BeatKenja.jar` do [BeatKenja](https://github.com/Chrisvenator/BeatKenja) em uma pasta `beatkenja`.
 
 ## Uso
 
-Site (português e inglês):
-
-```
-.venv\Scripts\python app.py
-```
+Site (português e inglês): dois cliques em `start.bat`, ou `.venv\Scripts\python app.py`.
 
 Abre http://localhost:8777 e só responde ao seu próprio computador. Antes de gerar, a página mostra a capa, o nome e o artista para você corrigir, e deixa escolher as dificuldades e a quantidade de notas. Em cada mapa pronto dá para trocar o nome, apagar (vai para `saida\lixeira`) e mandar ao Quest.
+
+Quest: na primeira vez, ligue o headset pelo cabo USB (com o modo desenvolvedor ativado), aceite o aviso que aparece dentro dele e clique em "Encontrar o Quest pelo cabo USB" na Configuração. Depois disso os mapas vão pelo Wi-Fi. A página mostra se o Quest está alcançável e quais mapas já estão nele, e apaga do headset. Suas escolhas (idioma, endereço do Quest, dificuldades padrão) ficam em `beatloom.json`.
 
 Pelo terminal:
 
@@ -79,8 +80,11 @@ Outras ferramentas: `report.py <zip>` refaz as conferências, `tools\blind_test.
 ## Pastas
 
 ```
+start.bat                        instala o que faltar e abre a página
 generate.py, app.py, report.py   os três comandos
-beatloom\                        o miolo: ouvir (audio.py), escolher golpes (engine.py), conferir (checks.py)
+beatloom\                        o miolo: ouvir (audio.py), escolher golpes (engine.py), conferir (checks.py),
+                                 downloads da primeira vez (preparo.py), Quest por ADB (quest.py)
+bin\                             programas que a tela de preparo baixa (fora do repositório)
 tools\                     biblioteca de padrões, teste cego, geração em lote
 site\                            a página
 check\                           conferência com o bsmap (Node)

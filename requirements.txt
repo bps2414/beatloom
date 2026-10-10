@@ -1,4 +1,5 @@
-# Python 3.12. For CPU-only torch: pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu
+# Python 3.12. start.bat installs these with uv, which picks the torch build for your GPU (CUDA on NVIDIA, CPU otherwise).
+# By hand, CPU only: pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu
 torch
 torchaudio
 beat-this==1.1.0
@@ -7,3 +8,4 @@ demucs==4.1.0
 numpy
 scipy
 soundfile
+yt-dlp

@@ -1,24 +1,29 @@
-r"""Interface web do automapper. Roda so neste PC.
+r"""Interface web do Beatloom. Roda so neste PC.
 
+  start.bat                               -> instala o que faltar e abre o site (duplo clique)
   .venv\Scripts\python.exe app.py        -> abre http://localhost:8777 no navegador
 
 Cole um link (YouTube etc., via yt-dlp) ou escolha um arquivo, gere o mapa, assista no ArcViewer (visualizador 3D embutido) e mande ao Quest.
+Na primeira vez a pagina confere o que falta (ffmpeg, Node, padroes...) e baixa para dentro da pasta do projeto: beatloom\preparo.py.
 """
-import json, mimetypes, re, shutil, subprocess, sys, threading, time, webbrowser, zipfile
+import importlib.metadata, json, mimetypes, re, shutil, subprocess, sys, threading, time, webbrowser, zipfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
+from beatloom import preparo, quest
 from generate import DIFS, dados_da_musica, fazer_capa, limpar_titulo
 
 mimetypes.add_type('application/wasm', '.wasm')
 
 RAIZ = Path(__file__).parent
 SAIDA, MUSICAS = RAIZ / "saida", RAIZ / "musicas"
-SYNC = RAIZ.parent / "quest-songs" / "sync.py"
 PORTA = 8777
 PY = sys.executable
 ARC = RAIZ / "arcviewer"
+CONFIG = RAIZ / "beatloom.json"  # escolhas de quem usa; nao vai para o repositorio
+ENVIADOS = SAIDA / "quest.json"  # {zip: data do arquivo quando foi mandado}: mapa refeito depois disso precisa ir de novo
+DESCARTAVEL = ("analise", "regerar", "quest", "tmp_egg", "baixar")  # pastas de .cache que podem sumir (os modelos ficam)
 
 trabalhos, fila = [], []  # um trabalho por vez: a analise usa o processador inteiro
 trava = threading.Lock()
@@ -35,8 +40,49 @@ def dados_do_link(j):
     return {k: v for k, v in d.items() if v}
 
 
+def config():
+    padrao = {"lingua": None, "quest_ip": "", "difs": list(DIFS), "densidade": 1.0, "pronto": False}
+    try:
+        return {**padrao, **json.loads(CONFIG.read_text(encoding="utf-8"))}
+    except (OSError, ValueError):
+        return padrao
+
+
+def gravar_config(d):
+    """Guarda so o que veio em `d` e e valido; o resto fica como estava."""
+    c = config()
+    if d.get("lingua") in ("pt", "en"):
+        c["lingua"] = d["lingua"]
+    if "quest_ip" in d and re.fullmatch(r"(\d{1,3}(\.\d{1,3}){3})?", str(d["quest_ip"]).strip()):
+        c["quest_ip"] = str(d["quest_ip"]).strip()
+    if isinstance(d.get("difs"), list) and any(x in DIFS for x in d["difs"]):
+        c["difs"] = [x for x in DIFS if x in d["difs"]]
+    if isinstance(d.get("densidade"), (int, float)):
+        c["densidade"] = min(max(float(d["densidade"]), 0.8), 1.3)
+    if isinstance(d.get("pronto"), bool):
+        c["pronto"] = d["pronto"]
+    CONFIG.write_text(json.dumps(c, indent=1), encoding="utf-8")
+    return c
+
+
+def enviados():
+    try:
+        return json.loads(ENVIADOS.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+def estado_quest():
+    """-> tem adb?, ip, conectado? e, por zip, "ok" (a versao de agora esta no Quest) ou "velho" (o mapa mudou depois do envio)."""
+    ip = config()["quest_ip"]
+    on = quest.conectado(ip)
+    la, env = quest.no_quest(ip) if on else set(), enviados()
+    return {"adb": preparo.tem("adb"), "ip": ip, "conectado": on,
+            "mapas": {z.name: "ok" if env.get(z.name) == z.stat().st_mtime else "velho" for z in SAIDA.glob("*.zip") if z.stem in la}}
+
+
 def ytdlp(*args):
-    r = subprocess.run(["yt-dlp", "--no-playlist", *args], capture_output=True, text=True, encoding="utf-8", errors="replace")
+    r = subprocess.run([PY, "-m", "yt_dlp", "--no-playlist", *args], capture_output=True, text=True, encoding="utf-8", errors="replace")
     if r.returncode:
         raise RuntimeError("ytdlp|" + (r.stderr.strip().splitlines() or [""])[-1][:300])
     return r.stdout
@@ -197,8 +243,14 @@ class H(BaseHTTPRequestHandler):
             if u.path == "/":
                 self.manda((RAIZ / "site" / "app.html").read_bytes(), "text/html; charset=utf-8")
             elif u.path == "/api/estado":
-                self.manda({"trabalhos": trabalhos[-6:], "mapas": lista_de_mapas(), "quest": SYNC.exists(), "visor": (ARC / "index.html").exists(),
-                            "difs": list(DIFS)})
+                self.manda({"trabalhos": trabalhos[-6:], "mapas": lista_de_mapas(), "visor": (ARC / "index.html").exists(), "difs": list(DIFS)})
+            elif u.path == "/api/preparo":
+                self.manda(preparo.estado())
+            elif u.path == "/api/config":
+                cache = sum(f.stat().st_size for p in DESCARTAVEL for f in (RAIZ / ".cache" / p).rglob("*") if f.is_file())
+                self.manda({**config(), "cache": cache, "torch": importlib.metadata.version("torch")})
+            elif u.path == "/api/quest":
+                self.manda(estado_quest())
             elif u.path == "/api/mapa":
                 self.manda(mapa(q["zip"]))
             elif u.path == "/api/capa":  # capa de um mapa pronto (?zip=) ou de um arquivo de audio que acabou de subir (?arquivo=)
@@ -268,8 +320,38 @@ class H(BaseHTTPRequestHandler):
                 return self.manda(dados_do_link(json.loads(ytdlp("--skip-download", "--dump-single-json", "--", link))))
             except (RuntimeError, ValueError) as e:
                 return self.manda({"erro": str(e) if str(e).startswith("ytdlp|") else "ytdlp"}, cod=400)
+        if u.path == "/api/preparo":  # baixa um item que falta, ou todos ("tudo"); o andamento sai no GET
+            for item in preparo.ITENS if d.get("item") == "tudo" else [d.get("item")]:
+                preparo.instalar(item)
+            return self.manda(preparo.estado())
+        if u.path == "/api/config":
+            return self.manda(gravar_config(d))
+        if u.path == "/api/cache":  # apaga as analises guardadas: a proxima geracao de cada musica volta a demorar
+            if any(t["estado"] in ("na fila", "rodando") for t in trabalhos):
+                return self.manda({"erro": "ocupado"}, cod=409)
+            for p in DESCARTAVEL:
+                shutil.rmtree(RAIZ / ".cache" / p, ignore_errors=True)
+            return self.manda({"ok": True})
+        if u.path == "/api/quest/parear":  # com o cabo USB ligado
+            ip, erro = quest.parear()
+            if erro:
+                return self.manda({"erro": erro}, cod=400)
+            gravar_config({"quest_ip": ip})
+            time.sleep(2)  # o Quest leva um instante para voltar a responder depois de ligar o Wi-Fi
+            return self.manda(estado_quest())
+        if u.path == "/api/quest":  # so roda quando a pessoa clica no botao; "zips" = varios de uma vez
+            ip, res, env = config()["quest_ip"], {}, enviados()
+            if not quest.conectado(ip):
+                return self.manda({"erro": "sem_quest"}, cod=400)
+            for nome in d.get("zips") or [d.get("zip")]:
+                z = SAIDA / Path(nome or "-").name
+                res[z.name] = quest.enviar(ip, z) if z.is_file() else "sem_mapa"
+                if not res[z.name]:
+                    env[z.name] = z.stat().st_mtime
+            ENVIADOS.write_text(json.dumps(env), encoding="utf-8")
+            return self.manda({"resultados": res})
         zp = SAIDA / Path(d.get("zip") or "-").name
-        if u.path in ("/api/quest", "/api/apagar", "/api/renomear", "/api/regerar") and not zp.is_file():
+        if u.path in ("/api/quest/apagar", "/api/apagar", "/api/renomear", "/api/regerar") and not zp.is_file():
             return self.manda({"erro": "sem_mapa"}, cod=404)
         if u.path == "/api/apagar":  # nao apaga de verdade: vai para saida\lixeira, de onde da para trazer de volta
             (SAIDA / "lixeira").mkdir(exist_ok=True)
@@ -296,22 +378,20 @@ class H(BaseHTTPRequestHandler):
         if u.path == "/api/renomear":
             renomear(zp, (d.get("nome") or "").strip(), (d.get("artista") or "").strip())
             return self.manda({"ok": True})
-        if u.path == "/api/quest":  # so roda quando a pessoa clica no botao
-            if not SYNC.exists():
-                return self.manda({"erro": "sem_sync"}, cod=404)
-            # o sync.py pula o zip se ja existe no Quest uma pasta com o mesmo nome: cada versao gerada vai com a hora no nome
-            copia = RAIZ / ".cache" / "quest" / f"{zp.stem}-{time.strftime('%m%d-%H%M', time.localtime(zp.stat().st_mtime))}.zip"
-            copia.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(zp, copia)
-            r = subprocess.run([sys.executable, str(SYNC), str(copia)], capture_output=True, text=True, encoding="utf-8", errors="replace")
-            return self.manda({"saida": (r.stdout + r.stderr).strip()[-600:], "ok": "ok      " in r.stdout})
+        if u.path == "/api/quest/apagar":  # tira o mapa do Quest; o zip daqui fica
+            erro = quest.apagar(config()["quest_ip"], zp.stem)
+            return self.manda({"erro": "adb|" + erro}, cod=500) if erro else self.manda({"ok": True})
         self.manda({"erro": "nao_existe"}, cod=404)
 
 
 if __name__ == "__main__":
     SAIDA.mkdir(exist_ok=True)
     threading.Thread(target=operario, daemon=True).start()
-    srv = ThreadingHTTPServer(("127.0.0.1", PORTA), H)
+    ThreadingHTTPServer.allow_reuse_address = False  # no Windows, reusar o endereco deixaria dois servidores na mesma porta
+    try:
+        srv = ThreadingHTTPServer(("127.0.0.1", PORTA), H)
+    except OSError:  # a porta esta ocupada: o Beatloom ja esta aberto em outra janela
+        sys.exit(webbrowser.open(f"http://localhost:{PORTA}") and 0)
     print(f"Beatloom aberto em http://localhost:{PORTA}  (Ctrl+C fecha)")
     if "--sem-navegador" not in sys.argv:
         webbrowser.open(f"http://localhost:{PORTA}")

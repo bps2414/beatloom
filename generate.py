@@ -6,7 +6,7 @@ r"""Gera um mapa de Beat Saber (Easy, Normal, Hard, Expert e Expert+) a partir d
 Nome e artista: o que voce passar, senao as tags do arquivo, senao o nome do arquivo limpo ("Artista - Musica").
 Capa: --capa, senao a imagem embutida no arquivo, senao uma capa generica. Sempre cortada em quadrado.
 
-Sai em saida\<nome>-v<etapa>.zip (pronto para o sync.py) e saida\<nome>-v<etapa>.relatorio.txt.
+Sai em saida\<nome>-v<etapa>.zip (o site manda ao Quest) e saida\<nome>-v<etapa>.relatorio.txt.
 --etapa escolhe a versao do gerador (padrao 4, a mais completa):
   1 = notas no tempo + golpes do BeatKenja      2 = + intensidade por trecho, repeticoes, notas duplas nos sons fortes
   3 = + motor de golpes proprio (padroes humanos) 4 = + separacao de instrumentos (Demucs) e paredes
@@ -451,7 +451,4 @@ if __name__ == "__main__":
     zp.with_suffix(".relatorio.txt").write_text(txt, encoding="utf-8")
     print(txt)
     print(f"\nMapa: {zp}\nRelatorio: {zp.with_suffix('.relatorio.txt')}")
-    sync = RAIZ.parent / "quest-songs" / "sync.py"  # opcional: script proprio de quem usa, fora deste repositorio
-    if sync.exists():
-        print(f'Para mandar ao Quest:  python "{sync}" "{zp}"')
     sys.exit(0 if ok else 1)

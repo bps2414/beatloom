@@ -132,7 +132,7 @@ O relatório marca cada meta com `[ok]` ou `[FALHOU]` e fica salvo ao lado do zi
 
 ## O site (`app.py`, `site\app.html`)
 
-É um servidor pequeno que só atende o seu próprio computador. Antes de gerar ele mostra a capa e os dados da música para você corrigir e deixa escolher dificuldades e quantidade de notas. Ele faz três coisas: recebe o link ou arquivo e chama o `generate.py` (um mapa por vez, porque a análise usa o processador inteiro), lista os zips de `saida\`, e entrega o zip ao ArcViewer, o visualizador 3D embutido na página. Os links são baixados pelo yt-dlp. Nada é enviado para fora. Também refaz uma única dificuldade de um mapa pronto com outra quantidade de notas, troca o nome, manda para `saida\lixeira` e envia ao Quest (com a hora no nome da pasta, para não ser confundido com uma versão antiga).
+É um servidor pequeno que só atende o seu próprio computador. Antes de gerar ele mostra a capa e os dados da música para você corrigir e deixa escolher dificuldades e quantidade de notas. Ele faz três coisas: recebe o link ou arquivo e chama o `generate.py` (um mapa por vez, porque a análise usa o processador inteiro), lista os zips de `saida\`, e entrega o zip ao ArcViewer, o visualizador 3D embutido na página. Os links são baixados pelo yt-dlp. Nada é enviado para fora. Também refaz uma única dificuldade de um mapa pronto com outra quantidade de notas, troca o nome, manda para `saida\lixeira` e envia ao Quest por ADB (`beatloom\quest.py`; cada mapa vira a pasta `beatloom-<nome do zip>`, então mandar de novo substitui a versão antiga). Na primeira vez ele confere o que falta e baixa para dentro da pasta do projeto (`beatloom\preparo.py`).
 
 ## A biblioteca de padrões (`tools\download_maps.py`, `tools\extract_patterns.py`)
 
