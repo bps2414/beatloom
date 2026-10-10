@@ -78,7 +78,7 @@ function previa(d, capa, info) {  // capa, nome e artista antes de gerar, para a
 function semPrevia() { $("previa").hidden = true; $("nome").value = ""; $("artista").value = ""; extra = {}; miniatura = null; }
 function abrirNovo() {
   if ($("d-novo").open) return;
-  $("erro").hidden = true; alternadores("escolha", cfg.difs); $("dens").value = cfg.densidade; dens("dens");
+  $("erro").hidden = true; alternadores("escolha", cfg.difs); $("dens").value = cfg.densidade; dens("dens"); $("rapido").checked = cfg.modo === "rapido";
   $("d-novo").showModal();
 }
 $("novo").onclick = $("vz-novo").onclick = abrirNovo;
@@ -118,7 +118,7 @@ $("form").onsubmit = async (e) => {
     const link = $("link").value.trim(), difs = marcadasEm("escolha");
     if (!difs.length) throw new Error(t("sem_dif"));
     if (!link && arquivo && !subido) subido = await api("/api/arquivo?nome=" + enc(arquivo.name), arquivo, true);
-    await api("/api/gerar", { link, arquivo: link ? null : subido && subido.arquivo, nome: $("nome").value, artista: $("artista").value, ...extra, capa: miniatura, difs, densidade: +$("dens").value });
+    await api("/api/gerar", { link, arquivo: link ? null : subido && subido.arquivo, nome: $("nome").value, artista: $("artista").value, ...extra, capa: miniatura, difs, densidade: +$("dens").value, modo: $("rapido").checked ? "rapido" : "completo" });
     $("link").value = ""; ultimoLink = ""; $("arq").value = ""; arquivo = subido = null; semPrevia(); pintarArquivo();
     $("d-novo").close(); document.body.classList.remove("vendo"); atualizar();
   } catch (x) { erroNovo(x); }
@@ -137,7 +137,8 @@ function pintarTrabalhos() {
     if (tr.capa) { capa.src = tr.capa; capa.alt = ""; }
     const [passo, qual] = (tr.passos.at(-1) || "comecando").split("|");  // "golpes|Hard (2/4)"
     const e = ruim ? lerErro(tr.erro) : null;
-    const etapa = e ? e.msg : tr.estado === "na fila" ? t("fila") : t("passo_" + passo) + (qual ? " " + qual.replace("ExpertPlus", "Expert+") : "") + (tr.progresso != null ? " " + tr.progresso + "%" : "");
+    const etapaDe = tr.progresso != null ? "separando" : passo;  // a separacao acontece dentro de "ouvindo" e tem barra propria
+    const etapa = e ? e.msg : tr.estado === "na fila" ? t("fila") : t("passo_" + etapaDe) + (qual ? " " + qual.replace("ExpertPlus", "Expert+") : "") + (tr.progresso != null ? " " + tr.progresso + "%" : "");
     c.append(capa, el("b", "", tr.titulo), el("span", "etapa", etapa));
     if (tr.estado === "rodando") { const p = el("progress"); p.max = 100; if (tr.progresso != null) p.value = tr.progresso; c.append(p); }
     if (ruim) {
@@ -164,6 +165,7 @@ function pintarLista() {
     q(".n").textContent = m.nome; q(".a").textContent = m.artista; q(".bpm").textContent = num(m.bpm); q(".dur").textContent = m.dur ? tempo(m.dur) : "–";
     q(".bpm").title = "BPM"; q(".dur").title = t("duracao");
     q(".tags").textContent = "";
+    if (/ v3/.test(m.sub)) q(".tags").append(el("span", "rapido", t("tag_rapido")));
     if (m.ok === false) q(".tags").append(el("span", "falha", t("tag_falhou")));
     if (la) q(".tags").append(el("span", la === "ok" ? "la" : "velho", t(la === "ok" ? "no_quest" : "q_velho")));
     q(".abre").setAttribute("aria-current", m.zip === atual);
@@ -370,11 +372,12 @@ $("q-testar").onclick = () => comQuest($("q-testar"), async () => {
 
 async function verConfig() {
   cfg = await api("/api/config");
-  $("c-cache").textContent = t("cache_tam", { n: mb(cfg.cache) }); $("c-torch").textContent = cfg.torch ? t("torch", { v: cfg.torch }) : "";
-  $("c-dens").value = cfg.densidade; dens("c-dens");
+  $("c-cache").textContent = t("cache_tam", { n: mb(cfg.cache) }); $("c-torch").textContent = t(cfg.placa ? "motor_placa" : "motor_cpu");
+  $("c-dens").value = cfg.densidade; dens("c-dens"); $("c-rapido").checked = cfg.modo === "rapido";
   alternadores("c-difs", cfg.difs, () => (marcadasEm("c-difs").length ? salvar({ difs: marcadasEm("c-difs") }) : verConfig()));  // a ultima marcada nao sai
 }
 $("c-dens").onchange = () => salvar({ densidade: +$("c-dens").value });
+$("c-rapido").onchange = () => salvar({ modo: $("c-rapido").checked ? "rapido" : "completo" });
 $("c-limpar").onclick = async () => {
   if (!await confirmar("confirma_limpar", "limpar")) return;
   try { await api("/api/cache", {}); } catch (x) { falhou(x); }

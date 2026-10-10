@@ -111,8 +111,26 @@ def _compassos(y, batidas, ini_comp, forca):
     return [round(float(v), 3) for v in intens], rep
 
 
+def dispositivo():
+    """Placa NVIDIA quando o torch instalado sabe usa-la (o start.bat escolhe esse torch sozinho); senao o processador."""
+    import torch
+    return "cuda" if torch.cuda.is_available() else "cpu"
+
+
+def na_placa(f):
+    """f(dispositivo). Se a placa falhar no meio (o comum e faltar memoria), refaz no processador em vez de perder a geracao."""
+    dev = dispositivo()
+    try:
+        return f(dev)
+    except RuntimeError as e:
+        if dev == "cpu":
+            raise
+        print(f"      a placa de video falhou ({str(e)[:80]}); refazendo no processador", flush=True)
+        return f("cpu")
+
+
 def _separar(wav, pasta):
-    """Demucs (htdemucs) em CPU -> um wav por instrumento. Demora minutos; fica em cache."""
+    """Demucs (htdemucs) -> um wav por instrumento. E a parte demorada; fica em cache."""
     if not all((pasta / f"{s}.wav").exists() for s in INSTRUMENTOS):
         import torch, soundfile as sf
         from demucs.pretrained import get_model
@@ -128,7 +146,7 @@ def _separar(wav, pasta):
             if d["state"] == "start":
                 print(f"[sep] {100 * (d['model_idx_in_bag'] + d['segment_offset'] / x.shape[-1]) / d['models']:.0f}", flush=True)
         with torch.no_grad():
-            out = apply_model(modelo, x[None], device="cpu", split=True, overlap=0.1, progress=False, callback=andou)[0]
+            out = na_placa(lambda dev: apply_model(modelo, x[None], device=dev, split=True, overlap=0.1, progress=False, callback=andou)[0].cpu())
         print("[sep] fim", flush=True)
         pasta.mkdir(parents=True, exist_ok=True)
         for nome, s in zip(modelo.sources, out):
@@ -146,6 +164,8 @@ def analisar(caminho, instrumentos=False):
     if not wav.exists():
         ffmpeg("-i", caminho, "-ac", "2", "-ar", "44100", wav)
     arq = pasta / ("analise_inst.json" if instrumentos else "analise.json")
+    if not instrumentos and not arq.exists() and (pasta / "analise_inst.json").exists():
+        arq = pasta / "analise_inst.json"  # a analise com instrumentos tem tudo o que a sem tem: a conferencia nao precisa ouvir a musica de novo
     if arq.exists():
         return {k: np.array(v) if isinstance(v, list) else v for k, v in json.loads(arq.read_text()).items()}
 
@@ -155,7 +175,7 @@ def analisar(caminho, instrumentos=False):
     bruto = pasta / "batidas.json"
     if not bruto.exists():
         from beat_this.inference import File2Beats
-        b, d = File2Beats(checkpoint_path="final0", device="cpu", dbn=False)(str(wav))
+        b, d = na_placa(lambda dev: File2Beats(checkpoint_path="final0", device=dev, dbn=False)(str(wav)))
         bruto.write_text(json.dumps({"b": [float(v) for v in b], "d": [float(v) for v in d]}))
     bd = json.loads(bruto.read_text())
     if len(bd["b"]) < 8:

@@ -61,7 +61,7 @@ p { margin: 0; }
 .abre .n { font: 600 16px/1.2 var(--titulo); font-stretch: 85%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; align-self: end; }
 .abre .a { grid-column: 2; font-size: 13px; color: var(--texto-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .abre .tags { grid-column: 2; font-size: 12px; display: flex; gap: 10px; align-self: start; min-height: 0; }
-.tags .falha { color: var(--alerta); } .tags .la { color: var(--ok); } .tags .velho { color: var(--texto-2); }
+.tags .falha { color: var(--alerta); } .tags .rapido { color: var(--texto-2); } .tags .la { color: var(--ok); } .tags .velho { color: var(--texto-2); }
 .abre .lado { grid-column: 3; grid-row: 1 / 4; display: grid; gap: 4px; justify-items: end; font-size: 13px; color: var(--texto-2); }
 .abre .lado span { display: flex; align-items: center; gap: 5px; } .abre .lado b { font-weight: 500; font-variant-numeric: tabular-nums; }
 .marcar { position: absolute; z-index: 1; left: 4px; top: 4px; width: 18px; height: 18px; margin: 0; accent-color: var(--dir); opacity: 0; display: none; }
@@ -135,6 +135,8 @@ fieldset { border: 0; padding: 0; margin: 0; } legend { padding: 0; color: var(-
 .rotulo { display: grid; gap: 4px; font-size: 14px; color: var(--texto-2); } .rotulo .campo { color: var(--texto); font-size: 15px; }
 .densidade { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; font-size: 14px; color: var(--texto-2); }
 .densidade input { grid-column: 1 / -1; width: 100%; accent-color: var(--dir); }
+.chave { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: start; cursor: pointer; } .chave input { width: 18px; height: 18px; margin: 2px 0 0; accent-color: var(--dir); }
+.chave span { display: grid; } .chave b { font-weight: 600; }
 .solta { display: grid; gap: 2px; justify-items: center; padding: 18px; border: 1.5px dashed rgba(255, 255, 255, .28); border-radius: 10px; background: none; color: var(--texto-2); font-size: 14px; }
 .solta b { color: var(--texto); font-weight: 600; overflow-wrap: anywhere; } .solta:hover, .solta.sobre { border-color: var(--dir); background: rgba(47, 143, 255, .08); }
 .previa { display: grid; grid-template-columns: 76px 1fr; gap: 8px 12px; align-items: start; }

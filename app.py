@@ -44,7 +44,7 @@ def dados_do_link(j):
 
 
 def config():
-    padrao = {"lingua": None, "quest_ip": "", "difs": list(DIFS), "densidade": 1.0, "pronto": False}
+    padrao = {"lingua": None, "quest_ip": "", "difs": list(DIFS), "densidade": 1.0, "modo": "completo", "pronto": False}
     try:
         return {**padrao, **json.loads(CONFIG.read_text(encoding="utf-8"))}
     except (OSError, ValueError):
@@ -62,6 +62,8 @@ def gravar_config(d):
         c["difs"] = [x for x in DIFS if x in d["difs"]]
     if isinstance(d.get("densidade"), (int, float)):
         c["densidade"] = min(max(float(d["densidade"]), 0.8), 1.3)
+    if d.get("modo") in ("completo", "rapido"):
+        c["modo"] = d["modo"]
     if isinstance(d.get("pronto"), bool):
         c["pronto"] = d["pronto"]
     CONFIG.write_text(json.dumps(c, indent=1), encoding="utf-8")
@@ -111,7 +113,7 @@ def rodar(trab):
             d["capa"] = str(capa) if capa.exists() else None
         d = {**d, **{k: trab[k] for k in ("nome", "artista", "album", "ano") if trab.get(k)}}  # o que a pessoa escreveu vale mais
         trab["titulo"] = d.get("nome") or Path(audio).stem
-        cmd = [PY, "-u", str(RAIZ / "generate.py"), audio, "--etapa", "4", "--densidade", str(trab.get("densidade") or 1)]
+        cmd = [PY, "-u", str(RAIZ / "generate.py"), audio, "--etapa", str(trab.get("etapa") or 4), "--densidade", str(trab.get("densidade") or 1)]
         cmd += ["--difs", ",".join(trab["difs"])] if trab.get("difs") else []
         for k in ("nome", "artista", "album", "ano", "link", "capa"):
             cmd += [f"--{k}", str(d[k])] if d.get(k) else []
@@ -284,7 +286,7 @@ class H(BaseHTTPRequestHandler):
                 self.manda(preparo.estado())
             elif u.path == "/api/config":
                 cache = sum(f.stat().st_size for p in DESCARTAVEL for f in (RAIZ / ".cache" / p).rglob("*") if f.is_file())
-                self.manda({**config(), "cache": cache, "torch": next((d.version for d in importlib.metadata.distributions(name="torch")), "")})
+                self.manda({**config(), "cache": cache, "placa": "+cu" in next((d.version for d in importlib.metadata.distributions(name="torch")), "")})  # torch com CUDA = analise na placa NVIDIA
             elif u.path == "/api/quest":
                 self.manda(estado_quest())
             elif u.path == "/api/mapa":
@@ -345,7 +347,8 @@ class H(BaseHTTPRequestHandler):
             trab = {"id": int(time.time() * 1000), "estado": "na fila", "passos": [], "progresso": None, "capa": capa, "titulo": (d.get("nome") or "").strip() or link or Path(arq).name,
                     "link": link or None, "arquivo": arq, **{k: str(d.get(k) or "").strip() or None for k in ("nome", "artista", "album", "ano")},
                     "difs": [x for x in DIFS if x in (d.get("difs") or DIFS)] or list(DIFS),
-                    "densidade": min(max(float(d.get("densidade") or 1), 0.8), 1.3)}
+                    "densidade": min(max(float(d.get("densidade") or 1), 0.8), 1.3),
+                    "etapa": 3 if (d.get("modo") or config()["modo"]) == "rapido" else 4}  # rapido = sem separar instrumentos (etapa 3 do gerador)
             with trava:
                 trabalhos.append(trab); fila.append(trab)
             return self.manda({"id": trab["id"]})
@@ -407,13 +410,16 @@ class H(BaseHTTPRequestHandler):
             shutil.rmtree(tmp, ignore_errors=True)
             tmp.mkdir(parents=True)
             with zipfile.ZipFile(zp) as z:  # o audio sai do proprio mapa, entao a analise ja esta no cache
-                (tmp / "song.egg").write_bytes(z.read(json.loads(z.read("Info.dat").decode("utf-8-sig"))["_songFilename"]))
+                info = json.loads(z.read("Info.dat").decode("utf-8-sig"))
+                (tmp / "song.egg").write_bytes(z.read(info["_songFilename"]))
+            etapa = (re.search(r"auto v([1-4])", info.get("_songSubName", "")) or ["", "4"])[1]  # a dificuldade nova sai no mesmo modo do mapa
+            novo = tmp / f"regerar-v{etapa}.zip"
             dens = min(max(float(d.get("densidade") or 1), 0.8), 1.3)
-            r = subprocess.run([PY, str(RAIZ / "generate.py"), str(tmp / "song.egg"), "--difs", d["dif"], "--densidade", str(dens), "--nome", "regerar", "--saida", str(tmp)],
+            r = subprocess.run([PY, str(RAIZ / "generate.py"), str(tmp / "song.egg"), "--difs", d["dif"], "--densidade", str(dens), "--etapa", etapa, "--nome", "regerar", "--saida", str(tmp)],
                                capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=RAIZ)
-            if not (tmp / "regerar-v4.zip").exists():
+            if not novo.exists():
                 return self.manda({"erro": "gerador|" + (r.stdout + r.stderr)[-300:]}, cod=500)
-            trocar_dificuldade(zp, tmp / "regerar-v4.zip", d["dif"])
+            trocar_dificuldade(zp, novo, d["dif"])
             subprocess.run([PY, str(RAIZ / "report.py"), str(zp)], capture_output=True, cwd=RAIZ)  # relatorio do mapa inteiro, de novo
             return self.manda({"ok": True})
         if u.path == "/api/renomear":

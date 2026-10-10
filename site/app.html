@@ -84,6 +84,7 @@
   <fieldset><legend data-t="quais"></legend><div class="difs" id="escolha"></div></fieldset>
   <label class="densidade"><span data-t="densidade"></span><span id="dens-v"></span>
     <input type="range" id="dens" min="0.8" max="1.3" step="0.05" value="1"></label>
+  <label class="chave"><input type="checkbox" id="rapido"><span><b data-t="rapido"></b><small class="fraco" data-t="rapido_sub"></small></span></label>
   <p class="erro" id="erro" role="alert" hidden></p>
   <footer><button type="button" class="quieto" data-fecha data-t="cancelar"></button><button class="acao" id="gerar" data-t="gerar"></button></footer>
 </form></dialog>
@@ -119,7 +120,8 @@
     <p class="erro" id="q-erro" role="alert" hidden></p></section>
   <section><h3 data-t="s_padrao"></h3><fieldset><legend data-t="quais"></legend><div class="difs" id="c-difs"></div></fieldset>
     <label class="densidade"><span data-t="densidade"></span><span id="c-dens-v"></span>
-      <input type="range" id="c-dens" min="0.8" max="1.3" step="0.05" value="1"></label></section>
+      <input type="range" id="c-dens" min="0.8" max="1.3" step="0.05" value="1"></label>
+    <label class="chave"><input type="checkbox" id="c-rapido"><span><b data-t="rapido"></b><small class="fraco" data-t="rapido_sub"></small></span></label></section>
   <section><h3 data-t="s_cache"></h3><p id="c-cache"></p><button type="button" class="sec" id="c-limpar" data-t="limpar"></button>
     <p class="fraco" id="c-torch"></p></section>
   <footer><button type="button" class="quieto" id="p-voltar" data-t="voltar"></button><button type="button" class="acao" id="p-seguir"></button></footer>
