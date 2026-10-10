@@ -11,6 +11,7 @@ ANG = {0: 180, 1: 0, 2: 270, 3: 90, 4: 225, 5: 135, 6: 315, 7: 45}
 ROT = {0: {"f": [180, 0, -90, 90, -135, 135, -45, 45], "b": [0, 180, 90, -90, 45, -45, 135, -135]},
        1: {"f": [-180, 0, -90, 90, -135, 135, -45, 45], "b": [0, -180, 90, -90, 45, -45, 135, -135]}}
 LIMITE = {0: (-155, 195), 1: (-195, 155)}
+ESPELHO = {0: 0, 1: 1, 2: 3, 3: 2, 4: 5, 5: 4, 6: 7, 7: 6}  # a direcao vista no espelho (esquerda <-> direita)
 IDA = {0: (1, 3, 6, 7), 1: (1, 2, 6, 7)}  # direcoes que so fazem sentido como golpe de ida
 # maior velocidade da mesma mao entre duas notas seguidas (casas da grade por segundo): perto do 1% mais rapido dos mapas humanos.
 # Sem este teto saiam trocas de posicao que o braco nao acompanha (dificuldade artificial).

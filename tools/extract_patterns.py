@@ -14,9 +14,9 @@ from pathlib import Path
 RAIZ = Path(__file__).parent.parent
 sys.path.insert(0, str(RAIZ))  # a raiz do projeto, onde esta a pasta beatloom
 from beatloom import checks
+from beatloom.checks import ESPELHO
 
 DADOS = RAIZ / "dados"
-ESPELHO = {0: 0, 1: 1, 2: 3, 3: 2, 4: 5, 5: 4, 6: 7, 7: 6}
 JANELAS = (4, 2, 1)
 MAX_POR_MASCARA = 4000
 

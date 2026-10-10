@@ -48,9 +48,24 @@ def variantes(pad):
     Cada nota troca o lado do golpe da mao, entao metade das vezes o braco chega ao trecho repetido "do outro lado"
     e o desenho identico e impossivel. O invertido mantem ritmo, maos e colunas.
     """
-    yield pad, False
+    yield pad, "igual"
     for maos in ((0,), (1,), (0, 1)):
-        yield tuple((o, x, 2 - y if c in maos else y, c, VIRA[d] if c in maos else d) for o, x, y, c, d in pad), True
+        yield tuple((o, x, 2 - y if c in maos else y, c, VIRA[d] if c in maos else d) for o, x, y, c, d in pad), "inv"
+
+
+def espelhar(pad):
+    """O padrao visto no espelho: as maos trocam de papel."""
+    return tuple(sorted((o, 3 - x, y, 1 - c, checks.ESPELHO[d]) for o, x, y, c, d in pad))
+
+
+def com_acento(pad, forca):
+    """O mesmo desenho com um acento a mais: no ataque mais forte (forca(casa do padrao)) em cima da batida em que so uma mao bate, a outra
+    entra junto, do lado dela, no golpe espelhado. So onde a outra mao nao bate mais neste padrao, porque a nota a mais vira o lado do golpe dela."""
+    sos = [n for n in pad if n[0] % CASAS == 0 and (n[1] < 2) == (n[3] == 0) and not any(m[0] == n[0] and m is not n or m[0] > n[0] and m[3] != n[3] for m in pad)]
+    if not sos:
+        return None
+    off, x, y, c, d = max(sos, key=lambda n: forca(n[0]))
+    return tuple(sorted(pad + ((off, 3 - x, y, 1 - c, checks.ESPELHO[d]),)))
 
 
 @lru_cache(None)
@@ -120,6 +135,11 @@ def golpes(tempos, an, dif, reacao, etapa, njs=16, arcos=(), prefs=()):
     ini_comp = [int(v) for v in an["ini_comp"]]
     comp_de = {b: k for k, (a, z) in enumerate(zip(ini_comp[:-1], ini_comp[1:])) for b in range(a, z)}
     rep = [int(v) for v in an["rep"]]
+    volta, vezes = {}, Counter()  # compasso repetido -> quantas vezes o original ja voltou, contando esta (1 = a segunda vez que se ouve)
+    for k, r in enumerate(rep):
+        if r != k:
+            vezes[r] += 1
+            volta[k] = vezes[r]
     # etapa 4: cada casa sabe se o ataque e de bateria/baixo (grave, embaixo) ou de voz/melodia (em cima)
     alto, linha_voz, sentido_voz, peca = None, {}, {}, None
     forca = np.asarray(an["forca"])  # a forca do ataque decide o tamanho do golpe: forte pede braco largo, fraco pede golpe curto
@@ -137,7 +157,7 @@ def golpes(tempos, an, dif, reacao, etapa, njs=16, arcos=(), prefs=()):
     forte, fraco = np.percentile(forca[list(tempos)], [75, 25]) if tempos else (9, -9)
     maos_atual, notas_todas = [Maos()], []
     usado = {}  # (compasso, posicao no compasso, L) -> padrao usado, para repetir nos compassos iguais
-    stats = {"padrao4": 0, "padrao2": 0, "padrao1": 0, "regra": 0, "rep_tentou": 0, "rep_igual": 0, "rep_inv": 0, "descartadas": 0}
+    stats = {"padrao4": 0, "padrao2": 0, "padrao1": 0, "regra": 0, "rep_tentou": 0, "rep_igual": 0, "rep_inv": 0, "rep_esp": 0, "rep_acento": 0, "descartadas": 0}
 
     colado = max(1.425 / njs, 0.12)  # cores diferentes na mesma casa precisam deste intervalo (MapCheck: hitboxInline)
     topo = 1 if "sem_topo" in prefs else 2  # linha mais alta que pode ter nota
@@ -177,6 +197,16 @@ def golpes(tempos, an, dif, reacao, etapa, njs=16, arcos=(), prefs=()):
                 masc = "".join(str(tempos.get(b * CASAS + i, 0)) for i in range(L * CASAS))
                 return (L, b * CASAS, masc, o[1]) if o[0] == masc else None
         return None
+
+    def versoes(o, b):
+        """O desenho do compasso original (o = o que original() devolveu) na ordem em que vale tentar nesta volta, como mapper faz:
+        a 2a, 6a... vez espelhado (as maos trocam de papel), a 3a, 7a... com um acento a mais; depois igual e invertido na vertical."""
+        v = volta.get(comp_de.get(b), 0) % 4
+        if v == 1:
+            yield espelhar(o[3]), "esp"
+        if v == 2 and (a := com_acento(tuple(o[3]), lambda off: forca[o[1] + off])):
+            yield a, "acento"
+        yield from variantes(o[3])
 
     def pontos(pad, pre, casa0, maos):
         """Quanto o padrao combina com a situacao: braco vindo do mesmo lugar que no mapa humano, e altura por instrumento."""
@@ -253,7 +283,7 @@ def golpes(tempos, an, dif, reacao, etapa, njs=16, arcos=(), prefs=()):
                 b += 1
                 continue
             o = original(b)
-            r = o and not any(x in reservada for x in range(b + 1, b + o[0])) and next(((r, inv) for vr, inv in variantes(o[3]) if (r := tentar(vr, o[1], maos, notas))), None)
+            r = o and not any(x in reservada for x in range(b + 1, b + o[0])) and next(((r, i) for i, (vr, _) in enumerate(versoes(o, b)) if (r := tentar(vr, o[1], maos, notas))), None)
             if r:
                 v, L, r = v + (4 if r[1] else 8) * peso, o[0], r[0]
             elif j := janela(b, maos, notas, AMOSTRA_ADIANTE):
@@ -340,11 +370,11 @@ def golpes(tempos, an, dif, reacao, etapa, njs=16, arcos=(), prefs=()):
             o = None
         if o is not None:
             stats["rep_tentou"] += 1
-            for v, invertido in variantes(o[3]):
+            for v, tipo in versoes(o, b):
                 if r := tentar(v, o[1]):
                     notas_todas.extend(r[0]); maos_atual[0] = r[1]
                     usado[(k, pos, o[0])] = (o[2], o[3])
-                    stats["rep_inv" if invertido else "rep_igual"] += 1; stats[f"padrao{o[0]}"] += 1
+                    stats[f"rep_{tipo}"] += 1; stats[f"padrao{o[0]}"] += 1
                     b += o[0]
                     break
             else:
@@ -356,9 +386,10 @@ def golpes(tempos, an, dif, reacao, etapa, njs=16, arcos=(), prefs=()):
             # antecipacao: vale muito deixar os bracos prontos para o desenho repetido que vem a seguir
             nb = next((x for x in range(b + L, min(b + L + 8, n_bat)) if any((x * CASAS + i) in tempos for i in range(CASAS))), None)
             if prox := original(nb) if nb is not None else None:
+                vs = [v for v, _ in versoes(prox, nb)]  # a primeira e a versao que se quer nesta volta
                 for a in achados:
                     ns = notas_todas[-12:] + a[2][0]
-                    a[0] += 20 if tentar(prox[3], prox[1], a[2][1], ns) else 10 if any(tentar(v, prox[1], a[2][1], ns) for v, _ in variantes(prox[3])) else 0
+                    a[0] += 20 if tentar(vs[0], prox[1], a[2][1], ns) else 10 if any(tentar(v, prox[1], a[2][1], ns) for v in vs[1:]) else 0
             # contexto maior: os melhores encaixes sao seguidos ate 8 batidas a frente, e ganha o que deixa o resto da frase sair melhor
             achados.sort(key=lambda a: -a[0])
             _, pad, r = max(achados[:OLHAR], key=lambda a: a[0] + adiante(b + L, b + HORIZONTE, a[2][1], notas_todas[-12:] + a[2][0]))
@@ -372,7 +403,7 @@ def golpes(tempos, an, dif, reacao, etapa, njs=16, arcos=(), prefs=()):
             b += 1
     tot = stats["padrao4"] + stats["padrao2"] + stats["padrao1"] + stats["regra"]
     resumo = (f" | janelas: {stats['padrao4']} de 4 batidas, {stats['padrao2']} de 2, {stats['padrao1']} de 1, {stats['regra']} por regra simples"
-              f" ({stats['descartadas']} notas descartadas) | janelas de compasso repetido: {stats['rep_tentou']}, das quais {stats['rep_igual']} com desenho identico e {stats['rep_inv']} com o mesmo desenho invertido na vertical")
+              f" ({stats['descartadas']} notas descartadas) | janelas de compasso repetido: {stats['rep_tentou']}, das quais {stats['rep_igual']} com desenho identico, {stats['rep_esp']} espelhado, {stats['rep_acento']} com um acento a mais e {stats['rep_inv']} invertido na vertical")
     if alto is not None and notas_todas:
         casa_de = {round(float(t), 4): i for i, t in enumerate(grade)}
         mel = [n[2] >= 1 for n in notas_todas if alto[casa_de[round(n[0], 4)]]]
@@ -400,6 +431,11 @@ def demo():
     desce, sobe = (0, 1, 0, 0, 1), (0, 1, 2, 0, 0)
     lib = {1: {"1000": [((desce,), ((1, 2, 0, 4), None), 50), ((sobe,), ((1, 0, 1, 4), None), 50), (((0, 3, 2, 0, 0),), ((0, 0, 1, 4), None), 1)]}}
     assert trocas_humanas(lib) == {(0, (1, 2, 0), (1, 0, 1)), (0, (1, 0, 1), (1, 2, 0))}, trocas_humanas(lib)
+    # vermelha desce na batida 0 e sobe na 1, azul desce na meia batida: o acento so cabe na batida 1 (depois dela a azul nao bate mais)
+    pad = ((0, 1, 0, 0, 6), (2, 2, 0, 1, 1), (4, 1, 2, 0, 0))
+    assert espelhar(pad) == ((0, 2, 0, 1, 7), (2, 1, 0, 0, 1), (4, 2, 2, 1, 0)) and espelhar(espelhar(pad)) == pad
+    assert com_acento(pad, lambda off: 1) == ((0, 1, 0, 0, 6), (2, 2, 0, 1, 1), (4, 1, 2, 0, 0), (4, 2, 2, 1, 0)), com_acento(pad, lambda off: 1)
+    assert com_acento(((0, 1, 0, 0, 1), (0, 2, 0, 1, 1)), lambda off: 1) is None  # ja e dupla
     print("engine ok")
 
 
