@@ -71,11 +71,11 @@ Pelo terminal:
 
 Nome e artista são opcionais: sem eles valem as tags do arquivo e, na falta, o nome do arquivo limpo ("Artista - Música"). A capa vem de `--capa`, senão da imagem embutida no arquivo, senão sai uma genérica. `--difs Normal,Hard` gera só algumas dificuldades e `--densidade 0.8` (até `1.3`) deixa o mapa mais leve ou mais cheio.
 
-O mapa sai em `saida\<nome>-v4.zip`, com `saida\<nome>-v4.relatorio.txt` ao lado. Copie a pasta descompactada para a pasta de mapas personalizados (no Quest: `ModData/com.beatgames.beatsaber/Mods/SongCore/CustomLevels`).
+O mapa sai em `saida\<nome>-v4.zip`, com `saida\<nome>-v4.relatorio.txt` ao lado (e `.relatorio.json`, as mesmas conferências em dados, que a página mostra no seu idioma). Copie a pasta descompactada para a pasta de mapas personalizados (no Quest: `ModData/com.beatgames.beatsaber/Mods/SongCore/CustomLevels`).
 
 `--etapa 1|2|3|4` escolhe a versão do gerador (padrão 4): 1 ritmo simples com golpes do BeatKenja, 2 densidade segue a energia e refrões repetem, 3 golpes de padrões humanos, 4 separação de instrumentos e paredes.
 
-Outras ferramentas: `report.py <zip>` refaz as conferências, `tools\blind_test.py <a.zip> <b.zip>` monta um par A/B embaralhado da mesma música para comparar sem saber qual é qual, e `tools\batch.py <lista.txt> <pasta>` gera várias músicas de uma vez e resume os relatórios.
+Outras ferramentas: `report.py <zip>` refaz as conferências, `tools\blind_test.py <a.zip> <b.zip>` monta um par A/B embaralhado da mesma música para comparar sem saber qual é qual, e `tools\batch.py <lista.txt> <pasta>` gera várias músicas de uma vez e resume os relatórios. `tools\check_i18n.py` confere se os dois idiomas têm as mesmas frases.
 
 ## Pastas
 
@@ -86,7 +86,7 @@ beatloom\                        o miolo: ouvir (audio.py), escolher golpes (eng
                                  downloads da primeira vez (preparo.py), Quest por ADB (quest.py)
 bin\                             programas que a tela de preparo baixa (fora do repositório)
 tools\                     biblioteca de padrões, teste cego, geração em lote
-site\                            a página
+site\                            a página: app.html, app.css, app.js, as frases em i18n\pt.json e en.json, as fontes
 check\                           conferência com o bsmap (Node)
 docs\                            como funciona
 ```

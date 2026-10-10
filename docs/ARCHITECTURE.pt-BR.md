@@ -130,9 +130,11 @@ O relatório marca cada meta com `[ok]` ou `[FALHOU]` e fica salvo ao lado do zi
 | 3 | igual à 2 | motor próprio com padrões humanos |
 | 4 | igual à 2, com instrumentos separados | motor próprio, altura por instrumento, paredes |
 
-## O site (`app.py`, `site\app.html`)
+## O site (`app.py`, `site\`)
 
 É um servidor pequeno que só atende o seu próprio computador. Antes de gerar ele mostra a capa e os dados da música para você corrigir e deixa escolher dificuldades e quantidade de notas. Ele faz três coisas: recebe o link ou arquivo e chama o `generate.py` (um mapa por vez, porque a análise usa o processador inteiro), lista os zips de `saida\`, e entrega o zip ao ArcViewer, o visualizador 3D embutido na página. Os links são baixados pelo yt-dlp. Nada é enviado para fora. Também refaz uma única dificuldade de um mapa pronto com outra quantidade de notas, troca o nome, manda para `saida\lixeira` e envia ao Quest por ADB (`beatloom\quest.py`; cada mapa vira a pasta `beatloom-<nome do zip>`, então mandar de novo substitui a versão antiga). Na primeira vez ele confere o que falta e baixa para dentro da pasta do projeto (`beatloom\preparo.py`).
+
+A página é HTML, CSS e JS puros, sem etapa de build (`site\app.html`, `app.css`, `app.js`), e não pede nada fora do seu computador, tirando a miniatura do vídeo quando você cola um link. Toda frase mora em `site\i18n\pt.json` e `en.json`; o servidor só responde com códigos e números. Isso vale para as conferências: o `report.py` grava `<zip>.relatorio.json` ao lado do relatório em texto e a página escreve cada conferência no idioma escolhido. Mapa feito antes de esse arquivo existir é conferido em segundo plano na primeira vez que você abre. Enquanto os instrumentos são separados o gerador imprime `[sep] N` e a página transforma isso em barra de progresso.
 
 ## A biblioteca de padrões (`tools\download_maps.py`, `tools\extract_patterns.py`)
 

@@ -130,9 +130,11 @@ The report marks each goal `[ok]` or `[FALHOU]` (failed) and is saved next to th
 | 3 | same as 2 | own engine with human patterns |
 | 4 | same as 2, with separated instruments | own engine, height by instrument, walls |
 
-## The web page (`app.py`, `site\app.html`)
+## The web page (`app.py`, `site\`)
 
 A small server that only answers your own computer. Before generating it shows the cover and song data so you can fix them, and lets you choose difficulties and the amount of notes. It does three things: takes the link or file and calls `generate.py` (one map at a time, because the analysis uses the whole processor), lists the zips in `saida\`, and hands the zip to ArcViewer, the 3D viewer embedded in the page. Links are downloaded with yt-dlp. Nothing is sent anywhere. It also regenerates a single difficulty of a finished map with a different amount of notes, renames it, moves it to `saida\lixeira`, and sends it to the Quest over ADB (`beatloom\quest.py`; each map becomes the folder `beatloom-<zip name>`, so sending again replaces the old version). On first run it checks what is missing and downloads it into the project folder (`beatloom\preparo.py`).
+
+The page is plain HTML, CSS and JS with no build step (`site\app.html`, `app.css`, `app.js`) and asks for nothing outside your computer except the video thumbnail when you paste a link. Every phrase lives in `site\i18n\pt.json` and `en.json`; the server only answers with codes and numbers. That includes the checks: `report.py` writes `<zip>.relatorio.json` next to the text report and the page writes each check in the chosen language. A map made before that file existed is checked in the background the first time you open it. While instruments are being separated the generator prints `[sep] N` and the page turns it into a progress bar.
 
 ## The pattern library (`tools\download_maps.py`, `tools\extract_patterns.py`)
 

@@ -7,8 +7,8 @@ Combinado com o dono em 10/10/2026. Objetivo: qualquer pessoa no Windows baixa a
 | Fatia | O que é | Estado | Documento |
 |---|---|---|---|
 | 1 | `start.bat`, tela de preparo, configuração, Quest por ADB | Feita em 10/10/2026 (commit `56172c6`). Pendências listadas no documento. | [slice-1.md](slice-1.md) |
-| 2 | Redesenho da página, i18n em arquivos, relatório estruturado, lista estilo jogo | **A fazer. É a próxima.** | [slice-2.md](slice-2.md) |
-| 3 | Velocidade: medir, CUDA automático, modo rápido | A fazer, depois da 2 aprovada | [slice-3.md](slice-3.md) |
+| 2 | Redesenho da página, i18n em arquivos, relatório estruturado, lista estilo jogo | Feita em 10/10/2026. **Esperando a aprovação do dono.** | [slice-2-feito.md](slice-2-feito.md) (o plano: [slice-2.md](slice-2.md)) |
+| 3 | Velocidade: medir, CUDA automático, modo rápido | **A fazer. É a próxima**, depois da 2 aprovada | [slice-3.md](slice-3.md) |
 | 4 | Instalador `.exe` (Inno Setup) embrulhando o `start.bat` | A fazer, por último | Resumo no fim deste arquivo |
 
 Regra: uma fatia por vez. Ao terminar, atualize esta tabela, descreva o que foi verificado e o que não foi, e espere a aprovação do dono.
@@ -57,7 +57,7 @@ sudo apt-get install -y ffmpeg nodejs npm   # se faltarem
 .venv/bin/python app.py --sem-navegador      # http://localhost:8777
 ```
 
-`app.py` importa `generate`, que importa `numpy`; `torch`, `demucs` e `beat_this` só são importados quando uma análise roda. `/api/config` lê a versão do torch com `importlib.metadata` e falha se o pacote não existir: instale o torch de CPU (`pip install torch --index-url https://download.pytorch.org/whl/cpu`) ou trate a ausência.
+`app.py` importa `generate`, que importa `numpy`; `torch`, `demucs` e `beat_this` só são importados quando uma análise roda. `/api/config` devolve a versão do torch vazia quando o pacote não está instalado.
 
 A tela de preparo trava no passo 2 enquanto faltar item obrigatório. `preparo.tem("padroes")` só confere se os cinco arquivos existem, então para trabalhar na interface basta criar arquivos vazios (ficam fora do git):
 
@@ -65,7 +65,7 @@ A tela de preparo trava no passo 2 enquanto faltar item obrigatório. `preparo.t
 mkdir -p dados && for d in Easy Normal Hard Expert ExpertPlus; do : > dados/padroes_$d.pkl; done
 ```
 
-Mapas para a página mostrar: a fatia 2 começa criando `tools/fixture.py`, que monta um mapa de mentira com áudio sintético em `saida/` (especificado em [slice-2.md](slice-2.md), passo 0).
+Mapas para a página mostrar: `tools/fixture.py` (mapa de mentira com áudio sintético, especificado em [slice-2.md](slice-2.md), passo 0) não foi criado, porque a fatia 2 foi feita na máquina do dono, que tem mapas de verdade. Crie-o se for trabalhar na nuvem.
 
 O que só o dono consegue testar, na máquina dele (Windows, RX 6600, Quest): geração real de ponta a ponta, `start.bat`, downloads reais do preparo, envio ao Quest, visualizador ArcViewer com mapa real. Liste isso no relatório final de cada fatia como "não verificado aqui".
 
@@ -81,7 +81,9 @@ beatloom/engine.py   escolha dos golpes a partir da biblioteca de padrões
 beatloom/checks.py   regras de jogabilidade (paridade, bloqueio de visão, palmas...)
 beatloom/preparo.py  o que falta instalar e os downloads da primeira vez
 beatloom/quest.py    ADB: parear, listar, enviar, apagar
-site/app.html        a página inteira (HTML, CSS, JS e frases num arquivo só; a fatia 2 separa)
+site/app.html        a marcação da página; app.css o visual; app.js o comportamento
+site/i18n/           as frases: pt.json e en.json (tools/check_i18n.py confere)
+site/fonts/          Bricolage Grotesque e Instrument Sans (OFL)
 check/               validador de formato com a biblioteca bsmap (Node)
 tools/               biblioteca de padrões, teste cego, lote
 docs/ARCHITECTURE*   como o gerador funciona

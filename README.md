@@ -71,11 +71,11 @@ Command line:
 
 Name and artist are optional: without them the file tags are used, and failing that the cleaned file name ("Artist - Song"). The cover comes from `--capa`, else from the image embedded in the file, else a generic one. `--difs Normal,Hard` generates only some difficulties and `--densidade 0.8` (up to `1.3`) makes the map lighter or fuller.
 
-The map goes to `saida\<name>-v4.zip` with `saida\<name>-v4.relatorio.txt` next to it. Copy the unzipped folder to your custom levels folder (on Quest: `ModData/com.beatgames.beatsaber/Mods/SongCore/CustomLevels`).
+The map goes to `saida\<name>-v4.zip` with `saida\<name>-v4.relatorio.txt` next to it (and `.relatorio.json`, the same checks as data, which the page shows in your language). Copy the unzipped folder to your custom levels folder (on Quest: `ModData/com.beatgames.beatsaber/Mods/SongCore/CustomLevels`).
 
 `--etapa 1|2|3|4` picks the generator stage (default 4): 1 simple rhythm with BeatKenja swings, 2 density follows energy and choruses repeat, 3 swings from human patterns, 4 instrument separation and walls.
 
-Other tools: `report.py <zip>` re-runs the checks, `tools\blind_test.py <a.zip> <b.zip>` builds a blind A/B pair of the same song, and `tools\batch.py <list.txt> <folder>` generates several songs at once and summarises the reports.
+Other tools: `report.py <zip>` re-runs the checks, `tools\blind_test.py <a.zip> <b.zip>` builds a blind A/B pair of the same song, and `tools\batch.py <list.txt> <folder>` generates several songs at once and summarises the reports. `tools\check_i18n.py` checks that both languages have the same phrases.
 
 ## Folders
 
@@ -86,7 +86,7 @@ beatloom\                        the core: listening (audio.py), choosing swings
                                  first-run downloads (preparo.py), Quest over ADB (quest.py)
 bin\                             programs the setup screen downloads (not in the repository)
 tools\                     pattern library, blind test, batch generation
-site\                            the web page
+site\                            the web page: app.html, app.css, app.js, the phrases in i18n\pt.json and en.json, the fonts
 check\                           bsmap validation (Node)
 docs\                            how it works
 ```

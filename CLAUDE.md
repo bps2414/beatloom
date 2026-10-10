@@ -18,7 +18,7 @@ Há um redesenho combinado em quatro fatias. **Antes de qualquer coisa leia [doc
 - Servidor só com a biblioteca padrão do Python (`http.server`). Página em HTML, CSS e JS puros, sem etapa de build e sem framework.
 - Nada de dependência nova para o que poucas linhas resolvem.
 - Cada lógica não trivial deixa um teste mínimo executável no próprio arquivo: uma função `demo()` com `assert`, chamada por `--demo`.
-- Toda frase que o usuário lê existe em pt-BR e em inglês.
+- Toda frase que o usuário lê existe em pt-BR e em inglês, em `site/i18n/pt.json` e `en.json`. O servidor só devolve códigos e números.
 - Mensagens de commit em português, uma linha descrevendo o que mudou, sem linhas de atribuição.
 
 ## Rodar e conferir
@@ -30,6 +30,8 @@ python generate.py --demo
 python -m beatloom.preparo --demo
 python -m beatloom.checks --demo
 python tools/extract_patterns.py --demo
+python report.py --demo
+python tools/check_i18n.py                   frases: mesmas chaves nos dois idiomas, nenhuma faltando ou sobrando
 ```
 
 Em Linux (sessão na nuvem) veja "Ambiente na nuvem" em [docs/plan/README.md](docs/plan/README.md): lá não existem os padrões, as músicas, os mapas gerados nem o Quest.
