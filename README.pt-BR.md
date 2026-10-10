@@ -29,7 +29,9 @@ Como funciona, passo a passo: [docs/ARCHITECTURE.pt-BR.md](docs/ARCHITECTURE.pt-
 
 ## Instalação
 
-No Windows, baixe o zip da última [release](https://github.com/bps2414/beatloom/releases), descompacte e dê dois cliques em `start.bat`. Não precisa instalar nada antes.
+No Windows, baixe o `beatloom-setup.exe` da última [release](https://github.com/bps2414/beatloom/releases) e abra. Ele copia o Beatloom para `%LOCALAPPDATA%\Beatloom` (não pede administrador), cria os atalhos e abre. Não precisa instalar nada antes.
+
+O instalador não é assinado, então o Windows SmartScreen mostra "O Windows protegeu o computador": clique em "Mais informações" e depois em "Executar assim mesmo". Se preferir, baixe o zip do código na mesma release, descompacte e dê dois cliques em `start.bat`; é a mesma coisa sem os atalhos.
 
 Na primeira vez o `start.bat` baixa o Python 3.12 e os pacotes (uns 2 GB, vários minutos) para dentro da pasta do Beatloom e abre a página. A página mostra o que ainda falta e baixa com barra de progresso, também para dentro da pasta do Beatloom:
 
@@ -38,7 +40,7 @@ Na primeira vez o `start.bat` baixa o Python 3.12 e os pacotes (uns 2 GB, vário
 - O [ArcViewer](https://github.com/AllPoland/ArcViewer) (GPL-3, uns 80 MB), para o visualizador 3D dentro da página. Opcional.
 - O ADB, para mandar mapas a um Quest pelo Wi-Fi. Opcional.
 
-Nada é instalado no Windows em si; apagar a pasta remove tudo. Em PC com placa NVIDIA o `start.bat` instala o torch com CUDA; nos outros, o de CPU.
+Tudo fica dentro da pasta do Beatloom; desinstalar (ou apagar a pasta) remove tudo, e o desinstalador pergunta se os mapas gerados ficam. Em PC com placa NVIDIA o `start.bat` instala o torch com CUDA; nos outros, o de CPU.
 
 ### À mão
 
@@ -76,6 +78,10 @@ O mapa sai em `saida\<nome>-v4.zip`, com `saida\<nome>-v4.relatorio.txt` ao lado
 `--etapa 1|2|3|4` escolhe a versão do gerador (padrão 4): 1 ritmo simples com golpes do BeatKenja, 2 densidade segue a energia e refrões repetem, 3 golpes de padrões humanos, 4 separação de instrumentos e paredes.
 
 Outras ferramentas: `report.py <zip>` refaz as conferências, `tools\blind_test.py <a.zip> <b.zip>` monta um par A/B embaralhado da mesma música para comparar sem saber qual é qual, e `tools\batch.py <lista.txt> <pasta>` gera várias músicas de uma vez e resume os relatórios. `tools\check_i18n.py` confere se os dois idiomas têm as mesmas frases e `tools\timing.py <audio>` mede quanto cada parte da geração demora.
+
+O link pode ser de uma playlist do YouTube: cada faixa entra na fila e vira um mapa, uma de cada vez. Dá para tirar da fila o que ainda não começou.
+
+O instalador e a release saem da CI (`.github\workflows\release.yml`): `git tag v1.0.1` e `git push origin v1.0.1` montam o `beatloom-setup.exe` com o Inno Setup (`installer\beatloom.iss`) e publicam a release com a lista dos commits desde a tag anterior.
 
 Na página, o "modo rápido" (no diálogo de novo mapa ou como padrão na configuração) gera na etapa 3: umas 6 vezes mais rápido, sem separar os instrumentos, então sem notas seguradas e sem paredes.
 

@@ -29,7 +29,9 @@ How it works, step by step: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Setup
 
-On Windows, download the zip of the latest [release](https://github.com/bps2414/beatloom/releases), unzip it and double-click `start.bat`. You do not need to install anything first.
+On Windows, download `beatloom-setup.exe` from the latest [release](https://github.com/bps2414/beatloom/releases) and open it. It copies Beatloom to `%LOCALAPPDATA%\Beatloom` (no administrator needed), creates the shortcuts and opens it. You do not need to install anything first.
+
+The installer is not signed, so Windows SmartScreen shows "Windows protected your PC": click "More info", then "Run anyway". If you prefer, download the source zip from the same release, unzip it and double-click `start.bat`; it is the same thing without the shortcuts.
 
 The first time, `start.bat` downloads Python 3.12 and the packages (about 2 GB, several minutes) into the Beatloom folder, then opens the page. The page shows what is still missing and downloads it with a progress bar, also into the Beatloom folder:
 
@@ -38,7 +40,7 @@ The first time, `start.bat` downloads Python 3.12 and the packages (about 2 GB, 
 - [ArcViewer](https://github.com/AllPoland/ArcViewer) (GPL-3, about 80 MB), for the 3D viewer inside the page. Optional.
 - ADB, to send maps to a Quest over Wi-Fi. Optional.
 
-Nothing is installed on Windows itself; deleting the folder removes everything. On a PC with an NVIDIA card `start.bat` installs the CUDA build of torch, otherwise the CPU build.
+Everything stays inside the Beatloom folder; uninstalling (or deleting the folder) removes it all, and the uninstaller asks whether to keep the generated maps. On a PC with an NVIDIA card `start.bat` installs the CUDA build of torch, otherwise the CPU build.
 
 ### By hand
 
@@ -76,6 +78,10 @@ The map goes to `saida\<name>-v4.zip` with `saida\<name>-v4.relatorio.txt` next 
 `--etapa 1|2|3|4` picks the generator stage (default 4): 1 simple rhythm with BeatKenja swings, 2 density follows energy and choruses repeat, 3 swings from human patterns, 4 instrument separation and walls.
 
 Other tools: `report.py <zip>` re-runs the checks, `tools\blind_test.py <a.zip> <b.zip>` builds a blind A/B pair of the same song, and `tools\batch.py <list.txt> <folder>` generates several songs at once and summarises the reports. `tools\check_i18n.py` checks that both languages have the same phrases and `tools\timing.py <audio>` measures how long each part of the generation takes.
+
+The link can be a YouTube playlist: each track is queued and becomes a map, one at a time. Anything that has not started yet can be removed from the queue.
+
+The installer and the release come from CI (`.github\workflows\release.yml`): `git tag v1.0.1` and `git push origin v1.0.1` build `beatloom-setup.exe` with Inno Setup (`installer\beatloom.iss`) and publish the release with the list of commits since the previous tag.
 
 On the page, "fast mode" (in the new-map dialog, or as the default in settings) generates at stage 3: about 6 times faster, without separating the instruments, so no held notes and no walls.
 

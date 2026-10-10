@@ -8,8 +8,8 @@ Combinado com o dono em 10/10/2026. Objetivo: qualquer pessoa no Windows baixa a
 |---|---|---|---|
 | 1 | `start.bat`, tela de preparo, configuração, Quest por ADB | Feita em 10/10/2026 (commit `56172c6`). Pendências listadas no documento. | [slice-1.md](slice-1.md) |
 | 2 | Redesenho da página, i18n em arquivos, relatório estruturado, lista estilo jogo | Feita em 10/10/2026 e aprovada pelo dono. | [slice-2-feito.md](slice-2-feito.md) (o plano: [slice-2.md](slice-2.md)) |
-| 3 | Velocidade: medir, CUDA automático, modo rápido | Feita em 10/10/2026. **Esperando a aprovação do dono**, que também decide sobre o DirectML. | [slice-3-feito.md](slice-3-feito.md) (o plano: [slice-3.md](slice-3.md)) |
-| 4 | Instalador `.exe` (Inno Setup) embrulhando o `start.bat` | A fazer, por último | Resumo no fim deste arquivo |
+| 3 | Velocidade: medir, CUDA automático, modo rápido | Feita em 10/10/2026 e aprovada. Falta o dono decidir sobre o DirectML. | [slice-3-feito.md](slice-3-feito.md) (o plano: [slice-3.md](slice-3.md)) |
+| 4 | Instalador `.exe` (Inno Setup) embrulhando o `start.bat`, montado e publicado pela CI | Feita em 10/10/2026, junto com link de playlist. **Instalador nunca testado numa máquina limpa.** | [slice-4-feito.md](slice-4-feito.md) |
 
 Regra: uma fatia por vez. Ao terminar, atualize esta tabela, descreva o que foi verificado e o que não foi, e espere a aprovação do dono.
 
@@ -41,7 +41,7 @@ Regra: uma fatia por vez. Ao terminar, atualize esta tabela, descreva o que foi 
 2. **Apagar `dados\mapas` depois de montar a biblioteca.** São 2,4 GB que só servem para montar os `.pkl`. Na máquina do dono esse conjunto é usado para pesquisa, então não foi automatizado. Se for feito, precisa de uma condição que proteja quem já tinha os dados.
 3. **RX 6600 pelo DirectML.** Adotar por uns 20% a menos no tempo total, tentar o caminho ONNX (não testado, projeto à parte) ou deixar como está. Detalhes em [slice-3-feito.md](slice-3-feito.md).
 
-Ideias do dono para depois, fora das quatro fatias: aceitar link de playlist do YouTube; um caderno do Google Colab para gerar em lote na GPU deles.
+Ideia do dono para depois, fora das quatro fatias: um caderno do Google Colab para gerar em lote na GPU deles. (Link de playlist do YouTube foi feito junto com a fatia 4.)
 
 ## Ambiente na nuvem (Linux, repositório recém-clonado)
 
@@ -87,6 +87,7 @@ beatloom/quest.py    ADB: parear, listar, enviar, apagar
 site/app.html        a marcação da página; app.css o visual; app.js o comportamento
 site/i18n/           as frases: pt.json e en.json (tools/check_i18n.py confere)
 site/fonts/          Bricolage Grotesque e Instrument Sans (OFL)
+installer/           beatloom.iss (Inno Setup) e o ícone; .github/workflows/release.yml monta e publica ao subir uma tag v*
 check/               validador de formato com a biblioteca bsmap (Node)
 tools/               biblioteca de padrões, teste cego, lote, medição de tempo (timing.py)
 docs/ARCHITECTURE*   como o gerador funciona
