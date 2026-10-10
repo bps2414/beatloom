@@ -4,6 +4,7 @@ Uma deixa e (segundo, luz, acao, cor, brilho). luz: 0 fundo, 1 aneis, 2 lasers d
 acao: 0 apaga, 1 acende, 2 clarao (estoura e fica aceso), 3 pulso (estoura e some). cor: 0 e 1 sao as duas cores do mapa, 2 e branco.
 As outras deixas sao (segundo, GIRO ou ZOOM, 0, 0, 0) para os aneis e (segundo, VEL_E ou VEL_D, velocidade, 0, 0) para os lasers.
 
+Os cenarios classicos acendem com eventos basicos (basicos); os novos so com grupos de luzes (grupos), cada cenario com os seus (GRUPOS).
 As cores saem da capa (cores): um par para o mapa e outro para o reforco ("boost"), que entra na queda (reforco).
 """
 import colorsys, subprocess, sys
@@ -14,8 +15,14 @@ from beatloom.audio import CASAS, bateria, partes
 
 FUNDO, ANEIS, ESQ, DIR, CENTRO, GIRO, ZOOM, VEL_E, VEL_D = 0, 1, 2, 3, 4, 8, 9, 12, 13
 APAGA, ACENDE, CLARAO, PULSO = 0, 1, 2, 3
-# o cenario do jogo para cada clima da musica (audio.clima); todos estes acendem com os eventos basicos
-AMBIENTE = {"calmo": "BigMirrorEnvironment", "pesado": "GreenDayEnvironment", "eletronico": "MonstercatEnvironment"}
+# os cenarios do jogo para cada clima da musica (audio.clima): um classico, que acende com os eventos basicos, e um novo, que acende com grupos de luzes
+AMBIENTE = {"calmo": ("BigMirrorEnvironment", "TheSecondEnvironment"), "pesado": ("GreenDayEnvironment", "RockMixtapeEnvironment"), "eletronico": ("MonstercatEnvironment", "WeaveEnvironment")}
+# cenarios novos: que grupos de luzes fazem o papel de cada luz das deixas, e que grupos giram os lasers da esquerda e da direita (numeros dos grupos: tabela do bsmap)
+GRUPOS = {
+    "TheSecondEnvironment": {FUNDO: (2, 3), ANEIS: (0, 1), ESQ: (6, 8, 10, 12), DIR: (7, 9, 11, 13), CENTRO: (4, 5), GIRO: ((6, 8, 10, 12), (7, 9, 11, 13))},
+    "RockMixtapeEnvironment": {FUNDO: tuple(range(2, 14)), ANEIS: (15, 16, 17), ESQ: (0, 18), DIR: (1, 19), CENTRO: (14, 22, 23), GIRO: ((20,), (21,))},
+    "WeaveEnvironment": {FUNDO: (14, 15), ANEIS: (4, 5, 6, 7), ESQ: (0, 2, 8, 10), DIR: (1, 3, 9, 11), CENTRO: (12, 13), GIRO: ((0, 2, 8, 10), (1, 3, 9, 11))},
+}
 COR = {"intro": 1, "verso": 1, "subida": 0, "queda": 0}  # a cor de cada parte da musica; a pausa fica no escuro
 
 
@@ -93,6 +100,44 @@ def basicos(D, bt):
     for t, e, acao, cor, f in D:
         ev[(round(bt(t), 3), e)] = (acao if e > CENTRO or acao == APAGA else (5, 1, 9)[cor] + acao - 1, round(f, 2) if e <= CENTRO else 1)
     return [{"b": b, "et": e, "i": int(v), "f": f} for (b, e), (v, f) in sorted(ev.items())]
+
+
+def ambiente(clima, marca):
+    """O cenario de uma musica: um dos do clima dela, sempre o mesmo para a mesma musica (`marca` = o hash do audio)."""
+    return AMBIENTE[clima][int(marca[:4], 16) % len(AMBIENTE[clima])]
+
+
+def grupos(D, bt, amb):
+    """Deixas -> (eventos de cor, eventos de rotacao) dos grupos de luzes do cenario `amb`, um dos de GRUPOS.
+
+    Acender e um evento seco; o clarao estoura e volta ao brilho pedido em 1/4 de batida; o pulso estoura e some em pouco mais de meia batida (menos, se a
+    proxima deixa da mesma luz vem antes). A cada giro os lasers abrem em leque e fecham, um lado espelhando o outro. Zoom e velocidade nao existem aqui.
+    """
+    tab, todos = GRUPOS[amb], {"f": 1, "p": 1, "t": 0, "r": 0, "c": 0, "n": 0, "s": 0, "l": 0, "d": 0}  # filtro: todas as luzes do grupo
+    por, giros = {}, []
+    for t, e, acao, cor, f in D:
+        if e <= CENTRO:
+            por.setdefault(e, {})[round(bt(t), 3)] = (acao, cor, f)  # duas deixas na mesma luz e na mesma batida: vale a ultima
+        elif e == GIRO and round(bt(t), 3) not in giros:
+            giros.append(round(bt(t), 3))
+    cor_ev, rot_ev = [], []
+    for e, deixas_ in por.items():
+        bs = sorted(deixas_)
+        for b, prox in zip(bs, bs[1:] + [bs[-1] + 9]):
+            acao, cor, f = deixas_[b]
+            um = lambda quando, como, brilho: {"b": round(quando, 3), "i": como, "c": cor, "s": round(brilho, 2), "f": 0}
+            if acao == APAGA:
+                passos = [{"b": 0, "i": 0, "c": 0, "s": 0, "f": 0}]
+            elif acao == ACENDE or prox - b < 0.1:
+                passos = [um(0, 0, f)]
+            else:
+                passos = [um(0, 0, 1.4 * f), um(min(0.25, 0.9 * (prox - b)), 1, f) if acao == CLARAO else um(min(0.6, 0.9 * (prox - b)), 1, 0)]
+            cor_ev += [{"b": b, "g": g, "e": [{"f": todos, "w": 0, "d": 1, "r": 0, "t": 1, "b": 1, "i": 0, "e": passos}]} for g in tab[e]]
+    for n, b in enumerate(giros):
+        # do angulo em que estava ate o novo em meia batida: aberto (30 graus de uma luz a outra do grupo) nos giros pares, fechado nos impares
+        passos = [{"b": 0, "p": 1, "e": 0, "l": 0, "r": 0, "o": 0}, {"b": 0.5, "p": 0, "e": 2, "l": 0, "r": 0 if n % 2 else 35, "o": 0}]
+        rot_ev += [{"b": b, "g": g, "e": [{"f": todos, "w": 0, "d": 1, "s": 0 if n % 2 else 30, "t": 1, "b": 1, "i": 0, "a": 0, "r": lado, "l": passos}]} for lado in (0, 1) for g in tab[GIRO][lado]]
+    return sorted(cor_ev, key=lambda x: (x["b"], x["g"])), sorted(rot_ev, key=lambda x: (x["b"], x["g"]))
 
 
 def reforco(an, bt, pt=None):
@@ -177,6 +222,14 @@ def demo():
     ev = basicos(D, lambda t: t * 2)  # 120 BPM
     assert {"b": 8.0, "et": ANEIS, "i": 0, "f": 0} in ev and {"b": 16.0, "et": CENTRO, "i": 10, "f": 1.0} in ev, [e for e in ev if e["b"] in (8.0, 16.0)]
     assert len({(e["b"], e["et"]) for e in ev}) == len(ev) and [e["b"] for e in ev] == sorted(e["b"] for e in ev)
+    # cenario novo: o pulso dos aneis da batida 0 vira estouro + sumir nos 2 grupos de aneis; o clarao do centro em 16 volta ao brilho pedido; 2 giros, 8 grupos de laser cada
+    an["nivel"] = np.full(65, 2)
+    cor_ev, rot_ev = grupos(deixas(an, ["verso", "pausa", "queda", "queda"], pc), lambda t: t * 2, "TheSecondEnvironment")
+    pulso = [x for x in cor_ev if x["b"] == 0 and x["g"] in (0, 1)]
+    assert len(pulso) == 2 and [(p["i"], p["c"], p["s"]) for p in pulso[0]["e"][0]["e"]] == [(0, 1, 1.05), (1, 1, 0)] and pulso[0]["e"][0]["e"][1]["b"] == 0.6, pulso
+    assert [p["s"] for x in cor_ev if x["b"] == 16 and x["g"] == 4 for p in x["e"][0]["e"]] == [1.4, 1.0] and all(p["s"] == 0 for x in cor_ev if x["b"] == 8 for p in x["e"][0]["e"])
+    assert len(rot_ev) == 16 and {x["e"][0]["l"][1]["r"] for x in rot_ev} == {35, 0} and {x["e"][0]["r"] for x in rot_ev if x["g"] in (7, 9, 11, 13)} == {1}, rot_ev[:2]
+    assert ambiente("pesado", "00ff") == "RockMixtapeEnvironment" and ambiente("pesado", "00fe") == "GreenDayEnvironment" and all(v[1] in GRUPOS for v in AMBIENTE.values())
     print("luzes ok")
 
 

@@ -57,7 +57,8 @@ for (const file of files) {
       notas: notes.map((n) => [n.time, n.posX, n.posY, n.color, n.direction]), seg: notes.map((n) => tp.toRealTime(n.time)),
       bombas: bombs.map((n) => [n.time, n.posX, n.posY]),
       paredes: d.obstacles.map((o) => [o.time, o.duration, o.posX, o.posY, o.width, o.height]),
-      eventos: diff.lightshow?.basicEvents?.length ?? d.basicEvents?.length ?? 0, arcos: d.arcs.length, correntes: d.chains.length,
+      // luzes: os eventos basicos (cenarios classicos) mais os de grupos de luzes (cenarios novos)
+      eventos: (diff.lightshow?.basicEvents?.length ?? d.basicEvents?.length ?? 0) + (diff.lightshow?.lightColorEventBoxGroups?.length ?? 0) + (diff.lightshow?.lightRotationEventBoxGroups?.length ?? 0), arcos: d.arcs.length, correntes: d.chains.length,
    });
    const pct = (n) => (100 * n / Math.max(swings, 1)).toFixed(1);
    if (!asJson) console.log(`${file}\n  esquema ok | notas ${notes.length} | bombas ${bombs.length} | paredes ${d.obstacles.length}` +

@@ -465,8 +465,10 @@ def gerar(audio, nome=None, artista=None, etapa=4, tag="", saida=None, capa=None
     casa_de = {round(float(t), 4): i for i, t in enumerate(an["grade"])}
     it_casa = np.asarray(an["intens"])[np.clip(np.searchsorted(an["ini_comp"] * CASAS, np.arange(len(an["grade"])), "right") - 1, 0, len(an["intens"]) - 1)]  # intensidade do compasso de cada casa
     bt = lambda t: round(bt_(t), 4)
-    ev, boost = luzes.basicos(luzes.deixas(an), bt), luzes.reforco(an, bt)
-    ambiente = ambiente or luzes.AMBIENTE[clima(an)]  # o cenario segue o clima da musica, a nao ser que venha escolhido (refazer uma dificuldade so)
+    ambiente = ambiente or luzes.ambiente(clima(an), an["hash"])  # o cenario segue o clima da musica, a nao ser que venha escolhido (refazer uma dificuldade so)
+    # cenario classico acende com eventos basicos; os novos, com grupos de luzes (neles os eventos basicos querem dizer outra coisa, entao nao vao)
+    deixas, boost = luzes.deixas(an), luzes.reforco(an, bt)
+    ev, (ev_cor, ev_rot) = ([], luzes.grupos(deixas, bt, ambiente)) if ambiente in luzes.GRUPOS else (luzes.basicos(deixas, bt), ([], []))
     # cores da capa: as luzes sempre; sabres e notas so se a pessoa pediu e os dois tons forem bem diferentes. O SongCore le isto do _customData de cada dificuldade
     pal = luzes.cores(arq_capa) if origem_capa != "generica" else None
     rgb = lambda c: dict(zip("rgb", c))
@@ -515,7 +517,7 @@ def gerar(audio, nome=None, artista=None, etapa=4, tag="", saida=None, capa=None
             "sliders": [{"c": a[3], "b": bt(a[0]), "x": a[1], "y": a[2], "d": a[4], "mu": 1, "tb": bt(z[0]), "tx": z[1], "ty": z[2], "tc": z[4], "tmu": 1, "m": 0}
                         for a, z in arcos],
             "burstSliders": [], "waypoints": [], "basicBeatmapEvents": ev, "colorBoostBeatmapEvents": boost,
-            "lightColorEventBoxGroups": [], "lightRotationEventBoxGroups": [], "lightTranslationEventBoxGroups": [],
+            "lightColorEventBoxGroups": ev_cor, "lightRotationEventBoxGroups": ev_rot, "lightTranslationEventBoxGroups": [],
             "basicEventTypesWithKeywords": {"d": []}, "useNormalEventsAsCompatibleEvents": False}))
         mapas.append({"_difficulty": dif, "_difficultyRank": cfg["rank"], "_beatmapFilename": arq,
                       "_noteJumpMovementSpeed": cfg["njs"], "_noteJumpStartBeatOffset": off, **({"_customData": cores_mapa} if cores_mapa else {})})
