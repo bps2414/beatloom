@@ -83,6 +83,8 @@ O link pode ser de uma playlist do YouTube: cada faixa entra na fila e vira um m
 
 O instalador e a release saem da CI (`.github\workflows\release.yml`): `git tag v1.0.1` e `git push origin v1.0.1` montam o `beatloom-setup.exe` com o Inno Setup (`installer\beatloom.iss`) e publicam a release com a lista dos commits desde a tag anterior.
 
+Para gerar em lote numa GPU do Google Colab (playlist do YouTube ou uma pasta de áudios do seu Drive), abra [colab/beatloom.ipynb](https://colab.research.google.com/github/bps2414/beatloom/blob/main/colab/beatloom.ipynb). Cada pessoa roda na própria conta; os zips vão para o Drive dela. Não tem a página nem o visualizador.
+
 Na página, o "modo rápido" (no diálogo de novo mapa ou como padrão na configuração) gera na etapa 3: umas 6 vezes mais rápido, sem separar os instrumentos, então sem notas seguradas e sem paredes.
 
 ## Pastas

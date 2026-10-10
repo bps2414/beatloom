@@ -41,7 +41,7 @@ Regra: uma fatia por vez. Ao terminar, atualize esta tabela, descreva o que foi 
 2. **Apagar `dados\mapas` depois de montar a biblioteca.** São 2,4 GB que só servem para montar os `.pkl`. Na máquina do dono esse conjunto é usado para pesquisa, então não foi automatizado. Se for feito, precisa de uma condição que proteja quem já tinha os dados.
 3. **RX 6600 pelo DirectML.** Adotar por uns 20% a menos no tempo total, tentar o caminho ONNX (não testado, projeto à parte) ou deixar como está. Detalhes em [slice-3-feito.md](slice-3-feito.md).
 
-Ideia do dono para depois, fora das quatro fatias: um caderno do Google Colab para gerar em lote na GPU deles. (Link de playlist do YouTube foi feito junto com a fatia 4.)
+Fora das quatro fatias, a pedido do dono: link de playlist do YouTube (feito junto com a fatia 4) e `colab/beatloom.ipynb`, um caderno do Google Colab que gera em lote na GPU deles e guarda os zips e a biblioteca de padrões no Drive de quem roda. **O caderno nunca rodou no Colab**: só a célula de geração foi ensaiada aqui, com o gerador trocado por um falso. Ele reaproveita `app.ytdlp` e `app.rodar`; ao mudar essas duas funções, lembre dele. Não contraria "só app local": cada pessoa roda na própria conta, não há serviço hospedado.
 
 ## Ambiente na nuvem (Linux, repositório recém-clonado)
 
@@ -88,6 +88,7 @@ site/app.html        a marcação da página; app.css o visual; app.js o comport
 site/i18n/           as frases: pt.json e en.json (tools/check_i18n.py confere)
 site/fonts/          Bricolage Grotesque e Instrument Sans (OFL)
 installer/           beatloom.iss (Inno Setup) e o ícone; .github/workflows/release.yml monta e publica ao subir uma tag v*
+colab/               beatloom.ipynb: geração em lote no Google Colab
 check/               validador de formato com a biblioteca bsmap (Node)
 tools/               biblioteca de padrões, teste cego, lote, medição de tempo (timing.py)
 docs/ARCHITECTURE*   como o gerador funciona
