@@ -30,7 +30,7 @@ for (const file of files) {
       if (!asJson) console.log(`${file}\n  ESQUEMA INVALIDO: ${e.message}`);
       continue;
    }
-   const tp = new TimeProcessor(+bpm);
+   const tp = new TimeProcessor(+bpm, diff.difficulty.bpmEvents); // com os eventos de BPM do mapa, senao a batida vira o segundo errado
    const notes = diff.difficulty.colorNotes, bombs = diff.difficulty.bombNotes;
    const all = [...notes.map((d) => ({ bomb: false, d })), ...bombs.map((d) => ({ bomb: true, d }))]
       .sort((a, b) => a.d.time - b.d.time);
@@ -54,7 +54,7 @@ for (const file of files) {
    const d = diff.difficulty;
    results.push({
       file, ok: true, golpes: swings, erros: out.error, avisos: out.warning, onde,
-      notas: notes.map((n) => [n.time, n.posX, n.posY, n.color, n.direction]),
+      notas: notes.map((n) => [n.time, n.posX, n.posY, n.color, n.direction]), seg: notes.map((n) => tp.toRealTime(n.time)),
       bombas: bombs.map((n) => [n.time, n.posX, n.posY]),
       paredes: d.obstacles.map((o) => [o.time, o.duration, o.posX, o.posY, o.width, o.height]),
       eventos: diff.lightshow?.basicEvents?.length ?? d.basicEvents?.length ?? 0, arcos: d.arcs.length, correntes: d.chains.length,

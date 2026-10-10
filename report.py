@@ -64,7 +64,7 @@ def conferir(mapa, humano=None):
     if humano:
         _, hinfo, hdifs = ler_mapa(humano)
         for nome, r in zip(hdifs, bsmap(hinfo["_beatsPerMinute"], dur, [d[0] for d in hdifs.values()])):
-            hum[nome] = sorted({round(n[0] * 60 / hinfo["_beatsPerMinute"], 3) for n in r["notas"]})
+            hum[nome] = sorted({round(s, 3) for s in r["seg"]})
 
     R = {"versao": 1, "zip": mapa.name, "musica": info["_songName"], "dur": dur, "bpm": bpm, "bpm_detectado": an["bpm"], "bpm_fixo": bool(an["bpm_fixo"]),
          "info_ok": res[0]["ok"], "info_erro": res[0].get("erro", ""), "difs": []}
@@ -74,7 +74,7 @@ def conferir(mapa, humano=None):
         R["difs"].append(D)
         if not r["ok"]:
             continue
-        notas = sorted((n[0] * 60 / bpm, n[1], n[2], n[3], n[4]) for n in r["notas"])
+        notas = sorted((s, n[1], n[2], n[3], n[4]) for n, s in zip(r["notas"], r["seg"]))  # seg = o tempo em segundos, ja com os eventos de BPM
         if not notas:
             continue
         ts = sorted({round(n[0], 4) for n in notas})
@@ -113,7 +113,8 @@ def conferir(mapa, humano=None):
         D["trechos"] = []
         for k in range(0, len(ic) - 1, 4):
             a, b = bat[ic[k]], bat[ic[min(k + 4, len(ic) - 1)]]
-            D["trechos"].append([float(a), float(np.mean(intens[k:k + 4])), sum(1 for x in notas if a <= x[0] < b) / max(b - a, 1e-9)])
+            # 5 ms de folga: a nota em cima da barra do compasso e do trecho que comeca ali, mesmo com o arredondamento da batida
+            D["trechos"].append([float(a), float(np.mean(intens[k:k + 4])), sum(1 for x in notas if a - 0.005 <= x[0] < b - 0.005) / max(b - a, 1e-9)])
         cor = np.corrcoef([t[1] for t in D["trechos"]], [t[2] for t in D["trechos"]])[0, 1] if len(D["trechos"]) > 2 else float("nan")
         D["correlacao"] = None if np.isnan(cor) else float(cor)
     R["passou"] = R["info_ok"] and all(d["esquema_ok"] and d["notas"] and all(m["ok"] for m in d["metas"]) for d in R["difs"])

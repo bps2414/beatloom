@@ -247,7 +247,33 @@ def repetir_golpes(notas, an, dif, reacao):
 
 # ---------------------------------------------------------------- luzes e paredes
 
-def luzes(an, bpm):
+def relogio(an, bpm, tol=0.010):
+    """-> (eventos de BPM do mapa, funcao segundos -> batida do mapa).
+
+    Com BPM fixo nao ha evento e a batida e t * bpm / 60. Senao o mapa ganha um evento de BPM a cada trecho em que o andamento
+    muda: o trecho vai de um inicio de compasso a outro e cresce enquanto os compassos do meio ficarem a ate `tol` segundos da
+    reta. Sem isso o jogo e os editores desenham a grade de um BPM so, que em musica tocada por banda foge varios segundos.
+    """
+    if an["bpm_fixo"]:
+        return [], lambda t: t * bpm / 60
+    bat, ic = np.asarray(an["batidas"], float), [int(i) for i in an["ini_comp"]]
+    f0 = bat[0] / (bat[1] - bat[0])  # a batida 0 do mapa e o segundo 0; a primeira batida detectada cai nesta fracao
+    pts = [(i + f0, float(bat[i])) for i in sorted({*ic, len(bat) - 1}) if bat[i] > 0.001]
+    B, T, ev, k = [0.0], [0.0], [], 0
+    while k < len(pts):
+        j = k  # o trecho mais longo a partir de (B, T) que ainda passa perto de todos os compassos do meio
+        while j + 1 < len(pts) and all(abs(T[-1] + (b - B[-1]) * (pts[j + 1][1] - T[-1]) / (pts[j + 1][0] - B[-1]) - t) <= tol for b, t in pts[k:j + 1]):
+            j += 1
+        m = round(60 * (pts[j][0] - B[-1]) / (pts[j][1] - T[-1]), 3)
+        ev.append({"b": round(B[-1], 4), "m": m})
+        T.append(T[-1] + (pts[j][0] - B[-1]) * 60 / m)  # o tempo que o jogo vai calcular com o BPM arredondado, para o erro nao acumular
+        B.append(pts[j][0])
+        k = j + 1
+    B.append(B[-1] + 1000 * ev[-1]["m"] / 60); T.append(T[-1] + 1000)  # depois do ultimo compasso segue o ultimo BPM
+    return ev, lambda t: float(np.interp(t, T, B))
+
+
+def luzes(an, bt):
     """Luzes simples: nunca fica escuro, pisca na batida e muda de cor conforme a intensidade do compasso."""
     bat, ic, intens = an["batidas"], an["ini_comp"], an["intens"]
     ev = [(0.0, t, 1) for t in (0, 1, 4)]  # liga azul no comeco
@@ -263,10 +289,10 @@ def luzes(an, bpm):
                 ev.append((float(bat[j]), 1, 3 + (4 if (j - a) % 2 else 0)))
             if forte and (j - a) % 2 == 1:
                 ev.append((float(bat[j]), 9, 0))
-    return [{"b": round(t * bpm / 60, 3), "et": ty, "i": v, "f": 1} for t, ty, v in sorted(ev) if t >= 0]
+    return [{"b": round(bt(t), 3), "et": ty, "i": v, "f": 1} for t, ty, v in sorted(ev) if t >= 0]
 
 
-def paredes(notas, an, bpm, arcos=()):
+def paredes(notas, an, bt, arcos=()):
     """Paredes laterais decorativas nas pausas de 1,6 s ou mais. Ficam na coluna da ponta e nao pedem movimento."""
     ts = sorted({n[0] for n in notas})
     segurando = {round(a[0], 4) for a in arcos}  # durante uma nota segurada a mao esta ocupada: sem parede
@@ -275,7 +301,7 @@ def paredes(notas, an, bpm, arcos=()):
         if b - a >= 1.6 and round(a, 4) not in segurando:
             ini, fim = a + 0.4, b - 0.6
             for x in (0, 3) if b - a >= 4.0 else ((0, 3)[lado],):
-                out.append({"b": round(ini * bpm / 60, 3), "x": x, "y": 0, "d": round((fim - ini) * bpm / 60, 3), "w": 1, "h": 5})
+                out.append({"b": round(bt(ini), 3), "x": x, "y": 0, "d": round(bt(fim) - bt(ini), 3), "w": 1, "h": 5})
             lado ^= 1
     return out
 
@@ -380,7 +406,9 @@ def gerar(audio, nome=None, artista=None, etapa=4, tag="", saida=None, capa=None
     if an["dur"] < 20:
         sys.exit("Musica curta demais (menos de 20 s).")
 
-    ev = luzes(an, bpm)
+    bpm_ev, bt_ = relogio(an, bpm)
+    bt = lambda t: round(bt_(t), 4)
+    ev = luzes(an, bt)
     mapas, resumo = [], [f"capa {origem_capa} | densidade x{densidade:g}"]
     ger = {"etapa": etapa, "capa": origem_capa.split()[-1], "densidade": densidade, "prefs": sorted(prefs), "difs": {}}  # o mesmo resumo em numeros, para o .relatorio.json
     for dif in difs:
@@ -404,11 +432,10 @@ def gerar(audio, nome=None, artista=None, etapa=4, tag="", saida=None, capa=None
             achar = lambda t, c: next(n for n in notas if abs(n[0] - t) < 0.001 and n[3] == c)
             arcos = [(achar(t0, c), achar(t1, c)) for t0, t1, c in seg]
             extra += f" | notas seguradas: {len(arcos)}" + (" (em " + ", ".join(sorted({f'{a[0]:.1f}s' for a, _ in arcos}, key=lambda s: float(s[:-1]))) + ")" if arcos else "")
-        par = paredes(notas, an, bpm, [a for a, _ in arcos]) if etapa >= 4 else []
+        par = paredes(notas, an, bt, [a for a, _ in arcos]) if etapa >= 4 else []
         arq = f"{dif}Standard.dat"
-        bt = lambda t: round(t * bpm / 60, 4)
         (pasta / arq).write_text(json.dumps({
-            "version": "3.2.0", "bpmEvents": [], "rotationEvents": [],
+            "version": "3.2.0", "bpmEvents": bpm_ev, "rotationEvents": [],
             "colorNotes": [{"b": bt(t), "x": x, "y": y, "c": c, "d": d, "a": 0} for t, x, y, c, d in sorted(notas)],
             "bombNotes": [], "obstacles": par,
             # arco (nota segurada): sai da nota da cabeca e chega na nota da cauda, as duas da mesma cor
@@ -451,6 +478,13 @@ def demo():
     assert limpar_titulo('Falling In Reverse - "Joseph" (feat. Corey Taylor) [Official Music Video]') == ("Joseph", "Falling In Reverse")
     assert limpar_titulo("Sk8er_Boi") == ("Sk8er Boi", None)
     assert limpar_titulo("Artista – Musica (Lyric Video)") == ("Musica", "Artista")
+    # andamento que muda no meio: 8 batidas a 120 e depois 8 a 100, compasso de 4. A ida (nosso relogio) e a volta (a conta do jogo) batem
+    bat = np.concatenate([0.25 + 0.5 * np.arange(9), 4.25 + 0.6 * np.arange(1, 9)])
+    ev, bt = relogio({"bpm_fixo": False, "batidas": bat, "ini_comp": np.arange(0, 17, 4)}, 120)
+    assert [e["m"] for e in ev] == [120, 100] and ev[1]["b"] == 8.5, ev
+    volta = lambda b: sum((min(b, z["b"]) - a["b"]) * 60 / a["m"] for a, z in zip(ev, ev[1:] + [{"b": 9e9}]) if b > a["b"])
+    assert all(abs(volta(bt(t)) - t) < 0.001 for t in (0.25, 3.0, 4.25, 6.65, 9.05)), [volta(bt(t)) for t in (0.25, 4.25, 9.05)]
+    assert relogio({"bpm_fixo": True}, 120)[1](2.0) == 4 and relogio({"bpm_fixo": True}, 120)[0] == []
     print("gerar ok")
 
 
