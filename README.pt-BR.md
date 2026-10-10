@@ -24,6 +24,8 @@ Sem exagero: foi desenvolvido em cima de uma música eletrônica de andamento fi
 
 Limites conhecidos: só grade de 1/4 (sem tercinas nem swing), sem bombas, arcos ou correntes, sem notas de ponto, luzes básicas, e músicas lentas ganham muitas notas duplas no Expert+ para chegar à densidade alvo.
 
+Como funciona, passo a passo: [ARCHITECTURE.pt-BR.md](ARCHITECTURE.pt-BR.md).
+
 ## Instalação
 
 Precisa de Python 3.12, [ffmpeg](https://ffmpeg.org/), [Node.js](https://nodejs.org/) e, para colar links, [yt-dlp](https://github.com/yt-dlp/yt-dlp). Feito no Windows; nada é sabidamente exclusivo do Windows, mas outros sistemas não foram testados.

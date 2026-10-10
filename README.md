@@ -24,6 +24,8 @@ Be realistic about this. It was developed against one fixed-tempo electronic son
 
 Known limits: 1/4 grid only (no triplets or swing), no bombs, arcs or chains, no dot notes, lights are basic, and slow songs get many double notes on Expert+ to reach the target density.
 
+How it works, step by step: [ARCHITECTURE.md](ARCHITECTURE.md).
+
 ## Setup
 
 You need Python 3.12, [ffmpeg](https://ffmpeg.org/), [Node.js](https://nodejs.org/), and optionally [yt-dlp](https://github.com/yt-dlp/yt-dlp) for links. Developed on Windows; nothing is known to be Windows-only, but other systems are untested.
