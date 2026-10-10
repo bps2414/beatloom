@@ -203,6 +203,15 @@ $("lote-regerar").onclick = async () => {  // refaz as notas dos marcados com as
   if (!await confirmar("confirma_regerar", "regerar_marcados")) return;
   try { await api("/api/regerar", { zips: [...marcados] }); marcados.clear(); pintarLista(); atualizar(); } catch (x) { falhou(x); }
 };
+$("refazer-todos").onclick = async () => {  // depois de uma melhoria do gerador: todos os mapas da lista entram na fila para ter as notas refeitas
+  if (!await confirmar("confirma_refazer_todos", "refazer_todos")) return;
+  try { await api("/api/regerar", { zips: estado.mapas.map((m) => m.zip) }); atualizar(); } catch (x) { falhou(x); }
+};
+$("lote-apagar").onclick = async () => {  // vao para saida\lixeira, como o apagar da ficha
+  if (!await confirmar("confirma_apagar_varios", "apagar_marcados")) return;
+  try { for (const zip of [...marcados]) { await api("/api/apagar", { zip }); marcados.delete(zip); } } catch (x) { falhou(x); }
+  await atualizar(); pintarLista();
+};
 $("lote-enviar").onclick = () => enviar([...marcados], $("lote-enviar")).then(() => { marcados.clear(); pintarLista(); });
 async function enviar(zips, botao) {  // um aviso por mapa que falhou e um com quantos foram
   botao.disabled = true; avisar(t("mandando"));
