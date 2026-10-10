@@ -6,7 +6,7 @@ Escrito em 10/10/2026, depois das quatro fatias do redesenho ([plan/README.md](p
 
 Pedido do dono: detector melhor, mapa mais humano, mais intenso e mais realista; vocais melhor detectados; "sentir" a música; notas mais coerentes.
 
-Como está hoje (depois dos blocos 1.1 e 1.2), para saber de onde se parte: batidas pelo beat_this, ataques pelo librosa na música inteira e em cada uma das quatro faixas do Demucs (bateria, baixo, voz, resto), altura cantada pelo pYIN, peças da bateria por faixa de frequência, partes da música (intro, verso, subida, queda, pausa), intensidade por compasso, e os golpes vêm de trechos de 1, 2 ou 4 batidas tirados de mapas humanos, escolhidos ensaiando 8 batidas à frente; compasso repetido reaproveita o desenho, espelhado ou com um acento a mais nas voltas; pilhas nos acentos; braços cruzados com teto.
+Como está hoje (depois dos blocos 1.1, 1.2 e da primeira parte do 1.3), para saber de onde se parte: batidas pelo beat_this, ataques pelo librosa na música inteira e em cada uma das quatro faixas do Demucs (bateria, baixo, voz, resto), altura cantada pelo pYIN, peças da bateria por faixa de frequência, partes da música (intro, verso, subida, queda, pausa), intensidade por compasso, e os golpes vêm de trechos de 1, 2 ou 4 batidas tirados de mapas humanos, escolhidos ensaiando 8 batidas à frente; compasso repetido reaproveita o desenho, espelhado ou com um acento a mais nas voltas; pilhas nos acentos; braços cruzados com teto. As luzes seguem as partes da música e a bateria, com as cores da capa, num cenário escolhido pelo clima da música.
 
 **Ordem.** O 1.0 vem primeiro, porque os outros medem com ele. O 1.4 (pesquisa) pode vir a qualquer hora e rende mais antes do 1.1, porque pode poupar trabalho. O 1.1 vem antes do 1.2 e de parte do 1.3: as luzes (1.3 item 1) usam as partes da música (1.1 item 3) e os arcos (1.3 item 6) usam a voz (1.1 item 1). Do 1.3, os itens 2, 3, 7 e 8 não dependem de nada. Os blocos 2, 3 e 4 são livres.
 
@@ -143,7 +143,43 @@ Limites conhecidos:
 
 ### 1.3 Mapa mais bonito: usar mais do que o jogo oferece
 
-Pedido do dono: melhorar o mapa, deixar mais bonito, usar mais recursos do próprio Beat Saber. Hoje o mapa usa notas, arcos, paredes de enfeite e luzes básicas, num ambiente só.
+Pedido do dono: melhorar o mapa, deixar mais bonito, usar mais recursos do próprio Beat Saber. Antes deste bloco o mapa usava notas, arcos, paredes de enfeite e luzes básicas, num ambiente só.
+
+**Itens 1 a 5 feitos em 10/10/2026**, um commit por item. Conferido nas mesmas 18 músicas dos blocos 1.1 e 1.2 (regeradas do `song.egg`, com as preferências do dono): 18 de 18 passam em todas as conferências com os cinco itens juntos; depois de cada item, as 2 a 4 músicas regeradas também passaram. As notas não mudam neste bloco, então o `tools/medir.py` não tem o que medir aqui. **Nenhum mapa foi visto no jogo**: o que há abaixo é contagem e validação de formato (bsmap). Se ficou bonito, só o dono consegue dizer.
+
+Conferido no Quest do dono antes do item 2 (só leitura, por ADB): Beat Saber 1.40.8, SongCore com as três chaves ligadas (cores de nota, de parede e de ambiente vindas do mapa). O dono joga com cores próprias ligadas no jogo (`overrideDefaultColors`); pelo código do SongCore do Quest, as cores gravadas no mapa (`_customData` de cada dificuldade: `_envColorLeft`, `_envColorRight`, os dois `...Boost`, `_colorLeft`, `_colorRight`) entram por cima do esquema escolhido, inclusive o do jogador. Isso foi lido no código, não visto no jogo. Não é preciso ligar nada. O jogo não está com cenário forçado (`overrideEnvironments` desligado), então o cenário do mapa vale. Chroma e Noodle Extensions estão instalados (serve ao item 10).
+
+| Item | Medida (18 músicas) | Antes | Depois |
+|---|---|---|---|
+| 1 Luzes | o que decide a luz | intensidade do compasso e a batida | parte da música, peça da bateria, intensidade |
+| 1 Luzes | compassos de pausa no escuro | 0 | 51 |
+| 2 Cores | mapas com cores próprias gravadas (das 11 capas de verdade) | 0 | 11 |
+| 2 Cores | capas com dois tons a 60 graus ou mais um do outro | – | 1 de 11; nas outras o segundo tom é o oposto do primeiro |
+| 2 Cores | capas cujo par serve para sabre e nota (90 graus ou mais) | – | 10 de 11 |
+| 3 Cenário | clima: calmo / pesado / eletrônico | um cenário só | 7 / 9 / 2 |
+| 4 Reação | entradas de queda com apagão logo antes | 0 | 33 de 37 |
+| 4 Reação | compassos de subida acendendo aos poucos | 0 | 111 |
+| 4 Reação | paredes, soma dos mapas (Easy / Normal / Hard / Expert / Expert+) | 69 / 88 / 55 / 32 / 29 | 87 / 131 / 75 / 45 / 36 |
+| 5 Luzes novas | mapas em cenário novo, aceso por grupos de luzes | 0 | 7 de 18 (The Second 4, Rock Mixtape 2, Weave 1) |
+
+O "antes" das paredes são os zips que estavam em `saida\`, feitos em momentos diferentes; parte da diferença pode vir das notas, não só do corredor.
+
+O que cada item faz (o código está em `beatloom/luzes.py`):
+
+- **1 Luzes.** O gerador escreve "deixas" (em que segundo, qual luz, o que ela faz, em que cor, com que brilho) e só no fim elas viram evento do mapa. Introdução e verso: fundo aceso numa cor, com brilho conforme a intensidade, anéis pulsando no bumbo. Queda: a outra cor, tudo aceso, lasers dos dois lados trocando de cor a cada compasso e batendo na caixa, anéis girando e abrindo, clarão branco na entrada. Pausa: escuro. Prato de ataque: clarão branco no centro. Velocidade dos lasers conforme a intensidade. No modo rápido (sem a bateria separada) o pulso vai na batida.
+- **2 Cores.** Da capa saem dois pares: o do mapa e o do reforço ("boost"), que entra em cada queda e sai no fim dela. Luzes sempre com as cores da capa; sabres e notas só com a chave ligada (Configuração, "Seu jeito de jogar", e o diálogo de mapa novo; `--prefs sabres_capa`) e só quando os dois tons estão a 90 graus ou mais na roda de cores. Capa cinza (menos de 8% de pixels com cor) e capa genérica ficam com as cores do jogo. "Refazer as notas" de um mapa passa a levar a capa dele ao gerador.
+- **3 Cenário.** Três climas, por três números: andamento de máquina ou bateria com 60% ou mais do volume = eletrônico; som com muito ruído (guitarra distorcida, pratos) = pesado; o resto = calmo. Guardado em `clima.json` no cache. Refazer uma dificuldade só mantém o cenário do mapa (`--ambiente`); refazer o mapa inteiro adota o novo.
+- **4 Reação.** A subida começa quase apagada e acende batida a batida (fundo, depois anéis, lasers, centro e o giro dos anéis, que dobra no último compasso). Na última batida antes da queda (ou meia batida), se não há ataque forte ali, apaga tudo. Os anéis giram no bumbo em vez de na batida. Na entrada de cada queda, uma parede em cada ponta onde aquela ponta está livre de notas.
+- **5 Luzes novas.** Cada clima tem dois cenários, um clássico (eventos básicos) e um novo (grupos de luzes): calmo Big Mirror ou The Second, pesado Green Day ou Rock Mixtape, eletrônico Monstercat ou Weave. A música decide qual (pelo hash do áudio, sempre o mesmo para a mesma música). Nos novos, as mesmas deixas viram eventos de cor nos grupos que fazem cada papel e um leque de rotação nos lasers. A conferência passou a contar esses eventos em "eventos de luz".
+
+Limites conhecidos e decisões que fogem do texto original:
+
+- **Cores: mudei uma garantia.** O item dizia "capa de uma cor só cai nas cores padrão". Medido: 10 das 11 capas de verdade têm um tom só, então a regra apagava o item quase inteiro. Agora o tom da capa fica e o segundo é o oposto dele na roda de cores. Se o dono preferir a regra original, é uma linha em `paleta` (`beatloom/luzes.py`).
+- **Cores.** A cor sai com brilho cheio e saturação de 70% para cima, então capa escura dá luz viva do mesmo tom, não a cor exata da capa. A miniatura do vídeo vale como capa (é o que o download guarda). A ficha do mapa ainda não mostra as cores; o relatório em texto mostra. Mapa antigo de capa genérica não tem a origem da capa anotada e fica com as cores do jogo ao refazer.
+- **Cenário.** Os três limites saíram destas 18 músicas, sem gabarito. Indie de guitarra limpa cai em "calmo" (take-a-bite, a 182 BPM, está em calmo).
+- **Reação.** O apagão sai em quase toda queda (33 de 37), porque meia batida sem ataque forte é comum; "no silêncio" ficou mais largo do que o item pedia. O corredor de paredes quase não cabe do Hard para cima com as preferências do dono: as pontas estão sempre ocupadas, então sai uma parede de cada lado em momentos diferentes, e às vezes nenhuma. Corredor de verdade pediria parede fora das quatro colunas (não conferido se o jogo aceita sem mod) ou o motor de golpes deixar as pontas livres nesse trecho. "Cada parte com a sua cara" vale por tipo de parte (verso, queda...): dois versos diferentes têm a mesma luz.
+- **Luzes novas: o maior risco do bloco.** Os números dos grupos vêm da tabela do bsmap e o formato passa no validador, mas nada disso foi visto aceso. Se um cenário novo sair apagado ou estranho no jogo, tirar ele de `AMBIENTE` (uma linha) devolve aquelas músicas ao cenário clássico. Nos cenários novos o mapa vai sem eventos básicos, então o visualizador da página pode mostrar essas músicas sem luz. Zoom dos anéis e velocidade dos lasers não existem nos grupos.
+- Não conferido aqui: "Refazer as notas" pela página com os itens novos (só as funções por trás foram testadas) e o caderno do Colab. A chave nova foi vista no navegador, no diálogo de mapa novo e na Configuração.
 
 1. **Luzes de verdade.** Seguir as partes da música (item 1.1.3): cor por seção, pulso no bumbo, clarão no acento, apagar na pausa, anéis girando e abrindo na queda, velocidade dos lasers conforme a intensidade. É o que mais muda a cara do mapa.
 2. **Cores da música** (pedido do dono). Tirar da capa (ou da miniatura do vídeo) as duas cores dominantes que mais contrastam entre si e gravar como cores do mapa. Hoje toda luz sai vermelha e azul.
@@ -190,11 +226,7 @@ Roadmap bloco 3 item 9 (atualizar os mapas antigos de uma vez, análise em camad
 
 1.2: feito em 10/10/2026, não precisa rodar de novo. Resultados no bloco 1.2.
 
-1.3, primeira parte (luzes, cores da capa, ambiente, o mapa reagindo à música: itens 1 a 5):
-
-```text
-Execute os itens 1 a 5 do bloco 1.3 do roadmap, um por vez. Antes do item 2, confira se o Beat Saber do Quest respeita as cores gravadas no mapa. A cada item: confira que o mapa passa na conferência e faça commit. Não pare para aprovar entre itens. No fim, atualize o roadmap, push, e me diga duas músicas para eu ver.
-```
+1.3, primeira parte (itens 1 a 5): feito em 10/10/2026, não precisa rodar de novo. Resultados no bloco 1.3. Falta o dono ver no jogo.
 
 1.3, segunda parte, o que vale mais (correntes e arcos, bombas e paredes: itens 6 e 7; Opus 5.5 médio, porque mexe no motor de golpes):
 

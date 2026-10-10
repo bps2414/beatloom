@@ -23,7 +23,7 @@ O Beatloom responde a duas perguntas, uma depois da outra: **quando** vai ter no
  3. QUAL NOTA    engine.py     posição, cor e direção de cada nota
         │
         ▼
- 4. ENFEITAR     generate.py     notas seguradas, luzes e paredes
+ 4. ENFEITAR     generate.py, luzes.py     notas seguradas, luzes, cores, cenário e paredes
         │
         ▼
  5. EMPACOTAR    generate.py     Info.dat, dificuldades, song.egg, capa → zip
@@ -109,10 +109,12 @@ Os defeitos evitados:
 - **Nota empilhada**: duas notas no mesmo lugar ao mesmo tempo.
 - **Sabre atravessando**: numa dupla, o sabre de uma mão passando pela nota da outra cor.
 
-## 4. Luzes e paredes (`generate.py`)
+## 4. Luzes, cores, cenário e paredes (`beatloom/luzes.py`, `generate.py`)
 
-- **Luzes**: nunca fica escuro; pisca na batida e muda de cor nos compassos intensos. É simples de propósito.
-- **Paredes**: só nas pausas de 1,6 segundo ou mais, na coluna da ponta. São decoração; nenhuma exige que você se mova.
+- **Luzes**: seguem as partes da música e a bateria. O gerador escreve "deixas" (quando, qual luz, o que ela faz, cor, brilho) e só no fim elas viram evento do mapa. Introdução e verso têm o fundo aceso e os anéis pulsando no bumbo; a subida começa quase apagada e acende uma luz depois da outra; logo antes da queda apaga tudo; a queda entra com um clarão branco, tudo aceso, lasers batendo na caixa e anéis girando no bumbo; a pausa fica no escuro. Prato de ataque dá um clarão branco.
+- **Cores**: saem da capa. O tom que mais aparece e o segundo (ou o oposto dele, se a capa tem um tom só) são as cores das luzes; outro par entra nas quedas. Sabres e notas só usam essas cores se você ligar a opção, e só quando os dois tons são bem diferentes. Capa cinza fica com as cores do jogo.
+- **Cenário**: segue o clima da música. Andamento de máquina ou bateria na frente de tudo é "eletrônico", som cheio de ruído é "pesado", o resto é "calmo". Cada clima tem um cenário clássico e um novo; a música decide qual. Os clássicos acendem com eventos básicos; os novos, com grupos de luzes, e o mesmo roteiro de deixas serve aos dois.
+- **Paredes**: nas pausas de 1,6 segundo ou mais e na entrada de cada queda, na coluna da ponta, onde não há nota. São decoração; nenhuma exige que você se mova.
 
 ## 5. Empacotar (`generate.py`)
 

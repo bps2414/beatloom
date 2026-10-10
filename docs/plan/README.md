@@ -83,8 +83,9 @@ start.bat            instala o que falta (uv, Python, pacotes) e abre a página
 app.py               servidor HTTP local, todas as rotas /api
 generate.py          gera um mapa (CLI); app.py o chama como subprocesso
 report.py            confere um mapa e escreve o relatório
-beatloom/audio.py    análise: batidas (beat_this), ataques (librosa), instrumentos (Demucs), voz cantada (pYIN), peças da bateria, partes da música, cache
+beatloom/audio.py    análise: batidas (beat_this), ataques (librosa), instrumentos (Demucs), voz cantada (pYIN), peças da bateria, partes da música, clima, cache
 beatloom/engine.py   escolha dos golpes a partir da biblioteca de padrões
+beatloom/luzes.py    luzes (deixas, eventos básicos e grupos de luzes), cores da capa e cenário por clima
 beatloom/checks.py   regras de jogabilidade (paridade, bloqueio de visão, palmas...)
 beatloom/preparo.py  o que falta instalar e os downloads da primeira vez
 beatloom/quest.py    ADB: parear, listar, enviar, apagar

@@ -31,6 +31,7 @@ python -m beatloom.preparo --demo
 python -m beatloom.checks --demo
 python -m beatloom.audio --demo
 python -m beatloom.engine --demo
+python -m beatloom.luzes --demo
 python -m beatloom.quest --demo
 python tools/extract_patterns.py --demo
 python report.py --demo

@@ -23,7 +23,7 @@ Beatloom answers two questions, one after the other: **when** there is a note (b
  3. WHICH NOTE   engine.py     position, colour and direction of each note
         │
         ▼
- 4. DECORATE     generate.py     held notes, lights and walls
+ 4. DECORATE     generate.py, luzes.py     held notes, lights, colours, environment and walls
         │
         ▼
  5. PACK         generate.py     Info.dat, difficulties, song.egg, cover → zip
@@ -109,10 +109,12 @@ The defects it avoids:
 - **Stacked note**: two notes in the same place at the same time.
 - **Saber passing through**: in a double, one hand's saber passing through the other colour's note.
 
-## 4. Lights and walls (`generate.py`)
+## 4. Lights, colours, environment and walls (`beatloom/luzes.py`, `generate.py`)
 
-- **Lights**: it is never dark; they flash on the beat and change colour in intense bars. Simple on purpose.
-- **Walls**: only in pauses of 1.6 seconds or more, in the outer column. They are decoration; none of them makes you move.
+- **Lights**: they follow the song sections and the drums. The generator writes "cues" (when, which light, what it does, colour, brightness) and only at the end turns them into map events. Intro and verse keep the back lights on and pulse the rings on the kick; the build-up starts almost dark and turns on one light after another; right before the drop everything goes off; the drop comes in with a white flash, everything on, lasers hitting on the snare and rings spinning on the kick; a break stays dark. A crash cymbal gives a white flash.
+- **Colours**: taken from the cover. The most common tone and the second one (or its opposite, when the cover has a single tone) are the light colours; another pair comes in on the drops. Sabers and notes only use them if you turn the option on, and only when the two tones are clearly different. A grey cover keeps the game colours.
+- **Environment**: follows the mood of the song. Machine tempo or drums in front of everything is "electronic", a noisy sound is "heavy", the rest is "calm". Each mood has a classic environment and a new one; the song decides which. Classic ones light up with basic events, new ones with light groups, and the same cue script feeds both.
+- **Walls**: in pauses of 1.6 seconds or more and at the start of each drop, in the outer column, where there is no note. They are decoration; none of them makes you move.
 
 ## 5. Pack (`generate.py`)
 

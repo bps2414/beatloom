@@ -14,7 +14,7 @@ Você cola um link do YouTube ou escolhe um arquivo de áudio, espera alguns min
 2. Separa bateria, baixo, voz e o resto com o [Demucs](https://github.com/adefossez/demucs), para as notas fortes seguirem a bateria.
 3. Distribui as notas por compasso conforme a energia da música e repete o ritmo dos compassos repetidos (refrões).
 4. Escolhe os golpes em uma biblioteca de janelas de 1, 2 e 4 batidas cortadas de mapas humanos, mantendo a paridade (o pulso nunca é forçado a torcer). Compassos repetidos reaproveitam o mesmo desenho quando a paridade deixa.
-5. Transforma notas longas de voz ou melodia em notas seguradas (arcos), põe luzes simples e paredes laterais nas pausas, empacota o zip e confere.
+5. Transforma notas longas de voz ou melodia em notas seguradas (arcos), põe luzes que seguem as partes da música e a bateria, com as cores da capa e um cenário escolhido pelo clima da música, paredes laterais onde não há nota, empacota o zip e confere.
 6. Usa a capa e os dados da música (nome, artista, álbum, ano, link) que vierem do arquivo ou do link.
 
 Todo mapa sai com um relatório. Ele confere: formato válido ([bsmap](https://github.com/KivalEvan/BeatSaber-JSMap)), erros de paridade, bloqueios de visão, palmas (mãos se batendo), notas empilhadas, sabre de uma mão passando pela nota da outra, notas na batida, folga no começo e no fim, e notas por segundo dentro da faixa de cada dificuldade.
@@ -23,7 +23,7 @@ Todo mapa sai com um relatório. Ele confere: formato válido ([bsmap](https://g
 
 Sem exagero: foi desenvolvido em cima de uma música eletrônica de andamento fixo que tem mapa humano para comparar (entre 87% e 96% dos nossos tempos também estão no mapa humano, conforme a dificuldade; cobrimos cerca de 72% dos tempos do humano) e depois rodado em mais cinco músicas (indie pop e um rock pesado). Todas passam nas conferências automáticas. Passar quer dizer "jogável e sem defeito conhecido", não "divertido". Poucos desses mapas foram jogados no headset até agora.
 
-Limites conhecidos: só grade de 1/4 (sem tercinas nem swing), sem bombas nem correntes, sem notas de ponto, a detecção de nota longa para os arcos é simples e ainda não foi conferida de ouvido em muitas músicas, luzes básicas, e músicas lentas ganham muitas notas duplas no Expert+ para chegar à densidade alvo.
+Limites conhecidos: só grade de 1/4 (sem tercinas nem swing), sem bombas nem correntes, sem notas de ponto, a detecção de nota longa para os arcos é simples e ainda não foi conferida de ouvido em muitas músicas, as luzes dos cenários novos ainda não foram conferidas no jogo, e músicas lentas ganham muitas notas duplas no Expert+ para chegar à densidade alvo.
 
 Como funciona, passo a passo: [docs/ARCHITECTURE.pt-BR.md](docs/ARCHITECTURE.pt-BR.md).
 

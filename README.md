@@ -14,7 +14,7 @@ Beatloom is an unofficial hobby project and is not affiliated with Beat Games.
 2. Separates drums, bass, vocals and the rest with [Demucs](https://github.com/adefossez/demucs), so strong notes follow the drums.
 3. Spends a note budget per bar that follows the energy of the song, and reuses the rhythm of repeated bars (choruses).
 4. Picks swings from a library of 1, 2 and 4 beat windows cut from human maps, keeping wrist parity valid. Repeated bars reuse the same swing pattern when parity allows.
-5. Turns long vocal or melody notes into held notes (arcs), adds simple lights and side walls in pauses, packs the zip, and checks it.
+5. Turns long vocal or melody notes into held notes (arcs), adds lights that follow the song sections and the drums, with the cover colours and an environment picked by the mood of the song, side walls where there is no note, packs the zip, and checks it.
 6. Uses the cover and song data (name, artist, album, year, link) found in the file or the link.
 
 Every map comes with a report. It checks: valid schema ([bsmap](https://github.com/KivalEvan/BeatSaber-JSMap)), parity errors, vision blocks, handclaps, stacked notes, one hand's saber passing through the other hand's note, notes on the beat grid, slack at the start and end, and notes per second within the range of each difficulty.
@@ -23,7 +23,7 @@ Every map comes with a report. It checks: valid schema ([bsmap](https://github.c
 
 Be realistic about this. It was developed against one fixed-tempo electronic song with a human map as reference (87% to 96% of our note times also appear in the human map, depending on the difficulty; we cover about 72% of the human's times), and then run on five more songs (indie pop and one heavy rock track). All of them pass the automatic checks. Passing the checks means "playable, no known defect", not "fun". Few of these maps have been played in a headset yet.
 
-Known limits: 1/4 grid only (no triplets or swing), no bombs or chains, no dot notes, the long-note detection behind arcs is simple and has not been checked by ear on many songs, lights are basic, and slow songs get many double notes on Expert+ to reach the target density.
+Known limits: 1/4 grid only (no triplets or swing), no bombs or chains, no dot notes, the long-note detection behind arcs is simple and has not been checked by ear on many songs, the lights of the newer environments have not been checked in the game yet, and slow songs get many double notes on Expert+ to reach the target density.
 
 How it works, step by step: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
