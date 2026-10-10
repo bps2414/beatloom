@@ -19,6 +19,7 @@ Sem isto qualquer mudança vira gosto. Ferramentas que já existem: `tools/blind
 - Montar um conjunto fixo de umas 10 músicas de estilos diferentes, com mapa humano bem avaliado de cada uma.
 - Números por mudança: quantos ataques fortes viraram nota, quantas notas caem em ataque, parecido com o humano em densidade por trecho, e o teste cego do dono jogando.
 - Cada item abaixo só entra se ganhar nesse conjunto.
+- **Comparar com os outros geradores.** Meta do dono: ser o melhor. Gerar as mesmas músicas no Beat Sage e no TopMapper, passar os zips pela nossa conferência (`report.py`; a conferir se aceita zip de fora) e pelo script de medição, e jogar às cegas com `tools/blind_test.py`. Sem isso não há como dizer quem é melhor.
 
 **Medição mínima (feita em 10/10/2026):** `tools/medir.py` confere de novo, sem mapa humano, o zip mais novo de cada música em `saida\` e mostra por dificuldade as notas por segundo, a cobertura (ataques fortes que viraram nota), a precisão (notas que caem num ataque forte, 50 ms) e a correlação entre intensidade e notas por trecho. Rode antes e depois de cada mudança. Ponto de partida, 15 músicas (6 em Easy, 12 em Normal, 15 nas demais):
 
@@ -70,7 +71,7 @@ Pedido do dono: melhorar o mapa, deixar mais bonito, usar mais recursos do próp
 
 - [BeatSaber-JSMap](https://github.com/KivalEvan/BeatSaber-JSMap) (o pacote `bsmap`) já é usado em `check\` para validar o formato, e as regras de paridade e de mapa em `beatloom/checks.py` foram portadas dele e do BeatSaber-MapCheck. Falta aproveitar: as outras checagens do MapCheck que ainda não foram portadas, e a conversão de formato (gravar em v4).
 - Estimadores de dificuldade da comunidade (estrelas do BeatLeader e do ScoreSaber) para calibrar se o nosso Expert+ é mesmo um Expert+.
-- **Pesquisar o que mais existe** (pedido do dono), antes de escrever do zero cada item dos blocos 1.1 a 1.3. Candidatos a avaliar, nenhum ainda testado aqui: reconhecimento de partes da música (all-in-one, MSAF), transcrição de melodia e voz (basic-pitch, CREPE), separação de bateria por peça, outros geradores para comparar e aprender (Beat Sage, InfernoSaber, DeepSaber, Mapperatorinator), conferência de paridade (JoshaParity), geradores de luzes (Lightmap do ChroMapper, Lolighter) e as ferramentas de script de mapa (ReMapper, Heck). Para cada um anotar: licença, peso da instalação, se roda sem GPU, e o ganho no conjunto do item 1.0.
+- **Pesquisar o que mais existe** (pedido do dono), antes de escrever do zero cada item dos blocos 1.1 a 1.3. Candidatos a avaliar, nenhum ainda testado aqui: reconhecimento de partes da música (all-in-one, MSAF), transcrição de melodia e voz (basic-pitch, CREPE), separação de bateria por peça, outros geradores para comparar e aprender (Beat Sage, de 2020, rede neural, código fechado; TopMapper, que também faz luzes; InfernoSaber e DeepSaber, a confirmar; o Mapperatorinator é do osu! e só serve de ideia), conferência de paridade (JoshaParity), geradores de luzes (Lightmap do ChroMapper, Lolighter) e as ferramentas de script de mapa (ReMapper, Heck). Para cada um anotar: licença, peso da instalação, se roda sem GPU, e o ganho no conjunto do item 1.0.
 
 ### Pedidos prontos
 
