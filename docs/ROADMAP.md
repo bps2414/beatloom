@@ -121,6 +121,12 @@ Versões de um mapa, bloco 3 item 8 (Sonnet 5.5 alto):
 Roadmap bloco 3 item 8 (versões de um mapa): confira primeiro como o envio ao Quest nomeia a pasta, depois faça. Commit e push ao final.
 ```
 
+Atualizar os mapas antigos de uma vez, bloco 3 item 9 (Sonnet 5.5 alto):
+
+```text
+Roadmap bloco 3 item 9 (atualizar os mapas antigos de uma vez): meça primeiro com tools/timing.py o que o cache guarda e o que roda de novo, depois faça. Commit e push ao final.
+```
+
 ## 2. Pendências do que já foi feito
 
 - Instalador nunca testado numa máquina limpa (instalar, atalho, preparo, gerar, desinstalar).
@@ -139,6 +145,12 @@ Roadmap bloco 3 item 8 (versões de um mapa): confira primeiro como o envio ao Q
 6. **Quest.** Apagar vários de uma vez.
 7. Mostrar na ficha do mapa com quais preferências ele foi feito.
 8. **Versões de um mapa** (pedido do dono). Refazer um mapa e mandar ao Quest deve trocar a música que já está lá, não criar outra na lista do jogo: mesma pasta e mesmo nome no óculos a cada envio. No computador, cada versão anterior fica guardada (numerada, com data e com o que mudou: modo, preferências, versão do Beatloom), e a ficha do mapa deixa voltar a uma delas ou apagar as antigas. A conferir antes de fazer: como o envio nomeia a pasta hoje e se o jogo mantém a pontuação quando o conteúdo do mapa muda.
+9. **Atualizar os mapas antigos de uma vez** (pedido do dono: não ter que regerar música por música a cada melhoria do gerador).
+   - Cada mapa já guarda com que versão do gerador foi feito. A lista mostra quantos estão atrás da versão atual e um botão só: "Atualizar os N mapas antigos". Usa a fila e o "Refazer as notas" que já existem.
+   - Análise guardada em camadas: separação dos instrumentos (a parte cara, que quase nunca muda), ataques e batidas, e o que cada melhoria acrescenta (voz, partes da música). Mudou uma camada, só ela e as de cima rodam de novo. Hoje qualquer mudança na análise joga fora o conjunto e separa tudo outra vez. A conferir antes: o que o cache guarda hoje e quanto tempo cada camada leva (`tools/timing.py`).
+   - Só as luzes: quando a melhoria for só de luzes ou cores, refazer só elas e deixar as notas como estão. Protege o mapa que já ficou bom de jogar.
+   - Mapa "travado": marcar um mapa de que se gosta para as atualizações em lote não tocarem nas notas dele.
+   - Anda junto com o item 8: a versão anterior fica guardada antes de atualizar.
 
 ## 4. Projeto
 
