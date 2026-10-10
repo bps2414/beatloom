@@ -79,7 +79,7 @@ O mapa sai em `saida\<nome>-v4.zip`, com `saida\<nome>-v4.relatorio.txt` ao lado
 
 Outras ferramentas: `report.py <zip>` refaz as conferências, `tools\blind_test.py <a.zip> <b.zip>` monta um par A/B embaralhado da mesma música para comparar sem saber qual é qual, e `tools\batch.py <lista.txt> <pasta>` gera várias músicas de uma vez e resume os relatórios. `tools\check_i18n.py` confere se os dois idiomas têm as mesmas frases e `tools\timing.py <audio>` mede quanto cada parte da geração demora.
 
-O link pode ser de uma playlist do YouTube: cada faixa entra na fila e vira um mapa, uma de cada vez. Dá para pausar a fila, esvaziá-la ou tirar um item; ela é guardada em disco, então fechar o Beatloom não a perde (a música que estava sendo feita recomeça).
+O link pode ser de uma playlist do YouTube: cada faixa entra na fila e vira um mapa, uma de cada vez. Colar a mesma playlist de novo não repete: a faixa que já tem mapa fica de fora, a que falhou na conferência tem as notas refeitas e só as que faltam entram na fila. Dá para pausar a fila, esvaziá-la ou tirar um item; ela é guardada em disco, então fechar o Beatloom não a perde (a música que estava sendo feita recomeça).
 
 Em Configuração, "Seu jeito de jogar" tem duas preferências: sem notas na linha de cima e sem nota escondida atrás de outra (duas notas seguidas no mesmo lugar em menos de 0,3 s). Elas valem para os mapas novos e para os que você refizer: marque mapas na lista e use "Refazer as notas", que reaproveita a análise guardada e leva segundos por mapa. Na linha de comando é `--prefs sem_topo,sem_fila`.
 

@@ -119,7 +119,10 @@ $("form").onsubmit = async (e) => {
     if (!difs.length) throw new Error(t("sem_dif"));
     if (!link && arquivo && !subido) subido = await api("/api/arquivo?nome=" + enc(arquivo.name), arquivo, true);
     const comum = { difs, densidade: +$("dens").value, modo: $("rapido").checked ? "rapido" : "completo" };
-    if (link && lista) await api("/api/gerar", { lista: lista.map((m) => ({ link: m.link, titulo: m.nome, capa: m.capa })), ...comum });  // um trabalho por faixa, na fila
+    if (link && lista) {  // um trabalho por faixa, na fila; o servidor pula as que ja tem mapa e refaz as que falharam na conferencia
+      const r = await api("/api/gerar", { lista: lista.map((m) => ({ link: m.link, titulo: m.nome, capa: m.capa })), ...comum });
+      if (r.pulados || r.refeitos) avisar(t("lista_repetida", { novos: r.novos, pulados: r.pulados, refeitos: r.refeitos }));
+    }
     else await api("/api/gerar", { link, arquivo: link ? null : subido && subido.arquivo, nome: $("nome").value, artista: $("artista").value, ...extra, capa: miniatura, ...comum });
     $("link").value = ""; ultimoLink = ""; $("arq").value = ""; arquivo = subido = null; semPrevia(); pintarArquivo();
     $("d-novo").close(); document.body.classList.remove("vendo"); atualizar();

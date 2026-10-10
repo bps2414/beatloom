@@ -45,6 +45,8 @@ Fora das quatro fatias, a pedido do dono: link de playlist do YouTube (feito jun
 
 Depois das fatias, a pedido do dono (10/10/2026): preferências de quem joga (`sem_topo`, `sem_fila` em `beatloom.json`, `--prefs` no `generate.py`, aplicadas como barreira no motor), fila que pausa, esvazia e é guardada em `.cache\fila.json`, "Refazer as notas" de vários mapas pela fila (`POST /api/regerar` com `zips`), "Marcar todos" e "Mandar ao Quest os N que faltam". Corrigido também o bloqueio de visão que passava no motor e falhava na conferência por arredondamento no limite do intervalo (`FOLGA_VB` em `beatloom/checks.py`). Medido em duas músicas: com as duas preferências o Expert+ perde até 3% das notas e os braços cruzados dobram (26 → 52 e 27 → 69); todas as conferências passam. **Os botões novos da página não foram vistos num navegador**, só o servidor foi testado.
 
+O que vem depois está em [../ROADMAP.md](../ROADMAP.md).
+
 ## Ambiente na nuvem (Linux, repositório recém-clonado)
 
 O que **não existe** num clone: `dados/` (padrões), `saida/` (mapas), `musicas/`, `arcviewer/`, `bin/`, `.venv/`, `beatloom.json`, Quest. Consequências:

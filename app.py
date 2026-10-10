@@ -234,10 +234,16 @@ def lista_de_mapas():
                 continue
             r = ler_relatorio(zp) or {}
             lidos[zp.name] = (datas, {"zip": zp.name, "nome": info["_songName"], "sub": info.get("_songSubName", ""), "artista": info["_songAuthorName"],
-                                      "bpm": info["_beatsPerMinute"], "ok": r.get("passou"), "dur": r.get("dur"), "v": int(datas[0]),
+                                      "bpm": info["_beatsPerMinute"], "ok": r.get("passou"), "link": info.get("_customData", {}).get("_beatloom", {}).get("link"), "dur": r.get("dur"), "v": int(datas[0]),
                                       "difs": [b["_difficulty"] for s in info["_difficultyBeatmapSets"] if s["_beatmapCharacteristicName"] == "Standard" for b in s["_difficultyBeatmaps"]]})
         out.append(lidos[zp.name][1])
     return out
+
+
+def video(link):
+    """O que identifica a musica de um link: o codigo do video (o mesmo video chega como music.youtube, www.youtube ou youtu.be), senao o link inteiro."""
+    m = re.search(r"(?:[?&]v=|youtu\.be/)([\w-]{11})", link or "")
+    return m[1] if m else (link or "").strip()
 
 
 def conferir(zp):
@@ -403,23 +409,36 @@ class H(BaseHTTPRequestHandler):
         if u.path == "/api/gerar":
             # playlist: "lista" traz as faixas ({link, titulo, capa}); cada uma vira um trabalho com as mesmas dificuldades, densidade e modo
             pedidos, novos = [{**d, "arquivo": None, "nome": None, "artista": None, "album": None, "ano": None, **m} for m in d["lista"] if isinstance(m, dict)] if isinstance(d.get("lista"), list) else [d], []
+            # playlist repetida: faixa que ja tem mapa no mesmo modo e pulada, ou tem as notas refeitas se a conferencia dele falhou; a que ja espera na fila tambem e pulada
+            varios, pulados, refeitos = isinstance(d.get("lista"), list), 0, 0
+            feitos = {(video(m["link"]), m["sub"][-1:]): m for m in reversed(lista_de_mapas()) if m.get("link")} if varios else {}
+            with trava:
+                esperando = {(video(t["link"]), str(t.get("etapa"))) for t in trabalhos if t.get("link") and t["estado"] in ("na fila", "rodando")} | {t["regerar"] for t in fila if t.get("regerar")}
             for i, d in enumerate(pedidos):
                 link, arq = str(d.get("link") or "").strip(), d.get("arquivo")
                 if link and not re.match(r"https?://\S+$", link):
                     return self.manda({"erro": "link"}, cod=400)
                 if not link and not (arq and Path(arq).parent == MUSICAS and Path(arq).exists()):
                     return self.manda({"erro": "vazio"}, cod=400)
+                qual = (video(link), "3" if (d.get("modo") or config()["modo"]) == "rapido" else "4")
+                m = feitos.get(qual)
+                if varios and (qual in esperando or m and (m["ok"] is not False or m["zip"] in esperando)):
+                    pulados += 1; continue
+                esperando.add(qual)
+                if m:
+                    refeitos += 1; esperando.add(m["zip"])
+                    novos.append({"id": int(time.time() * 1000) + i, "estado": "na fila", "passos": [], "progresso": None, "regerar": m["zip"], "titulo": m["nome"], "capa": "/api/capa?zip=" + quote(m["zip"])}); continue
                 capa = d.get("capa") if re.fullmatch(r"https?://\S+|/api/capa\?\S+", str(d.get("capa"))) else None  # a miniatura da previa, so para o cartao da fila
                 novos.append({"id": int(time.time() * 1000) + i, "estado": "na fila", "passos": [], "progresso": None, "capa": capa, "titulo": str(d.get("nome") or d.get("titulo") or "").strip() or link or Path(arq).name,
                               "link": link or None, "arquivo": arq, **{k: str(d.get(k) or "").strip() or None for k in ("nome", "artista", "album", "ano")},
                               "difs": [x for x in DIFS if x in (d.get("difs") or DIFS)] or list(DIFS),
                               "densidade": min(max(float(d.get("densidade") or 1), 0.8), 1.3),
                               "etapa": 3 if (d.get("modo") or config()["modo"]) == "rapido" else 4})  # rapido = sem separar instrumentos (etapa 3 do gerador)
-            if not novos:
+            if not novos and not pulados:
                 return self.manda({"erro": "vazio"}, cod=400)
             with trava:
                 trabalhos.extend(novos); fila.extend(novos); guardar_fila()
-            return self.manda({"id": novos[0]["id"]})
+            return self.manda({"id": novos[0]["id"] if novos else None, "novos": len(novos) - refeitos, "pulados": pulados, "refeitos": refeitos})
         if u.path == "/api/trabalho/dispensar":  # tira da lista um trabalho que acabou (pronto ou com erro) ou que ainda esta na fila; "fila" = todos os que esperam
             with trava:
                 sai = (lambda t: t["estado"] == "na fila") if d.get("fila") else (lambda t: t["id"] == d.get("id") and t["estado"] != "rodando")

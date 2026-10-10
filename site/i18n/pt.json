@@ -47,6 +47,7 @@
   "passo_conferindo": "Conferindo o mapa…",
 
   "fila_n": "{n} na fila",
+  "lista_repetida": "{novos} novas na fila. {pulados} já tinham mapa e ficaram de fora; {refeitos} com conferência falhada vão ter as notas refeitas.",
   "fila_pausada": "Fila pausada, {n} esperando",
   "pausar": "Pausar",
   "continuar_fila": "Continuar",
