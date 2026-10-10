@@ -681,12 +681,12 @@ if __name__ == "__main__":
     ap.add_argument("--densidade", type=float, default=1.0, help="multiplica a quantidade de notas (0.8 = mais leve, 1.3 = mais cheio)")
     ap.add_argument("--album"); ap.add_argument("--ano"); ap.add_argument("--link", help="de onde a musica veio")
     ap.add_argument("--etapa", type=int, default=4, choices=(1, 2, 3, 4))
-    ap.add_argument("--prefs", default="", help="gostos de quem joga, separados por virgula: sem_topo (nada na linha de cima), sem_fila (nada logo atras de outra nota na mesma casa), cruzar_nunca ou cruzar_livre (bracos cruzados; sem nenhum dos dois, pouco), sabres_capa (sabres e notas com as cores da capa), chroma (cores do Chroma nas luzes, como sugestao)")
+    ap.add_argument("--prefs", default="", help="gostos de quem joga, separados por virgula: sem_topo (nada na linha de cima), sem_fila (nada logo atras de outra nota na mesma casa), cruzar_nunca ou cruzar_livre (bracos cruzados; sem nenhum dos dois, pouco), sabres_capa (sabres e notas com as cores da capa), chroma (cores do Chroma nas luzes, como sugestao), noodle (um conjunto de dificuldades a mais, que exige o Noodle Extensions)")
     ap.add_argument("--ambiente", help="cenario do jogo (ex.: BigMirrorEnvironment); sem isto, o do clima da musica")
     ap.add_argument("--saida"); ap.add_argument("--humano", help="pasta de um mapa humano da mesma musica, para comparar os tempos")
     a = ap.parse_args()
     zp, resumo, ger = gerar(a.audio, a.nome, a.artista, a.etapa, a.tag, a.saida, a.capa, a.difs and a.difs.split(","), min(max(a.densidade, 0.5), 1.6),
-                       a.album, a.ano, a.link, {p for p in a.prefs.split(",") if p in ("sem_topo", "sem_fila", "cruzar_nunca", "cruzar_livre", "sabres_capa", "chroma")}, a.ambiente)
+                       a.album, a.ano, a.link, {p for p in a.prefs.split(",") if p in ("sem_topo", "sem_fila", "cruzar_nunca", "cruzar_livre", "sabres_capa", "chroma", "noodle")}, a.ambiente)
     import report
     R = report.conferir(zp, a.humano)
     for D in R["difs"]:

@@ -59,7 +59,9 @@ def conferir(mapa, humano=None):
         bpm = info["_beatsPerMinute"]
         an = analisar(info_p.parent / info["_songFilename"])
         dur, grade = an["dur"], an["grade"]
-        res = bsmap(bpm, dur, [info_p, *[d[0] for d in difs.values()]])
+        # os outros conjuntos (o do Noodle Extensions, beatloom/mods.py) tem as mesmas notas do normal: deles so se confere o esquema
+        outros = [info_p.parent / b["_beatmapFilename"] for s in info["_difficultyBeatmapSets"] if s["_beatmapCharacteristicName"] != "Standard" for b in s["_difficultyBeatmaps"]]
+        res = bsmap(bpm, dur, [info_p, *[d[0] for d in difs.values()], *outros])
     hum = {}
     if humano:
         _, hinfo, hdifs = ler_mapa(humano)
@@ -67,7 +69,8 @@ def conferir(mapa, humano=None):
             hum[nome] = sorted({round(s, 3) for s in r["seg"]})
 
     R = {"versao": 1, "zip": mapa.name, "musica": info["_songName"], "dur": dur, "bpm": bpm, "bpm_detectado": an["bpm"], "bpm_fixo": bool(an["bpm_fixo"]),
-         "info_ok": res[0]["ok"], "info_erro": res[0].get("erro", ""), "difs": []}
+         "info_ok": res[0]["ok"], "info_erro": res[0].get("erro", ""), "difs": [],
+         "extras": [{"arquivo": a.name, "ok": r["ok"], "erro": r.get("erro")} for a, r in zip(outros, res[1 + len(difs):])]}
     fortes = grade[an["nivel"] == 2]
     for (nome, (arq, njs, off)), r in zip(difs.items(), res[1:]):
         D = {"nome": nome, "njs": njs, "offset": off, "esquema_ok": r["ok"], "erro": r.get("erro"), "notas": 0, "metas": []}
@@ -117,7 +120,7 @@ def conferir(mapa, humano=None):
             D["trechos"].append([float(a), float(np.mean(intens[k:k + 4])), sum(1 for x in notas if a - 0.005 <= x[0] < b - 0.005) / max(b - a, 1e-9)])
         cor = np.corrcoef([t[1] for t in D["trechos"]], [t[2] for t in D["trechos"]])[0, 1] if len(D["trechos"]) > 2 else float("nan")
         D["correlacao"] = None if np.isnan(cor) else float(cor)
-    R["passou"] = R["info_ok"] and all(d["esquema_ok"] and d["notas"] and all(m["ok"] for m in d["metas"]) for d in R["difs"])
+    R["passou"] = R["info_ok"] and all(e["ok"] for e in R["extras"]) and all(d["esquema_ok"] and d["notas"] and all(m["ok"] for m in d["metas"]) for d in R["difs"])
     return R
 
 
@@ -180,6 +183,9 @@ def texto(R):
         linha = [f"{a:4.0f}s i{i:.1f} {n:4.1f}" for a, i, n in D["trechos"]]
         for i in range(0, len(linha), 6):
             L.append("    " + " | ".join(linha[i:i + 6]))
+    for e in R.get("extras", ()):  # relatorio antigo nao tem
+        L.append(f"conjunto a mais {e['arquivo']}: {'esquema ok' if e['ok'] else 'ESQUEMA INVALIDO ' + str(e['erro'])}")
+        falhas += [f"{e['arquivo']}: esquema invalido"] * (not e["ok"])
     L.append("")
     L.append("RESULTADO: " + ("TODAS AS METAS OK" if not falhas else f"{len(falhas)} META(S) FALHARAM"))
     L.extend("  - " + f for f in falhas)

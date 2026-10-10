@@ -46,7 +46,7 @@ def dados_do_link(j):
 
 
 def config():
-    padrao = {"lingua": None, "quest_ip": "", "difs": list(DIFS), "densidade": 1.0, "modo": "completo", "sem_topo": False, "sem_fila": False, "cruzar": "pouco", "sabres_capa": False, "chroma": False, "pronto": False}
+    padrao = {"lingua": None, "quest_ip": "", "difs": list(DIFS), "densidade": 1.0, "modo": "completo", "sem_topo": False, "sem_fila": False, "cruzar": "pouco", "sabres_capa": False, "chroma": False, "noodle": False, "pronto": False}
     try:
         return {**padrao, **json.loads(CONFIG.read_text(encoding="utf-8"))}
     except (OSError, ValueError):
@@ -68,7 +68,7 @@ def gravar_config(d):
         c["modo"] = d["modo"]
     if d.get("cruzar") in ("nunca", "pouco", "livre"):
         c["cruzar"] = d["cruzar"]
-    for k in ("pronto", "sem_topo", "sem_fila", "sabres_capa", "chroma"):
+    for k in ("pronto", "sem_topo", "sem_fila", "sabres_capa", "chroma", "noodle"):
         if isinstance(d.get(k), bool):
             c[k] = d[k]
     CONFIG.write_text(json.dumps(c, indent=1), encoding="utf-8")
@@ -79,7 +79,7 @@ def prefs(sabres=None):
     """Os gostos de quem joga, do jeito que o generate.py recebe em --prefs. `sabres` = o que a pessoa marcou no dialogo de mapa novo; sem isso vale a Configuracao."""
     c = config()
     c["sabres_capa"] = c.get("sabres_capa") if sabres is None else sabres
-    return ",".join([k for k in ("sem_topo", "sem_fila", "sabres_capa", "chroma") if c.get(k)] + [f"cruzar_{c['cruzar']}"] * (c.get("cruzar") in ("nunca", "livre")))  # "pouco" e o padrao do gerador
+    return ",".join([k for k in ("sem_topo", "sem_fila", "sabres_capa", "chroma", "noodle") if c.get(k)] + [f"cruzar_{c['cruzar']}"] * (c.get("cruzar") in ("nunca", "livre")))  # "pouco" e o padrao do gerador
 
 
 def guardar_fila():
@@ -547,6 +547,7 @@ class H(BaseHTTPRequestHandler):
             if not novo.exists():
                 return self.manda({"erro": "gerador|" + (r.stdout + r.stderr)[-300:]}, cod=500)
             trocar_dificuldade(zp, novo, d["dif"])
+            mods.conjunto(zp, novo, [d["dif"]])  # a mesma dificuldade no conjunto do Noodle Extensions: entra, troca ou sai
             subprocess.run([PY, str(RAIZ / "report.py"), str(zp)], capture_output=True, cwd=RAIZ)  # relatorio do mapa inteiro, de novo
             return self.manda({"ok": True})
         if u.path == "/api/renomear":
