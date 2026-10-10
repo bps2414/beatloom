@@ -96,8 +96,10 @@ def golpes(tempos, an, dif, reacao, etapa, njs=16, arcos=(), prefs=()):
     rep = [int(v) for v in an["rep"]]
     # etapa 4: cada casa sabe se o ataque e de bateria/baixo (grave, embaixo) ou de voz/melodia (em cima)
     alto, linha_voz, sentido_voz, peca = None, {}, {}, None
+    forca = np.asarray(an["forca"])  # a forca do ataque decide o tamanho do golpe: forte pede braco largo, fraco pede golpe curto
     if etapa >= 4 and "forca_inst" in an:
         f = np.asarray(an["forca_inst"])
+        forca = np.maximum(forca, f.max(0))
         ritmo, melodia = f[[INSTRUMENTOS.index("drums"), INSTRUMENTOS.index("bass")]].max(0), f[[INSTRUMENTOS.index("other"), INSTRUMENTOS.index("vocals")]].max(0)
         alto = melodia > ritmo * 1.15
         # ... e, onde a voz manda (silaba sem batida forte da bateria em cima), a altura cantada escolhe a linha e o sentido do corte
@@ -105,6 +107,8 @@ def golpes(tempos, an, dif, reacao, etapa, njs=16, arcos=(), prefs=()):
         linha_voz = {i: y for i, y in linha_voz.items() if alto[i] or an["nivel_drums"][i] < 2}
         peca = bateria(an)  # e na bateria a peca escolhe a linha: bumbo embaixo, caixa no meio
 
+    # forte e fraco em relacao as notas deste mapa (o quarto de cima e o quarto de baixo): quase toda nota cai em ataque forte da musica
+    forte, fraco = np.percentile(forca[list(tempos)], [75, 25]) if tempos else (9, -9)
     maos_atual, notas_todas = [Maos()], []
     usado = {}  # (compasso, posicao no compasso, L) -> padrao usado, para repetir nos compassos iguais
     stats = {"padrao4": 0, "padrao2": 0, "padrao1": 0, "regra": 0, "rep_tentou": 0, "rep_igual": 0, "rep_inv": 0, "descartadas": 0}
@@ -171,6 +175,12 @@ def golpes(tempos, an, dif, reacao, etapa, njs=16, arcos=(), prefs=()):
                     p += (0.0, 0.6, -0.3)[min(y, topo)] if topo == 2 else 0.6 * y
                 else:
                     p += 0.6 if (y >= 1) == bool(alto[i]) else -0.3
+        onde = {c: maos.ult[c] and maos.ult[c][2:4] for c in (0, 1)}
+        for off, x, y, c, d in pad:
+            if onde[c]:
+                largo, fo = math.hypot(x - onde[c][0], y - onde[c][1]), forca[casa0 + off]
+                p += 0.3 * min(largo, 2) if fo >= forte else -0.3 * largo if fo <= fraco else 0
+            onde[c] = (x, y)
         # manha: trecho forte pede desenho aberto (linhas de cima, pontas, diagonais); trecho calmo pede sobe-desce simples embaixo
         it = intens[min(comp_de.get(casa0 // CASAS, 0), len(intens) - 1)]
         for off, x, y, c, d in pad:
