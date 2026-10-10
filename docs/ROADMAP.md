@@ -8,6 +8,10 @@ Pedido do dono: detector melhor, mapa mais humano, mais intenso e mais realista;
 
 Como está hoje, para saber de onde se parte: batidas pelo beat_this, ataques pelo librosa na música inteira e em cada uma das quatro faixas do Demucs (bateria, baixo, voz, resto), intensidade por compasso, compassos repetidos reaproveitam o desenho, a altura da nota só distingue "voz/melodia" de "bateria/baixo", e os golpes vêm de trechos de 1, 2 ou 4 batidas tirados de mapas humanos.
 
+**Ordem.** O 1.0 vem primeiro, porque os outros medem com ele. O 1.4 (pesquisa) pode vir a qualquer hora e rende mais antes do 1.1, porque pode poupar trabalho. O 1.1 vem antes do 1.2 e de parte do 1.3: as luzes (1.3 item 1) usam as partes da música (1.1 item 3) e os arcos (1.3 item 4) usam a voz (1.1 item 1). Do 1.3, os itens 2, 5 e 6 não dependem de nada. Os blocos 2, 3 e 4 são livres.
+
+**Modelo sugerido por bloco** (opinião de quem escreveu, 10/10/2026): Opus 5.5 em esforço médio para 1.1 e 1.2, onde o erro sai como mapa esquisito que nenhum teste pega; Sonnet 5.5 em esforço alto para 1.0, 1.3 e 1.4 e para os blocos 3 e 4, que são trabalho mais direto.
+
 ### 1.0 Antes de mexer: saber medir "melhor"
 
 Sem isto qualquer mudança vira gosto. Ferramentas que já existem: `tools/blind_test.py` (par A/B às cegas) e `--humano` (compara os tempos com um mapa humano da mesma música).
@@ -81,6 +85,7 @@ Pedido do dono: melhorar o mapa, deixar mais bonito, usar mais recursos do próp
 5. **Preferências por mapa**, além das gerais; e uma versão mais branda da linha de cima (só proibir corte para baixo lá).
 6. **Quest.** Apagar vários de uma vez.
 7. Mostrar na ficha do mapa com quais preferências ele foi feito.
+8. **Versões de um mapa** (pedido do dono). Refazer um mapa e mandar ao Quest deve trocar a música que já está lá, não criar outra na lista do jogo: mesma pasta e mesmo nome no óculos a cada envio. No computador, cada versão anterior fica guardada (numerada, com data e com o que mudou: modo, preferências, versão do Beatloom), e a ficha do mapa deixa voltar a uma delas ou apagar as antigas. A conferir antes de fazer: como o envio nomeia a pasta hoje e se o jogo mantém a pontuação quando o conteúdo do mapa muda.
 
 ## 4. Projeto
 
