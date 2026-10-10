@@ -283,6 +283,43 @@ def voz(an):
     return res
 
 
+def _pecas(grave, medio, agudo, chiado):
+    """Forca do ataque em tres faixas da bateria, por casa (cada uma na sua escala, 1 = ataque forte), e quanto o agudo continua
+    soando depois -> peca de cada casa: 0 nada, 1 bumbo, 2 caixa, 3 prato, 4 prato forte (de ataque, o que fica soando)."""
+    peca = np.where((grave >= 0.5) & (grave >= medio), 1, np.where(medio >= 0.5, 2, np.where(agudo >= 0.5, 3, 0)))
+    # ponytail: "forte" e so os 10% de agudo que mais continuam soando; caixa aberta entra junto. Se errar muito, treinar um classificador
+    forte = (agudo >= 0.5) & (chiado >= max(float(np.percentile(chiado[agudo >= 0.5], 90)) if (agudo >= 0.5).any() else 0, 1e-9))
+    return np.where(forte, 4, peca)  # o prato de ataque quase sempre vem junto com o bumbo: vale o prato
+
+
+def bateria(an):
+    """Qual peca da bateria toca em cada casa (ver _pecas), pela faixa de frequencia do ataque na faixa de bateria separada:
+    bumbo abaixo de 150 Hz, caixa de 200 Hz a 3 kHz, pratos acima de 7 kHz. Precisa dos instrumentos separados."""
+    pasta = CACHE / "analise" / an["hash"]
+    arq, w = pasta / "bateria.json", pasta / "stems" / "drums.wav"
+    if arq.exists():
+        return np.array(json.loads(arq.read_text()))
+    g = np.asarray(an["grade"])
+    peca = np.zeros(len(g), int)
+    if w.exists() and "nivel_drums" in an:
+        import librosa
+        y, _ = librosa.load(w, sr=SR, mono=True)
+        S = np.abs(librosa.stft(y, n_fft=1024, hop_length=256))
+        fq = librosa.fft_frequencies(sr=SR, n_fft=1024)
+        fr = np.clip((g * SR / 256).astype(int), 0, S.shape[1] - 1)
+        toca = np.asarray(an["nivel_drums"]) > 0
+        faixas = []
+        for lo, hi in ((0, 150), (200, 3000), (7000, SR)):
+            e = S[(fq >= lo) & (fq < hi)].sum(0)
+            fluxo = np.maximum(np.diff(np.log1p(e), prepend=0), 0)
+            f = np.array([fluxo[max(a - 3, 0):a + 4].max() for a in fr]) * toca  # 3 quadros = 35 ms para cada lado
+            faixas.append(f / (np.percentile(f[toca], 90) + 1e-9) if toca.any() else f)
+        chiado = np.array([e[a + 4:a + 26].mean() if a + 4 < len(e) else 0.0 for a in fr])  # de 50 a 300 ms depois: prato de conducao ja sumiu
+        peca = _pecas(*faixas, chiado)
+    arq.write_text(json.dumps(peca.tolist()))
+    return peca
+
+
 def sustentados(an):
     """Notas longas de voz ou melodia (o "ahhh" segurado) -> [(casa_ini, casa_fim)]. Precisa dos instrumentos separados.
 
@@ -330,6 +367,9 @@ def demo():
     quebra = np.zeros(len(midi), bool); quebra[22] = True
     notas = _notas_cantadas(midi, quebra)
     assert [(a, b, round(m)) for a, b, m in notas] == [(2, 8, 60), (8, 13, 64), (16, 22, 62), (22, 26, 62)], notas
+    # bumbo, caixa, chimbal, prato de ataque junto com bumbo (o agudo continua soando), nada
+    f = lambda *v: np.array(v, float)
+    assert _pecas(f(1, .1, 0, .9, 0), f(.3, 1, 0, .2, .1), f(.2, .4, .8, 1, 0), f(.1, .1, .2, 5, 0)).tolist() == [1, 2, 3, 4, 0]
     print("audio ok")
 
 

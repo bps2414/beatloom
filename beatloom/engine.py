@@ -12,7 +12,7 @@ from functools import lru_cache
 import numpy as np
 
 from beatloom import checks
-from beatloom.audio import CASAS, INSTRUMENTOS, RAIZ, voz
+from beatloom.audio import CASAS, INSTRUMENTOS, RAIZ, bateria, voz
 
 # menor intervalo entre dois golpes da MESMA mao (s): limita a velocidade do braco por dificuldade
 MIN_MAO = {"Easy": 0.40, "Normal": 0.30, "Hard": 0.20, "Expert": 0.15, "ExpertPlus": 0.115}
@@ -95,7 +95,7 @@ def golpes(tempos, an, dif, reacao, etapa, njs=16, arcos=(), prefs=()):
     comp_de = {b: k for k, (a, z) in enumerate(zip(ini_comp[:-1], ini_comp[1:])) for b in range(a, z)}
     rep = [int(v) for v in an["rep"]]
     # etapa 4: cada casa sabe se o ataque e de bateria/baixo (grave, embaixo) ou de voz/melodia (em cima)
-    alto, linha_voz, sentido_voz = None, {}, {}
+    alto, linha_voz, sentido_voz, peca = None, {}, {}, None
     if etapa >= 4 and "forca_inst" in an:
         f = np.asarray(an["forca_inst"])
         ritmo, melodia = f[[INSTRUMENTOS.index("drums"), INSTRUMENTOS.index("bass")]].max(0), f[[INSTRUMENTOS.index("other"), INSTRUMENTOS.index("vocals")]].max(0)
@@ -103,6 +103,7 @@ def golpes(tempos, an, dif, reacao, etapa, njs=16, arcos=(), prefs=()):
         # ... e, onde a voz manda (silaba sem batida forte da bateria em cima), a altura cantada escolhe a linha e o sentido do corte
         linha_voz, sentido_voz = alvos_da_voz(voz(an))
         linha_voz = {i: y for i, y in linha_voz.items() if alto[i] or an["nivel_drums"][i] < 2}
+        peca = bateria(an)  # e na bateria a peca escolhe a linha: bumbo embaixo, caixa no meio
 
     maos_atual, notas_todas = [Maos()], []
     usado = {}  # (compasso, posicao no compasso, L) -> padrao usado, para repetir nos compassos iguais
@@ -166,6 +167,8 @@ def golpes(tempos, an, dif, reacao, etapa, njs=16, arcos=(), prefs=()):
                 if i in linha_voz:
                     p += (1.5, 0.2, -1.0)[abs(y - min(linha_voz[i], topo))]
                     p += 0.8 if d in (SOBE if sentido_voz.get(i, 0) > 0 else DESCE if sentido_voz.get(i, 0) < 0 else ()) else 0
+                elif not alto[i] and peca[i] == 2:
+                    p += (0.0, 0.6, -0.3)[min(y, topo)] if topo == 2 else 0.6 * y
                 else:
                     p += 0.6 if (y >= 1) == bool(alto[i]) else -0.3
         # manha: trecho forte pede desenho aberto (linhas de cima, pontas, diagonais); trecho calmo pede sobe-desce simples embaixo

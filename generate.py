@@ -17,7 +17,7 @@ from pathlib import Path
 import numpy as np
 
 from beatloom import checks
-from beatloom.audio import CACHE, CASAS, RAIZ, analisar, ffmpeg, sustentados, voz
+from beatloom.audio import CACHE, CASAS, RAIZ, analisar, bateria, ffmpeg, sustentados, voz
 
 # tps = tempos de nota por segundo que a dificuldade mira (as duplas entram por cima disso)
 # gap = menor intervalo entre dois tempos (s) | w4 = peso das casas de 1/4 de batida | duplas = fracao de tempos com nota dupla
@@ -119,8 +119,9 @@ def escolher_tempos(an, cfg, etapa):
     while (len(casas) * (1 + frac)) / an["dur"] < cfg["piso"] * 1.06 and frac < 0.5:
         frac += 0.02
     q = min(len(aptas), int(len(casas) * frac))
-    corte = np.sort(forca[aptas])[::-1][q - 1] if q > 0 else 9e9
-    out = {int(i): 2 if (i in set(aptas.tolist()) and forca[i] >= corte) else 1 for i in casas}
+    peso = forca + (bateria(an) == 4 if etapa >= 4 and "forca_inst" in an else 0)  # prato de ataque passa na frente: e o acento que pede as duas maos
+    corte = np.sort(peso[aptas])[::-1][q - 1] if q > 0 else 9e9
+    out = {int(i): 2 if (i in set(aptas.tolist()) and peso[i] >= corte) else 1 for i in casas}
     if etapa >= 2:  # mesmo som, mesmo peso: compasso repetido herda as duplas do original
         ic = an["ini_comp"] * CASAS
         for k, (a, b) in enumerate(zip(ic[:-1], ic[1:])):
