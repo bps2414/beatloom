@@ -67,7 +67,11 @@ Pedido do dono: melhorar o mapa, deixar mais bonito, usar mais recursos do próp
 7. **Bombas e paredes com função.** Bomba para forçar o reset do braço, parede para fazer desviar e agachar no ritmo, com parcimônia e respeitando as preferências.
 8. **Um Braço, 360 e 90 graus.** Modos do próprio jogo que o gerador ainda não faz. O de um braço é o mais barato.
 9. **Velocidade por trecho.** NJS e distância de salto ajustados à dificuldade (já faz) e eventos de BPM para a grade acompanhar (item 1.1.5).
-10. Fora do jogo puro, só se o dono quiser: Chroma (cores livres) e Noodle Extensions pedem mods; no Quest nem sempre existem.
+10. **Com mods, opcional** (o dono tem Chroma e Noodle Extensions no Quest). Regra: desligado por padrão, uma opção para cada mod, e nada que pese no óculos.
+   - **Chroma, como sugestão e não exigência**: quem não tem o mod joga o mesmo mapa com as cores do item 2. Com ele: qualquer cor em cada evento de luz, então a paleta inteira da capa (4 ou 5 cores) em vez de dois pares; degradê de uma cor a outra na subida; cor diferente por parte da música; acender luzes uma a uma em vez do grupo todo. É cor em evento que já existe, então não custa desempenho.
+   - **Chroma, mais caro, só depois de medir no Quest**: esconder ou mexer em peças do cenário, cor por nota.
+   - **Noodle Extensions, como exigência** (sem o mod o mapa nem abre, então sai como um conjunto de dificuldades à parte, nunca no lugar do normal). Só o leve: nota que nasce de outro ponto ou faz uma curva curta na chegada em momentos marcados, parede fina de enfeite acompanhando a melodia. Fora: arte de parede com centenas de peças, notas falsas, animação longa de trilha. É o que trava o Quest e atrapalha a leitura.
+   - A conferir antes: que versões dos dois mods o Beat Saber do dono tem e o que elas aceitam; limite de paredes e de eventos por segundo que o Quest aguenta sem cair de quadros.
 11. **Escolher o que vai no mapa** (pedido do dono, a partir da tela do Beat Sage). No diálogo de mapa novo, além das dificuldades:
    - Modos de jogo: Padrão (já faz), Sem Setas, Um Sabre, 90 Graus, 360 Graus. Cada modo marcado sai como mais um conjunto de dificuldades no mesmo mapa. Sem Setas é o mais barato (as mesmas notas, sem direção); Um Sabre e os de giro são os do item 8.
    - O que entra: bombas, notas sem direção (ponto), paredes, luzes dinâmicas. Cada um liga e desliga; o padrão de cada um fica guardado na Configuração, junto das preferências, e vale também no "Refazer as notas".
@@ -125,6 +129,12 @@ Atualizar os mapas antigos de uma vez, bloco 3 item 9 (Sonnet 5.5 alto):
 
 ```text
 Roadmap bloco 3 item 9 (atualizar os mapas antigos de uma vez): meça primeiro com tools/timing.py o que o cache guarda e o que roda de novo, depois faça. Commit e push ao final.
+```
+
+Mods, 1.3 item 10, depois dos itens 1 e 2 do mesmo bloco (Sonnet 5.5 alto):
+
+```text
+Roadmap 1.3 item 10 (mods): faça só a parte do Chroma como sugestão (paleta da capa, degradê, cor por parte da música), desligada por padrão. Noodle fica para depois. Commit e push ao final.
 ```
 
 ## 2. Pendências do que já foi feito
