@@ -99,7 +99,7 @@ def ler_fila():
 
 
 def egg_do_mapa(zp, onde):
-    """Poe o audio do mapa em .cache\\regerar\\<onde>, e a capa se ela for da musica. Devolve (pasta, etapa em que o mapa foi feito, dificuldades que ele tem, argumento --capa do gerador)."""
+    """Poe o audio do mapa em .cache\\regerar\\<onde>, e a capa se ela for da musica. Devolve (pasta, etapa em que o mapa foi feito, dificuldades que ele tem, argumento --capa do gerador, cenario do mapa)."""
     tmp = RAIZ / ".cache" / "regerar" / onde
     shutil.rmtree(tmp, ignore_errors=True)
     tmp.mkdir(parents=True)
@@ -112,7 +112,7 @@ def egg_do_mapa(zp, onde):
             capa = ["--capa", str(tmp / "cover.png")]
     etapa = (re.search(r"auto v([1-4])", info.get("_songSubName", "")) or ["", "4"])[1]  # o mapa refeito sai no mesmo modo (completo ou rapido)
     difs = [b["_difficulty"] for s in info["_difficultyBeatmapSets"] if s["_beatmapCharacteristicName"] == "Standard" for b in s["_difficultyBeatmaps"]]
-    return tmp, etapa, [x for x in DIFS if x in difs], capa
+    return tmp, etapa, [x for x in DIFS if x in difs], capa, info.get("_environmentName") or "DefaultEnvironment"
 
 
 def enviados():
@@ -147,7 +147,7 @@ def rodar(trab):
         if refaz:  # refaz as notas de um mapa pronto com as regras e os gostos de agora; o audio sai do zip, entao a analise ja esta no cache
             zp = SAIDA / refaz
             ger = (ler_relatorio(zp) or {}).get("gerador") or {}
-            tmp, etapa, difs, capa = egg_do_mapa(zp, "fila")
+            tmp, etapa, difs, capa, _ = egg_do_mapa(zp, "fila")
             trab["difs"] = difs
             cmd = [PY, "-u", str(RAIZ / "generate.py"), str(tmp / "song.egg"), "--etapa", etapa, "--densidade", str(ger.get("densidade") or 1), "--difs", ",".join(difs),
                    "--nome", "regerar", "--saida", str(tmp), "--prefs", prefs(), *capa]
@@ -193,12 +193,12 @@ def rodar(trab):
             if not novo.exists():
                 raise RuntimeError("gerador|" + " ".join(cauda)[-300:])
             for dif in difs:
-                trocar_dificuldade(zp, novo, dif)
+                trocar_dificuldade(zp, novo, dif, ambiente=True)  # o mapa inteiro foi refeito: o cenario novo vale
             subprocess.run([PY, str(RAIZ / "report.py"), str(zp)], capture_output=True, cwd=RAIZ)  # relatorio do mapa inteiro, de novo
             R = ler_relatorio(zp)
             if R:  # o report.py nao sabe como o mapa foi gerado: a densidade e os gostos ficam para a proxima vez
                 ng = (ler_relatorio(novo) or {}).get("gerador") or {}
-                R["gerador"] = {**ger, **{k: ng[k] for k in ("cores", "sabres") if k in ng}, "prefs": [x for x in prefs().split(",") if x]}
+                R["gerador"] = {**ger, **{k: ng[k] for k in ("cores", "sabres", "clima", "ambiente") if k in ng}, "prefs": [x for x in prefs().split(",") if x]}
                 zp.with_suffix(".relatorio.json").write_text(json.dumps(R, ensure_ascii=False), encoding="utf-8")
             trab["zip"] = zp.name
         elif not trab.get("zip"):
@@ -281,8 +281,8 @@ def renomear(zp, nome, artista):
     novo.replace(zp)
 
 
-def trocar_dificuldade(zp, novo, dif):
-    """Poe no zip `zp` a dificuldade `dif` que esta no zip `novo`, sem mexer nas outras."""
+def trocar_dificuldade(zp, novo, dif, ambiente=False):
+    """Poe no zip `zp` a dificuldade `dif` que esta no zip `novo`, sem mexer nas outras. `ambiente`: o cenario do zip novo vem junto."""
     with zipfile.ZipFile(novo) as z:
         ninfo = json.loads(z.read("Info.dat").decode("utf-8-sig"))
         entrada = next(b for b in ninfo["_difficultyBeatmapSets"][0]["_difficultyBeatmaps"] if b["_difficulty"] == dif)
@@ -291,6 +291,8 @@ def trocar_dificuldade(zp, novo, dif):
     with zipfile.ZipFile(zp) as z, zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED) as out:
         info = json.loads(z.read("Info.dat").decode("utf-8-sig"))
         mapas = next(s for s in info["_difficultyBeatmapSets"] if s["_beatmapCharacteristicName"] == "Standard")
+        if ambiente:
+            info["_environmentName"] = ninfo["_environmentName"]
         fora = {b["_beatmapFilename"] for b in mapas["_difficultyBeatmaps"] if b["_difficulty"] == dif} | {"Info.dat", entrada["_beatmapFilename"]}
         mapas["_difficultyBeatmaps"] = sorted([b for b in mapas["_difficultyBeatmaps"] if b["_difficulty"] != dif] + [entrada], key=lambda b: b["_difficultyRank"])
         out.writestr("Info.dat", json.dumps(info, ensure_ascii=False, indent=2))
@@ -518,10 +520,10 @@ class H(BaseHTTPRequestHandler):
         if u.path == "/api/regerar":  # refaz uma dificuldade de um mapa pronto (outra quantidade de notas), sem mexer nas outras
             if d.get("dif") not in DIFS:
                 return self.manda({"erro": "invalido"}, cod=400)
-            tmp, etapa, _, capa = egg_do_mapa(zp, "um")  # o audio sai do proprio mapa, entao a analise ja esta no cache
+            tmp, etapa, _, capa, amb = egg_do_mapa(zp, "um")  # o audio sai do proprio mapa, entao a analise ja esta no cache; o cenario fica o do mapa, para as luzes desta dificuldade servirem nele
             novo = tmp / f"regerar-v{etapa}.zip"
             dens = min(max(float(d.get("densidade") or 1), 0.8), 1.3)
-            r = subprocess.run([PY, str(RAIZ / "generate.py"), str(tmp / "song.egg"), "--difs", d["dif"], "--densidade", str(dens), "--etapa", etapa, "--nome", "regerar", "--saida", str(tmp), "--prefs", prefs(), *capa],
+            r = subprocess.run([PY, str(RAIZ / "generate.py"), str(tmp / "song.egg"), "--difs", d["dif"], "--densidade", str(dens), "--etapa", etapa, "--nome", "regerar", "--saida", str(tmp), "--prefs", prefs(), "--ambiente", amb, *capa],
                                capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=RAIZ)
             if not novo.exists():
                 return self.manda({"erro": "gerador|" + (r.stdout + r.stderr)[-300:]}, cod=500)

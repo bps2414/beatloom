@@ -367,6 +367,32 @@ def partes(an):
     return res
 
 
+def _clima(fixo, chiado, bat):
+    """Andamento de maquina?, quanto do som e ruido (0 a 1) e a parte da bateria no volume (0 a 1, None sem os instrumentos separados) -> "eletronico", "pesado" ou "calmo"."""
+    # ponytail: tres limites tirados de 18 musicas, sem gabarito. Se errar muito, trocar por um classificador de genero
+    if fixo or (bat or 0) >= 0.6:
+        return "eletronico"
+    return "pesado" if chiado >= 0.014 else "calmo"
+
+
+def clima(an):
+    """O clima da musica, para escolher o cenario: "eletronico" (andamento de maquina ou bateria na frente de tudo), "pesado" (som cheio de ruido:
+    guitarra distorcida, pratos) ou "calmo" (o resto). Ver _clima."""
+    pasta = CACHE / "analise" / an["hash"]
+    arq = pasta / "clima.json"
+    if arq.exists():
+        return json.loads(arq.read_text())
+    import librosa
+    y, _ = librosa.load(pasta / "audio.wav", sr=SR, mono=True)
+    chiado = float(np.median(librosa.feature.spectral_flatness(y=y, n_fft=1024, hop_length=512)))
+    w, bat = pasta / "stems" / "drums.wav", None
+    if w.exists():
+        bat = float(np.sqrt(np.mean(librosa.load(w, sr=SR, mono=True)[0] ** 2)) / (np.sqrt(np.mean(y ** 2)) + 1e-9))
+    res = _clima(bool(an["bpm_fixo"]), chiado, bat)
+    arq.write_text(json.dumps(res))
+    return res
+
+
 def sustentados(an):
     """Notas longas de voz ou melodia (o "ahhh" segurado) -> [(casa_ini, casa_fim)]. Precisa dos instrumentos separados.
 
@@ -408,6 +434,7 @@ def sustentados(an):
 
 
 def demo():
+    assert [_clima(*v) for v in ((True, 0.03, 0.2), (False, 0.03, 0.7), (False, 0.03, 0.3), (False, 0.03, None), (False, 0.002, 0.3))] == ["eletronico", "eletronico", "pesado", "pesado", "calmo"]
     nan = np.nan
     #       silencio | nota 60 com vibrato e um quadro falhado | sobe para 64 | silencio | 62 cantada duas vezes (ataque no quadro 22)
     midi = [nan, nan, 60, 60.3, nan, 59.8, 60, 60.2, 64, 64, 64.1, 64, 64, nan, nan, nan, 62, 62, 62, 62, 62, 62, 62, 62, 62, 62]

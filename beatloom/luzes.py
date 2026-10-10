@@ -14,6 +14,8 @@ from beatloom.audio import CASAS, bateria, partes
 
 FUNDO, ANEIS, ESQ, DIR, CENTRO, GIRO, ZOOM, VEL_E, VEL_D = 0, 1, 2, 3, 4, 8, 9, 12, 13
 APAGA, ACENDE, CLARAO, PULSO = 0, 1, 2, 3
+# o cenario do jogo para cada clima da musica (audio.clima); todos estes acendem com os eventos basicos
+AMBIENTE = {"calmo": "BigMirrorEnvironment", "pesado": "GreenDayEnvironment", "eletronico": "MonstercatEnvironment"}
 COR = {"intro": 1, "verso": 1, "subida": 0, "queda": 0}  # a cor de cada parte da musica; a pausa fica no escuro
 
 

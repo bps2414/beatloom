@@ -17,7 +17,7 @@ from pathlib import Path
 import numpy as np
 
 from beatloom import checks, luzes
-from beatloom.audio import CACHE, CASAS, RAIZ, analisar, bateria, ffmpeg, partes, sustentados, voz
+from beatloom.audio import CACHE, CASAS, RAIZ, analisar, bateria, clima, ffmpeg, partes, sustentados, voz
 
 # tps = tempos de nota por segundo que a dificuldade mira (as duplas entram por cima disso)
 # gap = menor intervalo entre dois tempos (s) | w4 = peso das casas de 1/4 de batida | duplas = fracao de tempos com nota dupla
@@ -397,7 +397,7 @@ def salto_offset(njs, bpm, alvo):
     return round(max(alvo / (2 * njs * 60 / bpm), 0.25) - h, 2)
 
 
-def gerar(audio, nome=None, artista=None, etapa=4, tag="", saida=None, capa=None, difs=None, densidade=1.0, album=None, ano=None, link=None, prefs=()):
+def gerar(audio, nome=None, artista=None, etapa=4, tag="", saida=None, capa=None, difs=None, densidade=1.0, album=None, ano=None, link=None, prefs=(), ambiente=None):
     audio = Path(audio)
     if not audio.exists():
         sys.exit(f"Arquivo nao encontrado: {audio}")
@@ -441,6 +441,7 @@ def gerar(audio, nome=None, artista=None, etapa=4, tag="", saida=None, capa=None
     it_casa = np.asarray(an["intens"])[np.clip(np.searchsorted(an["ini_comp"] * CASAS, np.arange(len(an["grade"])), "right") - 1, 0, len(an["intens"]) - 1)]  # intensidade do compasso de cada casa
     bt = lambda t: round(bt_(t), 4)
     ev, boost = luzes.basicos(luzes.deixas(an), bt), luzes.reforco(an, bt)
+    ambiente = ambiente or luzes.AMBIENTE[clima(an)]  # o cenario segue o clima da musica, a nao ser que venha escolhido (refazer uma dificuldade so)
     # cores da capa: as luzes sempre; sabres e notas so se a pessoa pediu e os dois tons forem bem diferentes. O SongCore le isto do _customData de cada dificuldade
     pal = luzes.cores(arq_capa) if origem_capa != "generica" else None
     rgb = lambda c: dict(zip("rgb", c))
@@ -450,8 +451,8 @@ def gerar(audio, nome=None, artista=None, etapa=4, tag="", saida=None, capa=None
         if "sabres_capa" in prefs and luzes.contraste(*pal[0]):
             cores_mapa.update(_colorLeft=rgb(pal[0][0]), _colorRight=rgb(pal[0][1]))
     hexa = [["#%02x%02x%02x" % tuple(round(x * 255) for x in c) for c in par] for par in pal or ()]
-    mapas, resumo = [], [f"capa {origem_capa} | densidade x{densidade:g} | cores " + (" ".join(hexa[0]) + ", na queda " + " ".join(hexa[1]) + (" (sabres tambem)" if "_colorLeft" in cores_mapa else "") if pal else "do jogo")]
-    ger = {"etapa": etapa, "capa": origem_capa.split()[-1], "densidade": densidade, "prefs": sorted(prefs), "cores": hexa, "sabres": "_colorLeft" in cores_mapa, "difs": {}}  # o mesmo resumo em numeros, para o .relatorio.json
+    mapas, resumo = [], [f"capa {origem_capa} | densidade x{densidade:g} | cores " + (" ".join(hexa[0]) + ", na queda " + " ".join(hexa[1]) + (" (sabres tambem)" if "_colorLeft" in cores_mapa else "") if pal else "do jogo") + f" | cenario {ambiente.removesuffix('Environment')} (musica de clima {clima(an)})"]
+    ger = {"etapa": etapa, "capa": origem_capa.split()[-1], "densidade": densidade, "prefs": sorted(prefs), "cores": hexa, "sabres": "_colorLeft" in cores_mapa, "clima": clima(an), "ambiente": ambiente, "difs": {}}  # o mesmo resumo em numeros, para o .relatorio.json
     for dif in difs:
         cfg = dict(DIFS[dif], tps=DIFS[dif]["tps"] * densidade)
         print(f"[2/4] {dif}: escolhendo os tempos e os golpes...", flush=True)
@@ -503,7 +504,7 @@ def gerar(audio, nome=None, artista=None, etapa=4, tag="", saida=None, capa=None
         "_levelAuthorName": "automapper", "_beatsPerMinute": bpm, "_songTimeOffset": 0, "_shuffle": 0, "_shufflePeriod": 0.5,
         "_previewStartTime": round(float(an["batidas"][ic[k]]), 2), "_previewDuration": 10,
         "_songFilename": "song.egg", "_coverImageFilename": "cover.png",
-        "_environmentName": "DefaultEnvironment", "_allDirectionsEnvironmentName": "GlassDesertEnvironment",
+        "_environmentName": ambiente, "_allDirectionsEnvironmentName": "GlassDesertEnvironment",
         "_difficultyBeatmapSets": [{"_beatmapCharacteristicName": "Standard", "_difficultyBeatmaps": mapas}]}
     if extra_info:  # o Info.dat nao tem campo proprio para album, ano e link: vao no _customData, que o jogo ignora e o site le
         info["_customData"] = {"_beatloom": extra_info}
@@ -552,10 +553,11 @@ if __name__ == "__main__":
     ap.add_argument("--album"); ap.add_argument("--ano"); ap.add_argument("--link", help="de onde a musica veio")
     ap.add_argument("--etapa", type=int, default=4, choices=(1, 2, 3, 4))
     ap.add_argument("--prefs", default="", help="gostos de quem joga, separados por virgula: sem_topo (nada na linha de cima), sem_fila (nada logo atras de outra nota na mesma casa), cruzar_nunca ou cruzar_livre (bracos cruzados; sem nenhum dos dois, pouco), sabres_capa (sabres e notas com as cores da capa)")
+    ap.add_argument("--ambiente", help="cenario do jogo (ex.: BigMirrorEnvironment); sem isto, o do clima da musica")
     ap.add_argument("--saida"); ap.add_argument("--humano", help="pasta de um mapa humano da mesma musica, para comparar os tempos")
     a = ap.parse_args()
     zp, resumo, ger = gerar(a.audio, a.nome, a.artista, a.etapa, a.tag, a.saida, a.capa, a.difs and a.difs.split(","), min(max(a.densidade, 0.5), 1.6),
-                       a.album, a.ano, a.link, {p for p in a.prefs.split(",") if p in ("sem_topo", "sem_fila", "cruzar_nunca", "cruzar_livre", "sabres_capa")})
+                       a.album, a.ano, a.link, {p for p in a.prefs.split(",") if p in ("sem_topo", "sem_fila", "cruzar_nunca", "cruzar_livre", "sabres_capa")}, a.ambiente)
     import report
     R = report.conferir(zp, a.humano)
     for D in R["difs"]:
