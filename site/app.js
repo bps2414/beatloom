@@ -66,16 +66,16 @@ $("lingua").onclick = () => mudarLingua(lingua === "pt" ? "en" : "pt");
 for (const b of $("p-linguas").children) b.onclick = () => mudarLingua(b.dataset.l);
 
 // ---------- novo mapa
-let arquivo = null, subido = null, extra = {}, miniatura = null, ultimoLink = "";
+let arquivo = null, subido = null, extra = {}, miniatura = null, ultimoLink = "", lista = null;  // lista: as faixas quando o link e de playlist
 const erroNovo = (x) => { $("erro").textContent = x.message; $("erro").hidden = false; };
 function pintarArquivo() { $("arq-nome").textContent = arquivo ? arquivo.name : t("solte"); $("arq-dica").textContent = t(arquivo ? "trocar_arq" : "solte_dica"); }
 function previa(d, capa, info) {  // capa, nome e artista antes de gerar, para a pessoa corrigir
-  extra = { album: d.album, ano: d.ano }; miniatura = capa;
-  $("previa").hidden = false; $("nome").value = d.nome || ""; $("artista").value = d.artista || "";
+  extra = { album: d.album, ano: d.ano }; miniatura = capa; lista = d.lista || null;
+  $("previa").hidden = false; $("nome").parentElement.hidden = !!lista;  // playlist: nome e artista saem de cada video $("nome").value = d.nome || ""; $("artista").value = d.artista || "";
   $("p-capa").hidden = !capa; $("p-sem").hidden = !!capa; if (capa) $("p-capa").src = capa;
-  $("p-info").textContent = [d.album, d.ano, info, t("confira")].filter(Boolean).join(", ");
+  $("p-info").textContent = lista ? t("lista_n", { n: lista.length, nome: d.nome }) : [d.album, d.ano, info, t("confira")].filter(Boolean).join(", ");
 }
-function semPrevia() { $("previa").hidden = true; $("nome").value = ""; $("artista").value = ""; extra = {}; miniatura = null; }
+function semPrevia() { $("previa").hidden = true; $("nome").value = ""; $("artista").value = ""; extra = {}; miniatura = null; lista = null; }
 function abrirNovo() {
   if ($("d-novo").open) return;
   $("erro").hidden = true; alternadores("escolha", cfg.difs); $("dens").value = cfg.densidade; dens("dens"); $("rapido").checked = cfg.modo === "rapido";
@@ -118,7 +118,9 @@ $("form").onsubmit = async (e) => {
     const link = $("link").value.trim(), difs = marcadasEm("escolha");
     if (!difs.length) throw new Error(t("sem_dif"));
     if (!link && arquivo && !subido) subido = await api("/api/arquivo?nome=" + enc(arquivo.name), arquivo, true);
-    await api("/api/gerar", { link, arquivo: link ? null : subido && subido.arquivo, nome: $("nome").value, artista: $("artista").value, ...extra, capa: miniatura, difs, densidade: +$("dens").value, modo: $("rapido").checked ? "rapido" : "completo" });
+    const comum = { difs, densidade: +$("dens").value, modo: $("rapido").checked ? "rapido" : "completo" };
+    if (link && lista) await api("/api/gerar", { lista: lista.map((m) => ({ link: m.link, titulo: m.nome, capa: m.capa })), ...comum });  // um trabalho por faixa, na fila
+    else await api("/api/gerar", { link, arquivo: link ? null : subido && subido.arquivo, nome: $("nome").value, artista: $("artista").value, ...extra, capa: miniatura, ...comum });
     $("link").value = ""; ultimoLink = ""; $("arq").value = ""; arquivo = subido = null; semPrevia(); pintarArquivo();
     $("d-novo").close(); document.body.classList.remove("vendo"); atualizar();
   } catch (x) { erroNovo(x); }
@@ -129,7 +131,7 @@ $("form").onsubmit = async (e) => {
 const vistos = new Set(), linhas = new Map(), marcados = new Set();
 let primeira = true;
 function pintarTrabalhos() {
-  const vivos = estado.trabalhos.filter((tr) => tr.estado !== "pronto").reverse(), chave = JSON.stringify([vivos, lingua]);
+  const vivos = estado.trabalhos.filter((tr) => tr.estado !== "pronto"), chave = JSON.stringify([vivos, lingua]);
   if (chave === pintarTrabalhos.chave) return;  // so redesenha quando muda: nao rouba o foco do botao de dispensar
   pintarTrabalhos.chave = chave; $("trabalhos").textContent = "";
   for (const tr of vivos) {
@@ -141,10 +143,10 @@ function pintarTrabalhos() {
     const etapa = e ? e.msg : tr.estado === "na fila" ? t("fila") : t("passo_" + etapaDe) + (qual ? " " + qual.replace("ExpertPlus", "Expert+") : "") + (tr.progresso != null ? " " + tr.progresso + "%" : "");
     c.append(capa, el("b", "", tr.titulo), el("span", "etapa", etapa));
     if (tr.estado === "rodando") { const p = el("progress"); p.max = 100; if (tr.progresso != null) p.value = tr.progresso; c.append(p); }
-    if (ruim) {
+    if (ruim || tr.estado === "na fila") {
       const fim = el("div", "fim"), b = el("button", "quieto", t("dispensar")); b.type = "button";
       b.onclick = async () => { await api("/api/trabalho/dispensar", { id: tr.id }); atualizar(); };
-      fim.append(e.detalhe ? tecnico(e.detalhe) : el("span"), b); c.append(fim);
+      fim.append(e && e.detalhe ? tecnico(e.detalhe) : el("span"), b); c.append(fim);
     }
     $("trabalhos").append(c);
   }
@@ -194,7 +196,7 @@ async function enviar(zips, botao) {  // um aviso por mapa que falhou e um com q
 async function atualizar() {
   clearTimeout(atualizar.t);
   try { estado = await api("/api/estado"); } catch (x) { atualizar.t = setTimeout(atualizar, 6000); return; }
-  for (const tr of estado.trabalhos) if (tr.estado === "pronto") { if (!primeira && !vistos.has(tr.id) && tr.zip) abrir(tr.zip); vistos.add(tr.id); }  // acabou agora: abre
+  for (const tr of estado.trabalhos) if (tr.estado === "pronto") { if (!primeira && !vistos.has(tr.id) && tr.zip && !estado.trabalhos.some((o) => ["na fila", "rodando"].includes(o.estado))) abrir(tr.zip); vistos.add(tr.id); }  // acabou agora: abre (no meio de uma fila nao, para nao tomar a tela a cada faixa)
   primeira = false;
   if (atual && !estado.mapas.some((m) => m.zip === atual)) fechar();  // o mapa aberto sumiu da pasta
   pintarTrabalhos(); pintarLista();

@@ -13,7 +13,8 @@
   "concluir": "Finish",
   "fechar": "Close",
 
-  "link": "Paste a YouTube link",
+  "link": "Paste a YouTube link (video or playlist)",
+  "lista_n": "Playlist “{nome}”: {n} songs. Each becomes a map, one at a time, with the name and artist from the video.",
   "solte": "Or drop an audio file here",
   "solte_dica": "click to choose: mp3, ogg, wav, m4a, flac or opus",
   "trocar_arq": "click to change",

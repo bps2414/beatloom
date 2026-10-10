@@ -145,10 +145,11 @@ def operario():
     while True:
         with trava:
             trab = fila.pop(0) if fila else None
+            if trab:
+                trab["estado"] = "rodando"  # dentro da trava: quem dispensa da fila nao pega um trabalho que ja saiu dela
         if trab is None:
             time.sleep(0.5)
             continue
-        trab["estado"] = "rodando"
         rodar(trab)
 
 
@@ -281,7 +282,8 @@ class H(BaseHTTPRequestHandler):
                     return self.manda({"erro": "nao_existe"}, cod=404)
                 self.manda(arq.read_bytes(), TIPOS[arq.suffix] + ("; charset=utf-8" if arq.suffix in (".css", ".js", ".json") else ""), guarda=arq.suffix == ".woff2")
             elif u.path == "/api/estado":
-                self.manda({"trabalhos": trabalhos[-6:], "mapas": lista_de_mapas(), "visor": (ARC / "index.html").exists(), "difs": list(DIFS)})
+                vivos = [t for t in trabalhos if t["estado"] in ("na fila", "rodando")]  # a fila inteira (uma playlist enche) e os ultimos que acabaram
+                self.manda({"trabalhos": vivos + [t for t in trabalhos if t not in vivos][-6:], "mapas": lista_de_mapas(), "visor": (ARC / "index.html").exists(), "difs": list(DIFS)})
             elif u.path == "/api/preparo":
                 self.manda(preparo.estado())
             elif u.path == "/api/config":
@@ -338,30 +340,40 @@ class H(BaseHTTPRequestHandler):
         except ValueError:
             return self.manda({"erro": "invalido"}, cod=400)
         if u.path == "/api/gerar":
-            link, arq = (d.get("link") or "").strip(), d.get("arquivo")
-            if link and not re.match(r"https?://\S+$", link):
-                return self.manda({"erro": "link"}, cod=400)
-            if not link and not (arq and Path(arq).parent == MUSICAS and Path(arq).exists()):
+            # playlist: "lista" traz as faixas ({link, titulo, capa}); cada uma vira um trabalho com as mesmas dificuldades, densidade e modo
+            pedidos, novos = [{**d, "arquivo": None, "nome": None, "artista": None, "album": None, "ano": None, **m} for m in d["lista"] if isinstance(m, dict)] if isinstance(d.get("lista"), list) else [d], []
+            for i, d in enumerate(pedidos):
+                link, arq = str(d.get("link") or "").strip(), d.get("arquivo")
+                if link and not re.match(r"https?://\S+$", link):
+                    return self.manda({"erro": "link"}, cod=400)
+                if not link and not (arq and Path(arq).parent == MUSICAS and Path(arq).exists()):
+                    return self.manda({"erro": "vazio"}, cod=400)
+                capa = d.get("capa") if re.fullmatch(r"https?://\S+|/api/capa\?\S+", str(d.get("capa"))) else None  # a miniatura da previa, so para o cartao da fila
+                novos.append({"id": int(time.time() * 1000) + i, "estado": "na fila", "passos": [], "progresso": None, "capa": capa, "titulo": str(d.get("nome") or d.get("titulo") or "").strip() or link or Path(arq).name,
+                              "link": link or None, "arquivo": arq, **{k: str(d.get(k) or "").strip() or None for k in ("nome", "artista", "album", "ano")},
+                              "difs": [x for x in DIFS if x in (d.get("difs") or DIFS)] or list(DIFS),
+                              "densidade": min(max(float(d.get("densidade") or 1), 0.8), 1.3),
+                              "etapa": 3 if (d.get("modo") or config()["modo"]) == "rapido" else 4})  # rapido = sem separar instrumentos (etapa 3 do gerador)
+            if not novos:
                 return self.manda({"erro": "vazio"}, cod=400)
-            capa = d.get("capa") if re.fullmatch(r"https?://\S+|/api/capa\?\S+", str(d.get("capa"))) else None  # a miniatura da previa, so para o cartao da fila
-            trab = {"id": int(time.time() * 1000), "estado": "na fila", "passos": [], "progresso": None, "capa": capa, "titulo": (d.get("nome") or "").strip() or link or Path(arq).name,
-                    "link": link or None, "arquivo": arq, **{k: str(d.get(k) or "").strip() or None for k in ("nome", "artista", "album", "ano")},
-                    "difs": [x for x in DIFS if x in (d.get("difs") or DIFS)] or list(DIFS),
-                    "densidade": min(max(float(d.get("densidade") or 1), 0.8), 1.3),
-                    "etapa": 3 if (d.get("modo") or config()["modo"]) == "rapido" else 4}  # rapido = sem separar instrumentos (etapa 3 do gerador)
             with trava:
-                trabalhos.append(trab); fila.append(trab)
-            return self.manda({"id": trab["id"]})
-        if u.path == "/api/trabalho/dispensar":  # tira da lista um trabalho que acabou (pronto ou com erro)
+                trabalhos.extend(novos); fila.extend(novos)
+            return self.manda({"id": novos[0]["id"]})
+        if u.path == "/api/trabalho/dispensar":  # tira da lista um trabalho que acabou (pronto ou com erro) ou que ainda esta na fila
             with trava:
-                trabalhos[:] = [t for t in trabalhos if t["id"] != d.get("id") or t["estado"] in ("na fila", "rodando")]
+                fila[:] = [t for t in fila if t["id"] != d.get("id")]
+                trabalhos[:] = [t for t in trabalhos if t["id"] != d.get("id") or t["estado"] == "rodando"]
             return self.manda({"ok": True})
         if u.path == "/api/previa":  # dados e capa do link, antes de gerar (nao baixa o audio)
             link = (d.get("link") or "").strip()
             if not re.match(r"https?://\S+$", link):
                 return self.manda({"erro": "link"}, cod=400)
             try:
-                return self.manda(dados_do_link(json.loads(ytdlp("--skip-download", "--dump-single-json", "--", link))))
+                j = json.loads(ytdlp("--skip-download", "--flat-playlist", "--dump-single-json", "--", link))
+                if j.get("_type") == "playlist":  # link so de playlist: a pagina pede um mapa por faixa (video com &list= continua sendo so o video, pelo --no-playlist)
+                    itens = [{"link": e["url"], "nome": e.get("title") or e["url"], "capa": (e.get("thumbnails") or [{}])[-1].get("url")} for e in j.get("entries") or [] if e and e.get("url")]
+                    return self.manda({"nome": j.get("title"), "capa": itens[0]["capa"], "lista": itens}) if itens else self.manda({"erro": "ytdlp"}, cod=400)
+                return self.manda(dados_do_link(j))
             except (RuntimeError, ValueError) as e:
                 return self.manda({"erro": str(e) if str(e).startswith("ytdlp|") else "ytdlp"}, cod=400)
         if u.path == "/api/preparo":  # baixa um item que falta, ou todos ("tudo"); o andamento sai no GET

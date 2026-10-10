@@ -13,7 +13,8 @@
   "concluir": "Concluir",
   "fechar": "Fechar",
 
-  "link": "Cole um link do YouTube",
+  "link": "Cole um link do YouTube (vídeo ou playlist)",
+  "lista_n": "Playlist “{nome}”: {n} músicas. Cada uma vira um mapa, uma de cada vez, com o nome e o artista do vídeo.",
   "solte": "Ou solte um arquivo de áudio aqui",
   "solte_dica": "clique para escolher: mp3, ogg, wav, m4a, flac ou opus",
   "trocar_arq": "clique para trocar",
