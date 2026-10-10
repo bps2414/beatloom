@@ -16,7 +16,7 @@ from pathlib import Path
 
 import numpy as np
 
-from beatloom import checks, luzes
+from beatloom import checks, luzes, mods
 from beatloom.audio import CACHE, CASAS, RAIZ, analisar, bateria, clima, ffmpeg, partes, sustentados, voz
 
 # tps = tempos de nota por segundo que a dificuldade mira (as duplas entram por cima disso)
@@ -533,7 +533,8 @@ def gerar(audio, nome=None, artista=None, etapa=4, tag="", saida=None, capa=None
     casa_de = {round(float(t), 4): i for i, t in enumerate(an["grade"])}
     it_casa = np.asarray(an["intens"])[np.clip(np.searchsorted(an["ini_comp"] * CASAS, np.arange(len(an["grade"])), "right") - 1, 0, len(an["intens"]) - 1)]  # intensidade do compasso de cada casa
     bt = lambda t: round(bt_(t), 4)
-    ambiente = ambiente or luzes.ambiente(clima(an), an["hash"])  # o cenario segue o clima da musica, a nao ser que venha escolhido (refazer uma dificuldade so)
+    # o cenario segue o clima da musica, a nao ser que venha escolhido (refazer uma dificuldade so); com Chroma, o classico do clima: so os eventos basicos aceitam cor por evento
+    ambiente = ambiente or (luzes.AMBIENTE[clima(an)][0] if "chroma" in prefs else luzes.ambiente(clima(an), an["hash"]))
     # cenario classico acende com eventos basicos; os novos, com grupos de luzes (neles os eventos basicos querem dizer outra coisa, entao nao vao)
     deixas, boost = luzes.deixas(an), luzes.reforco(an, bt)
     ev, (ev_cor, ev_rot) = ([], luzes.grupos(deixas, bt, ambiente)) if ambiente in luzes.GRUPOS else (luzes.basicos(deixas, bt), ([], []))
@@ -621,6 +622,7 @@ def gerar(audio, nome=None, artista=None, etapa=4, tag="", saida=None, capa=None
     if extra_info:  # o Info.dat nao tem campo proprio para album, ano e link: vao no _customData, que o jogo ignora e o site le
         info["_customData"] = {"_beatloom": extra_info}
     (pasta / "Info.dat").write_text(json.dumps(info, ensure_ascii=False, indent=2), encoding="utf-8")
+    resumo += [f"mods: {m}" for m in [mods.aplicar(pasta, an, bt, pal, prefs)] if m]  # por ultimo, sobre o mapa pronto; sem as chaves nao toca em nada
 
     print("[3/4] empacotando...", flush=True)
     zp = saida / f"{base}.zip"
@@ -679,12 +681,12 @@ if __name__ == "__main__":
     ap.add_argument("--densidade", type=float, default=1.0, help="multiplica a quantidade de notas (0.8 = mais leve, 1.3 = mais cheio)")
     ap.add_argument("--album"); ap.add_argument("--ano"); ap.add_argument("--link", help="de onde a musica veio")
     ap.add_argument("--etapa", type=int, default=4, choices=(1, 2, 3, 4))
-    ap.add_argument("--prefs", default="", help="gostos de quem joga, separados por virgula: sem_topo (nada na linha de cima), sem_fila (nada logo atras de outra nota na mesma casa), cruzar_nunca ou cruzar_livre (bracos cruzados; sem nenhum dos dois, pouco), sabres_capa (sabres e notas com as cores da capa)")
+    ap.add_argument("--prefs", default="", help="gostos de quem joga, separados por virgula: sem_topo (nada na linha de cima), sem_fila (nada logo atras de outra nota na mesma casa), cruzar_nunca ou cruzar_livre (bracos cruzados; sem nenhum dos dois, pouco), sabres_capa (sabres e notas com as cores da capa), chroma (cores do Chroma nas luzes, como sugestao)")
     ap.add_argument("--ambiente", help="cenario do jogo (ex.: BigMirrorEnvironment); sem isto, o do clima da musica")
     ap.add_argument("--saida"); ap.add_argument("--humano", help="pasta de um mapa humano da mesma musica, para comparar os tempos")
     a = ap.parse_args()
     zp, resumo, ger = gerar(a.audio, a.nome, a.artista, a.etapa, a.tag, a.saida, a.capa, a.difs and a.difs.split(","), min(max(a.densidade, 0.5), 1.6),
-                       a.album, a.ano, a.link, {p for p in a.prefs.split(",") if p in ("sem_topo", "sem_fila", "cruzar_nunca", "cruzar_livre", "sabres_capa")}, a.ambiente)
+                       a.album, a.ano, a.link, {p for p in a.prefs.split(",") if p in ("sem_topo", "sem_fila", "cruzar_nunca", "cruzar_livre", "sabres_capa", "chroma")}, a.ambiente)
     import report
     R = report.conferir(zp, a.humano)
     for D in R["difs"]:

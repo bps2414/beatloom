@@ -9,7 +9,7 @@ SITE = Path(__file__).parent.parent / "site"
 # chaves montadas na hora ("erro_" + codigo): a pagina nao as cita por inteiro, entao a lista fica aqui
 MONTADAS = {"erro_": "geral recusado nao_existe sem_mapa grande tipo invalido link vazio ytdlp gerador ocupado sem_quest sem_adb sem_cabo sem_permissao sem_wifi nao_achou sem_rede adb",
             "passo_": "comecando baixando ouvindo separando golpes empacotando conferindo", "i_": "ffmpeg node padroes visor adb", "d_": "ffmpeg node padroes visor adb",
-            "meta_": "esquema sem_notas paridade visao palmas empilhadas atravessadas grade folga_inicio folga_fim nps", "n_": "notas nps vel paredes arcos"}
+            "meta_": "esquema sem_notas paridade visao palmas empilhadas atravessadas grade folga_inicio folga_fim nps", "n_": "notas nps vel paredes arcos", "mod_": "chroma"}
 
 
 def conferir():

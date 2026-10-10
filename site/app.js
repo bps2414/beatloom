@@ -265,7 +265,7 @@ function pintarMapa() {
   if ($("f-capa").getAttribute("src") !== capa) $("f-capa").src = capa;
   $("f-nome").textContent = mapa.nome; $("f-artista").textContent = mapa.artista;
   const info = $("f-info"); info.textContent = "";
-  for (const x of [mapa.album, mapa.ano, num(mapa.bpm) + " BPM", R && tempo(R.dur)]) if (x) info.append(el("span", "", x));
+  for (const x of [mapa.album, mapa.ano, num(mapa.bpm) + " BPM", R && tempo(R.dur), (mapa.mods || []).length && t("feito_com", { mods: mapa.mods.map((m) => t("mod_" + m)).join(", ") })]) if (x) info.append(el("span", "", x));
   if (/^https?:\/\//.test(mapa.link || "")) { const a = el("a", "", t("fonte")); a.href = mapa.link; a.target = "_blank"; a.rel = "noopener"; info.append(a); }
 
   // abas: so sao refeitas quando o mapa muda, para o foco do teclado ficar na aba clicada
@@ -406,7 +406,7 @@ async function verConfig() {
   cfg = await api("/api/config");
   $("c-cache").textContent = t("cache_tam", { n: mb(cfg.cache) }); $("c-torch").textContent = t(cfg.placa ? "motor_placa" : "motor_cpu");
   $("c-dens").value = cfg.densidade; dens("c-dens"); $("c-rapido").checked = cfg.modo === "rapido";
-  $("c-sem-topo").checked = !!cfg.sem_topo; $("c-sem-fila").checked = !!cfg.sem_fila; $("c-sabres").checked = !!cfg.sabres_capa;
+  $("c-sem-topo").checked = !!cfg.sem_topo; $("c-sem-fila").checked = !!cfg.sem_fila; $("c-sabres").checked = !!cfg.sabres_capa; $("c-chroma").checked = !!cfg.chroma;
   for (const b of $("c-cruzar").children) b.setAttribute("aria-pressed", b.dataset.v === cfg.cruzar);
   alternadores("c-difs", cfg.difs, () => (marcadasEm("c-difs").length ? salvar({ difs: marcadasEm("c-difs") }) : verConfig()));  // a ultima marcada nao sai
 }
@@ -414,6 +414,7 @@ $("c-dens").onchange = () => salvar({ densidade: +$("c-dens").value });
 $("c-sem-topo").onchange = () => salvar({ sem_topo: $("c-sem-topo").checked });
 $("c-sem-fila").onchange = () => salvar({ sem_fila: $("c-sem-fila").checked });
 $("c-sabres").onchange = () => salvar({ sabres_capa: $("c-sabres").checked });
+$("c-chroma").onchange = () => salvar({ chroma: $("c-chroma").checked });
 for (const b of $("c-cruzar").children) b.onclick = async () => { await salvar({ cruzar: b.dataset.v }); verConfig(); };
 $("c-rapido").onchange = () => salvar({ modo: $("c-rapido").checked ? "rapido" : "completo" });
 $("c-limpar").onclick = async () => {

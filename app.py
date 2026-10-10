@@ -11,7 +11,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, quote, unquote, urlparse
 
-from beatloom import preparo, quest
+from beatloom import mods, preparo, quest
 from generate import DIFS, dados_da_musica, fazer_capa, limpar_titulo
 
 mimetypes.add_type('application/wasm', '.wasm')
@@ -46,7 +46,7 @@ def dados_do_link(j):
 
 
 def config():
-    padrao = {"lingua": None, "quest_ip": "", "difs": list(DIFS), "densidade": 1.0, "modo": "completo", "sem_topo": False, "sem_fila": False, "cruzar": "pouco", "sabres_capa": False, "pronto": False}
+    padrao = {"lingua": None, "quest_ip": "", "difs": list(DIFS), "densidade": 1.0, "modo": "completo", "sem_topo": False, "sem_fila": False, "cruzar": "pouco", "sabres_capa": False, "chroma": False, "pronto": False}
     try:
         return {**padrao, **json.loads(CONFIG.read_text(encoding="utf-8"))}
     except (OSError, ValueError):
@@ -68,7 +68,7 @@ def gravar_config(d):
         c["modo"] = d["modo"]
     if d.get("cruzar") in ("nunca", "pouco", "livre"):
         c["cruzar"] = d["cruzar"]
-    for k in ("pronto", "sem_topo", "sem_fila", "sabres_capa"):
+    for k in ("pronto", "sem_topo", "sem_fila", "sabres_capa", "chroma"):
         if isinstance(d.get(k), bool):
             c[k] = d[k]
     CONFIG.write_text(json.dumps(c, indent=1), encoding="utf-8")
@@ -79,7 +79,7 @@ def prefs(sabres=None):
     """Os gostos de quem joga, do jeito que o generate.py recebe em --prefs. `sabres` = o que a pessoa marcou no dialogo de mapa novo; sem isso vale a Configuracao."""
     c = config()
     c["sabres_capa"] = c.get("sabres_capa") if sabres is None else sabres
-    return ",".join([k for k in ("sem_topo", "sem_fila", "sabres_capa") if c.get(k)] + [f"cruzar_{c['cruzar']}"] * (c.get("cruzar") in ("nunca", "livre")))  # "pouco" e o padrao do gerador
+    return ",".join([k for k in ("sem_topo", "sem_fila", "sabres_capa", "chroma") if c.get(k)] + [f"cruzar_{c['cruzar']}"] * (c.get("cruzar") in ("nunca", "livre")))  # "pouco" e o padrao do gerador
 
 
 def guardar_fila():
@@ -336,7 +336,7 @@ def mapa(nome_zip):
                          "notas": len(d.get("colorNotes", d.get("_notes", []))), "arcos": len(d.get("sliders", []))})
     rel = ler_relatorio(zp)
     return {"zip": zp.name, "nome": info["_songName"], "sub": info.get("_songSubName", ""), "artista": info["_songAuthorName"], "bpm": bpm, "v": int(zp.stat().st_mtime),
-            "difs": difs, "relatorio": rel, "conferindo": not rel and conferir(zp), **info.get("_customData", {}).get("_beatloom", {})}
+            "difs": difs, "mods": mods.do_mapa(info), "relatorio": rel, "conferindo": not rel and conferir(zp), **info.get("_customData", {}).get("_beatloom", {})}
 
 
 class H(BaseHTTPRequestHandler):
