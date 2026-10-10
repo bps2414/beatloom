@@ -79,7 +79,9 @@ The map goes to `saida\<name>-v4.zip` with `saida\<name>-v4.relatorio.txt` next 
 
 Other tools: `report.py <zip>` re-runs the checks, `tools\blind_test.py <a.zip> <b.zip>` builds a blind A/B pair of the same song, and `tools\batch.py <list.txt> <folder>` generates several songs at once and summarises the reports. `tools\check_i18n.py` checks that both languages have the same phrases and `tools\timing.py <audio>` measures how long each part of the generation takes.
 
-The link can be a YouTube playlist: each track is queued and becomes a map, one at a time. Anything that has not started yet can be removed from the queue.
+The link can be a YouTube playlist: each track is queued and becomes a map, one at a time. You can pause the queue, clear it or remove one item; it is saved to disk, so closing Beatloom does not lose it (the song that was being made starts over).
+
+In Settings, "The way you play" has two preferences: no notes on the top row, and no note hidden behind another (two notes in a row in the same spot less than 0.3 s apart). They apply to new maps and to the ones you redo: select maps in the list and use "Redo the notes", which reuses the saved analysis and takes seconds per map. On the command line it is `--prefs sem_topo,sem_fila`.
 
 The installer and the release come from CI (`.github\workflows\release.yml`): `git tag v1.0.1` and `git push origin v1.0.1` build `beatloom-setup.exe` with Inno Setup (`installer\beatloom.iss`) and publish the release with the list of commits since the previous tag.
 
