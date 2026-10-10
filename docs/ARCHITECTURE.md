@@ -130,6 +130,8 @@ The report marks each goal `[ok]` or `[FALHOU]` (failed) and is saved next to th
 | 3 | same as 2 | own engine with human patterns |
 | 4 | same as 2, with separated instruments | own engine, height by instrument, walls |
 
+The page generates at stage 4. Its "fast mode" is stage 3: separating the instruments is about 70% of the time, so it runs about 6 times faster, without held notes or walls. The analysis runs on the graphics card when the installed torch has CUDA (NVIDIA) and falls back to the processor if the card fails (`dispositivo()` and `na_placa()` in `beatloom\audio.py`). `tools\timing.py <audio>` measures how long each part takes.
+
 ## The web page (`app.py`, `site\`)
 
 A small server that only answers your own computer. Before generating it shows the cover and song data so you can fix them, and lets you choose difficulties and the amount of notes. It does three things: takes the link or file and calls `generate.py` (one map at a time, because the analysis uses the whole processor), lists the zips in `saida\`, and hands the zip to ArcViewer, the 3D viewer embedded in the page. Links are downloaded with yt-dlp. Nothing is sent anywhere. It also regenerates a single difficulty of a finished map with a different amount of notes, renames it, moves it to `saida\lixeira`, and sends it to the Quest over ADB (`beatloom\quest.py`; each map becomes the folder `beatloom-<zip name>`, so sending again replaces the old version). On first run it checks what is missing and downloads it into the project folder (`beatloom\preparo.py`).

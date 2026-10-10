@@ -75,7 +75,9 @@ The map goes to `saida\<name>-v4.zip` with `saida\<name>-v4.relatorio.txt` next 
 
 `--etapa 1|2|3|4` picks the generator stage (default 4): 1 simple rhythm with BeatKenja swings, 2 density follows energy and choruses repeat, 3 swings from human patterns, 4 instrument separation and walls.
 
-Other tools: `report.py <zip>` re-runs the checks, `tools\blind_test.py <a.zip> <b.zip>` builds a blind A/B pair of the same song, and `tools\batch.py <list.txt> <folder>` generates several songs at once and summarises the reports. `tools\check_i18n.py` checks that both languages have the same phrases.
+Other tools: `report.py <zip>` re-runs the checks, `tools\blind_test.py <a.zip> <b.zip>` builds a blind A/B pair of the same song, and `tools\batch.py <list.txt> <folder>` generates several songs at once and summarises the reports. `tools\check_i18n.py` checks that both languages have the same phrases and `tools\timing.py <audio>` measures how long each part of the generation takes.
+
+On the page, "fast mode" (in the new-map dialog, or as the default in settings) generates at stage 3: about 6 times faster, without separating the instruments, so no held notes and no walls.
 
 ## Folders
 

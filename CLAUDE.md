@@ -1,4 +1,4 @@
-# Beatloom
+﻿# Beatloom
 
 Gerador de mapas de Beat Saber por regras, com site local. Público: qualquer pessoa no Windows, inclusive leiga. Ela baixa a release, dá dois cliques em `start.bat` e usa, sem instalar nada por fora.
 
@@ -31,6 +31,7 @@ python -m beatloom.preparo --demo
 python -m beatloom.checks --demo
 python tools/extract_patterns.py --demo
 python report.py --demo
+python tools/timing.py --demo               (tools/timing.py <audio> mede cada etapa da geração)
 python tools/check_i18n.py                   frases: mesmas chaves nos dois idiomas, nenhuma faltando ou sobrando
 ```
 

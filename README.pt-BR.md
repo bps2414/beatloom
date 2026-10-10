@@ -75,7 +75,9 @@ O mapa sai em `saida\<nome>-v4.zip`, com `saida\<nome>-v4.relatorio.txt` ao lado
 
 `--etapa 1|2|3|4` escolhe a versão do gerador (padrão 4): 1 ritmo simples com golpes do BeatKenja, 2 densidade segue a energia e refrões repetem, 3 golpes de padrões humanos, 4 separação de instrumentos e paredes.
 
-Outras ferramentas: `report.py <zip>` refaz as conferências, `tools\blind_test.py <a.zip> <b.zip>` monta um par A/B embaralhado da mesma música para comparar sem saber qual é qual, e `tools\batch.py <lista.txt> <pasta>` gera várias músicas de uma vez e resume os relatórios. `tools\check_i18n.py` confere se os dois idiomas têm as mesmas frases.
+Outras ferramentas: `report.py <zip>` refaz as conferências, `tools\blind_test.py <a.zip> <b.zip>` monta um par A/B embaralhado da mesma música para comparar sem saber qual é qual, e `tools\batch.py <lista.txt> <pasta>` gera várias músicas de uma vez e resume os relatórios. `tools\check_i18n.py` confere se os dois idiomas têm as mesmas frases e `tools\timing.py <audio>` mede quanto cada parte da geração demora.
+
+Na página, o "modo rápido" (no diálogo de novo mapa ou como padrão na configuração) gera na etapa 3: umas 6 vezes mais rápido, sem separar os instrumentos, então sem notas seguradas e sem paredes.
 
 ## Pastas
 

@@ -130,6 +130,8 @@ O relatório marca cada meta com `[ok]` ou `[FALHOU]` e fica salvo ao lado do zi
 | 3 | igual à 2 | motor próprio com padrões humanos |
 | 4 | igual à 2, com instrumentos separados | motor próprio, altura por instrumento, paredes |
 
+A página gera na etapa 4. O "modo rápido" dela é a etapa 3: separar os instrumentos é uns 70% do tempo, então sai umas 6 vezes mais rápido, sem notas seguradas nem paredes. A análise roda na placa de vídeo quando o torch instalado tem CUDA (NVIDIA) e volta ao processador se a placa falhar (`dispositivo()` e `na_placa()` em `beatloom\audio.py`). `tools\timing.py <audio>` mede quanto cada parte demora.
+
 ## O site (`app.py`, `site\`)
 
 É um servidor pequeno que só atende o seu próprio computador. Antes de gerar ele mostra a capa e os dados da música para você corrigir e deixa escolher dificuldades e quantidade de notas. Ele faz três coisas: recebe o link ou arquivo e chama o `generate.py` (um mapa por vez, porque a análise usa o processador inteiro), lista os zips de `saida\`, e entrega o zip ao ArcViewer, o visualizador 3D embutido na página. Os links são baixados pelo yt-dlp. Nada é enviado para fora. Também refaz uma única dificuldade de um mapa pronto com outra quantidade de notas, troca o nome, manda para `saida\lixeira` e envia ao Quest por ADB (`beatloom\quest.py`; cada mapa vira a pasta `beatloom-<nome do zip>`, então mandar de novo substitui a versão antiga). Na primeira vez ele confere o que falta e baixa para dentro da pasta do projeto (`beatloom\preparo.py`).

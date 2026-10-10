@@ -7,8 +7,8 @@ Combinado com o dono em 10/10/2026. Objetivo: qualquer pessoa no Windows baixa a
 | Fatia | O que é | Estado | Documento |
 |---|---|---|---|
 | 1 | `start.bat`, tela de preparo, configuração, Quest por ADB | Feita em 10/10/2026 (commit `56172c6`). Pendências listadas no documento. | [slice-1.md](slice-1.md) |
-| 2 | Redesenho da página, i18n em arquivos, relatório estruturado, lista estilo jogo | Feita em 10/10/2026. **Esperando a aprovação do dono.** | [slice-2-feito.md](slice-2-feito.md) (o plano: [slice-2.md](slice-2.md)) |
-| 3 | Velocidade: medir, CUDA automático, modo rápido | **A fazer. É a próxima**, depois da 2 aprovada | [slice-3.md](slice-3.md) |
+| 2 | Redesenho da página, i18n em arquivos, relatório estruturado, lista estilo jogo | Feita em 10/10/2026 e aprovada pelo dono. | [slice-2-feito.md](slice-2-feito.md) (o plano: [slice-2.md](slice-2.md)) |
+| 3 | Velocidade: medir, CUDA automático, modo rápido | Feita em 10/10/2026. **Esperando a aprovação do dono**, que também decide sobre o DirectML. | [slice-3-feito.md](slice-3-feito.md) (o plano: [slice-3.md](slice-3.md)) |
 | 4 | Instalador `.exe` (Inno Setup) embrulhando o `start.bat` | A fazer, por último | Resumo no fim deste arquivo |
 
 Regra: uma fatia por vez. Ao terminar, atualize esta tabela, descreva o que foi verificado e o que não foi, e espere a aprovação do dono.
@@ -31,7 +31,7 @@ Regra: uma fatia por vez. Ao terminar, atualize esta tabela, descreva o que foi 
 | i18n | pt-BR e inglês, em arquivos separados. O servidor devolve códigos e números; o relatório vira dados e a página escreve no idioma | Hoje o relatório só existe em português |
 | Progresso | Etapas nomeadas com barra real na separação de instrumentos. Sem tempo estimado | Estimativa erra e irrita |
 | Aprovação visual | Fazer direto, sem protótipo; o dono ajusta no produto funcionando | Escolha do dono |
-| GPU | CUDA automático quando houver NVIDIA. Sem DirectML | A placa do dono é AMD RX 6600; DirectML prende o torch em versão antiga e provavelmente não roda o Demucs |
+| GPU | CUDA automático quando houver NVIDIA. Sem DirectML, **reaberta a pedido do dono na fatia 3 e ainda sem resposta dele** | A placa do dono é AMD RX 6600. Medido: o DirectML roda o Demucs com um remendo e ganha 1,3 a 1,5 vez só na separação (uns 20% do total), prendendo o torch em 2.4.1 com um pacote parado desde 2024. Números em [slice-3-feito.md](slice-3-feito.md) |
 | Modo rápido | Opcional, completo por padrão, com aviso de perda de qualidade | Não piorar o mapa de quem não pediu |
 | Fora de escopo | Terceiro idioma, tema claro, porta e pastas na config, Linux e Mac como alvo de usuário final | Ninguém pediu |
 
@@ -39,6 +39,9 @@ Regra: uma fatia por vez. Ao terminar, atualize esta tabela, descreva o que foi 
 
 1. **300 ou 1000 mapas na biblioteca.** Medido em três músicas: com 300 todas as conferências passam e o número de notas é o mesmo, mas o gerador usa menos trechos de 4 batidas e mais de 1 batida, principalmente em música rápida (Joseph, Expert+: trechos de 1 batida 89 → 167). Hoje está 1000 (`MAPAS` em `beatloom/preparo.py`). O dono ainda não escolheu.
 2. **Apagar `dados\mapas` depois de montar a biblioteca.** São 2,4 GB que só servem para montar os `.pkl`. Na máquina do dono esse conjunto é usado para pesquisa, então não foi automatizado. Se for feito, precisa de uma condição que proteja quem já tinha os dados.
+3. **RX 6600 pelo DirectML.** Adotar por uns 20% a menos no tempo total, tentar o caminho ONNX (não testado, projeto à parte) ou deixar como está. Detalhes em [slice-3-feito.md](slice-3-feito.md).
+
+Ideias do dono para depois, fora das quatro fatias: aceitar link de playlist do YouTube; um caderno do Google Colab para gerar em lote na GPU deles.
 
 ## Ambiente na nuvem (Linux, repositório recém-clonado)
 
@@ -57,7 +60,7 @@ sudo apt-get install -y ffmpeg nodejs npm   # se faltarem
 .venv/bin/python app.py --sem-navegador      # http://localhost:8777
 ```
 
-`app.py` importa `generate`, que importa `numpy`; `torch`, `demucs` e `beat_this` só são importados quando uma análise roda. `/api/config` devolve a versão do torch vazia quando o pacote não está instalado.
+`app.py` importa `generate`, que importa `numpy`; `torch`, `demucs` e `beat_this` só são importados quando uma análise roda. `/api/config` devolve `placa` falso quando o torch não está instalado.
 
 A tela de preparo trava no passo 2 enquanto faltar item obrigatório. `preparo.tem("padroes")` só confere se os cinco arquivos existem, então para trabalhar na interface basta criar arquivos vazios (ficam fora do git):
 
@@ -85,7 +88,7 @@ site/app.html        a marcação da página; app.css o visual; app.js o comport
 site/i18n/           as frases: pt.json e en.json (tools/check_i18n.py confere)
 site/fonts/          Bricolage Grotesque e Instrument Sans (OFL)
 check/               validador de formato com a biblioteca bsmap (Node)
-tools/               biblioteca de padrões, teste cego, lote
+tools/               biblioteca de padrões, teste cego, lote, medição de tempo (timing.py)
 docs/ARCHITECTURE*   como o gerador funciona
 ```
 
