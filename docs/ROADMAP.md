@@ -68,6 +68,46 @@ Pedido do dono: melhorar o mapa, deixar mais bonito, usar mais recursos do próp
 - Estimadores de dificuldade da comunidade (estrelas do BeatLeader e do ScoreSaber) para calibrar se o nosso Expert+ é mesmo um Expert+.
 - **Pesquisar o que mais existe** (pedido do dono), antes de escrever do zero cada item dos blocos 1.1 a 1.3. Candidatos a avaliar, nenhum ainda testado aqui: reconhecimento de partes da música (all-in-one, MSAF), transcrição de melodia e voz (basic-pitch, CREPE), separação de bateria por peça, outros geradores para comparar e aprender (Beat Sage, InfernoSaber, DeepSaber, Mapperatorinator), conferência de paridade (JoshaParity), geradores de luzes (Lightmap do ChroMapper, Lolighter) e as ferramentas de script de mapa (ReMapper, Heck). Para cada um anotar: licença, peso da instalação, se roda sem GPU, e o ganho no conjunto do item 1.0.
 
+### Pedidos prontos
+
+Um por sessão, para colar como está. Entre parênteses, o modelo sugerido.
+
+1.0 (Sonnet 5.5 alto):
+
+```text
+Roadmap 1.0 mínimo: script de medição nas músicas que já tenho em saida, sem mapa humano. Mostre os números de hoje e faça commit e push ao final.
+```
+
+1.1 inteira (Opus 5.5 médio):
+
+```text
+Execute o bloco 1.1 do roadmap inteiro, um item por vez. A cada item: meça antes e depois com o script do 1.0, desfaça se piorar, e faça commit. Não pare para aprovar entre itens. No fim, push e me diga duas músicas para eu testar.
+```
+
+1.2 inteira (Opus 5.5 médio):
+
+```text
+Execute o bloco 1.2 do roadmap inteiro, um item por vez. A cada item: meça antes e depois com o script do 1.0, desfaça se piorar, e faça commit. Não pare para aprovar entre itens. No fim, push e me diga duas músicas para eu testar.
+```
+
+1.3 inteira (Sonnet 5.5 alto):
+
+```text
+Execute o bloco 1.3 do roadmap inteiro, um item por vez, menos o item 8 (mods). A cada item: confira que o mapa passa na conferência e faça commit. Não pare para aprovar entre itens. No fim, push e me diga duas músicas para eu ver.
+```
+
+1.4 (Sonnet 5.5 alto):
+
+```text
+Roadmap 1.4: pesquise as ferramentas de terceiros da lista e diga quais valem a pena. Sem código, só atualize o roadmap, commit e push.
+```
+
+Versões de um mapa, bloco 3 item 8 (Sonnet 5.5 alto):
+
+```text
+Roadmap bloco 3 item 8 (versões de um mapa): confira primeiro como o envio ao Quest nomeia a pasta, depois faça. Commit e push ao final.
+```
+
 ## 2. Pendências do que já foi feito
 
 - Instalador nunca testado numa máquina limpa (instalar, atalho, preparo, gerar, desinstalar).
