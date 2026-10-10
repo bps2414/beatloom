@@ -131,9 +131,17 @@ $("form").onsubmit = async (e) => {
 const vistos = new Set(), linhas = new Map(), marcados = new Set();
 let primeira = true;
 function pintarTrabalhos() {
-  const vivos = estado.trabalhos.filter((tr) => tr.estado !== "pronto"), chave = JSON.stringify([vivos, lingua]);
+  const vivos = estado.trabalhos.filter((tr) => tr.estado !== "pronto"), chave = JSON.stringify([vivos, lingua, estado.pausada]);
   if (chave === pintarTrabalhos.chave) return;  // so redesenha quando muda: nao rouba o foco do botao de dispensar
   pintarTrabalhos.chave = chave; $("trabalhos").textContent = "";
+  const esperam = vivos.filter((tr) => tr.estado === "na fila").length;
+  if (esperam || estado.pausada) {  // a fila: quantos esperam, pausar e esvaziar
+    const barra = el("div", "barra"), p = el("button", "quieto", t(estado.pausada ? "continuar_fila" : "pausar")), v = el("button", "quieto", t("esvaziar"));
+    p.type = v.type = "button"; v.hidden = !esperam;
+    p.onclick = async () => { await api("/api/fila", { pausar: !estado.pausada }); atualizar(); };
+    v.onclick = async () => { if (await confirmar("confirma_esvaziar", "esvaziar")) { await api("/api/trabalho/dispensar", { fila: true }); atualizar(); } };
+    barra.append(el("span", "", t(estado.pausada ? "fila_pausada" : "fila_n", { n: esperam })), p, v); $("trabalhos").append(barra);
+  }
   for (const tr of vivos) {
     const ruim = tr.estado === "erro", c = el("div", "trabalho" + (ruim ? " ruim" : "")), capa = tr.capa ? el("img", "capa") : el("div", "sem-capa");
     if (tr.capa) { capa.src = tr.capa; capa.alt = ""; }
@@ -179,10 +187,19 @@ function pintarLista() {
   pintarLote();
 }
 function pintarLote() {
+  const faltam = quest.conectado ? estado.mapas.filter((m) => quest.mapas[m.zip] !== "ok") : [];  // os que nao estao no Quest, ou estao numa versao antiga
+  $("barra-lista").hidden = !estado.mapas.length; $("q-novos").hidden = !faltam.length; $("q-novos").textContent = t("q_novos", { n: faltam.length });
+  $("q-novos").onclick = () => enviar(faltam.map((m) => m.zip), $("q-novos"));
+  $("marcar-todos").textContent = t(marcados.size === estado.mapas.length ? "desmarcar_todos" : "marcar_todos"); $("lote-enviar").hidden = !quest.conectado;
   $("lote").hidden = !marcados.size; $("mapas").classList.toggle("marcando", marcados.size > 0);
   $("lote-n").textContent = t(marcados.size === 1 ? "lote_um" : "lote_varios", { n: marcados.size });
 }
 $("lote-limpar").onclick = () => { marcados.clear(); pintarLista(); };
+$("marcar-todos").onclick = () => { if (marcados.size === estado.mapas.length) marcados.clear(); else for (const m of estado.mapas) marcados.add(m.zip); pintarLista(); };
+$("lote-regerar").onclick = async () => {  // refaz as notas dos marcados com as regras e os gostos de agora; entra na fila
+  if (!await confirmar("confirma_regerar", "regerar_marcados")) return;
+  try { await api("/api/regerar", { zips: [...marcados] }); marcados.clear(); pintarLista(); atualizar(); } catch (x) { falhou(x); }
+};
 $("lote-enviar").onclick = () => enviar([...marcados], $("lote-enviar")).then(() => { marcados.clear(); pintarLista(); });
 async function enviar(zips, botao) {  // um aviso por mapa que falhou e um com quantos foram
   botao.disabled = true; avisar(t("mandando"));
@@ -376,9 +393,12 @@ async function verConfig() {
   cfg = await api("/api/config");
   $("c-cache").textContent = t("cache_tam", { n: mb(cfg.cache) }); $("c-torch").textContent = t(cfg.placa ? "motor_placa" : "motor_cpu");
   $("c-dens").value = cfg.densidade; dens("c-dens"); $("c-rapido").checked = cfg.modo === "rapido";
+  $("c-sem-topo").checked = !!cfg.sem_topo; $("c-sem-fila").checked = !!cfg.sem_fila;
   alternadores("c-difs", cfg.difs, () => (marcadasEm("c-difs").length ? salvar({ difs: marcadasEm("c-difs") }) : verConfig()));  // a ultima marcada nao sai
 }
 $("c-dens").onchange = () => salvar({ densidade: +$("c-dens").value });
+$("c-sem-topo").onchange = () => salvar({ sem_topo: $("c-sem-topo").checked });
+$("c-sem-fila").onchange = () => salvar({ sem_fila: $("c-sem-fila").checked });
 $("c-rapido").onchange = () => salvar({ modo: $("c-rapido").checked ? "rapido" : "completo" });
 $("c-limpar").onclick = async () => {
   if (!await confirmar("confirma_limpar", "limpar")) return;

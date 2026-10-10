@@ -27,10 +27,11 @@
 <div class="casca">
   <aside class="biblioteca" data-ta="mapas">
     <div id="trabalhos" aria-live="polite"></div>
+    <div class="barra" id="barra-lista"><button type="button" class="quieto" id="marcar-todos" data-t="marcar_todos"></button><button type="button" class="quieto" id="q-novos" hidden></button></div>
     <ul class="mapas" id="mapas"></ul>
     <p class="fraco" id="sem-mapas" data-t="sem_mapas" hidden></p>
     <div class="lote" id="lote" hidden><span id="lote-n"></span>
-      <button type="button" class="quieto" id="lote-limpar" data-t="cancelar"></button><button type="button" class="acao" id="lote-enviar" data-t="quest"></button></div>
+      <button type="button" class="quieto" id="lote-limpar" data-t="cancelar"></button><button type="button" class="sec" id="lote-regerar" data-t="regerar_marcados"></button><button type="button" class="acao" id="lote-enviar" data-t="quest"></button></div>
   </aside>
 
   <main class="detalhe">
@@ -122,6 +123,9 @@
     <label class="densidade"><span data-t="densidade"></span><span id="c-dens-v"></span>
       <input type="range" id="c-dens" min="0.8" max="1.3" step="0.05" value="1"></label>
     <label class="chave"><input type="checkbox" id="c-rapido"><span><b data-t="rapido"></b><small class="fraco" data-t="rapido_sub"></small></span></label></section>
+  <section><h3 data-t="s_gosto"></h3><p class="fraco" data-t="s_gosto_sub"></p>
+    <label class="chave"><input type="checkbox" id="c-sem-topo"><span><b data-t="sem_topo"></b><small class="fraco" data-t="sem_topo_sub"></small></span></label>
+    <label class="chave"><input type="checkbox" id="c-sem-fila"><span><b data-t="sem_fila"></b><small class="fraco" data-t="sem_fila_sub"></small></span></label></section>
   <section><h3 data-t="s_cache"></h3><p id="c-cache"></p><button type="button" class="sec" id="c-limpar" data-t="limpar"></button>
     <p class="fraco" id="c-torch"></p></section>
   <footer><button type="button" class="quieto" id="p-voltar" data-t="voltar"></button><button type="button" class="acao" id="p-seguir"></button></footer>

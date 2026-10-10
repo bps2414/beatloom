@@ -9,7 +9,7 @@ Na primeira vez a pagina confere o que falta (ffmpeg, Node, padroes...) e baixa 
 import importlib.metadata, json, mimetypes, re, shutil, subprocess, sys, threading, time, webbrowser, zipfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import parse_qs, unquote, urlparse
+from urllib.parse import parse_qs, quote, unquote, urlparse
 
 from beatloom import preparo, quest
 from generate import DIFS, dados_da_musica, fazer_capa, limpar_titulo
@@ -30,6 +30,8 @@ conferindo, lidos = {}, {}  # zip -> data do arquivo quando a conferencia comeco
 SITE = RAIZ / "site"
 TIPOS = {".css": "text/css", ".js": "text/javascript", ".json": "application/json", ".woff2": "font/woff2", ".svg": "image/svg+xml", ".png": "image/png", ".webp": "image/webp"}
 trava = threading.Lock()
+pausada = [False]  # fila pausada: a musica que esta rodando termina e a proxima espera
+FILA = RAIZ / ".cache" / "fila.json"
 
 
 def dados_do_link(j):
@@ -44,7 +46,7 @@ def dados_do_link(j):
 
 
 def config():
-    padrao = {"lingua": None, "quest_ip": "", "difs": list(DIFS), "densidade": 1.0, "modo": "completo", "pronto": False}
+    padrao = {"lingua": None, "quest_ip": "", "difs": list(DIFS), "densidade": 1.0, "modo": "completo", "sem_topo": False, "sem_fila": False, "pronto": False}
     try:
         return {**padrao, **json.loads(CONFIG.read_text(encoding="utf-8"))}
     except (OSError, ValueError):
@@ -64,10 +66,46 @@ def gravar_config(d):
         c["densidade"] = min(max(float(d["densidade"]), 0.8), 1.3)
     if d.get("modo") in ("completo", "rapido"):
         c["modo"] = d["modo"]
-    if isinstance(d.get("pronto"), bool):
-        c["pronto"] = d["pronto"]
+    for k in ("pronto", "sem_topo", "sem_fila"):
+        if isinstance(d.get(k), bool):
+            c[k] = d[k]
     CONFIG.write_text(json.dumps(c, indent=1), encoding="utf-8")
     return c
+
+
+def prefs():
+    """Os gostos de quem joga, do jeito que o generate.py recebe em --prefs."""
+    c = config()
+    return ",".join(k for k in ("sem_topo", "sem_fila") if c.get(k))
+
+
+def guardar_fila():
+    """A fila sobrevive a fechar o Beatloom: o que nao acabou volta na proxima vez (a musica que estava rodando recomeca)."""
+    FILA.parent.mkdir(exist_ok=True)
+    FILA.write_text(json.dumps([t for t in trabalhos if t["estado"] in ("na fila", "rodando")]), encoding="utf-8")
+
+
+def ler_fila():
+    try:
+        pend = [t for t in json.loads(FILA.read_text(encoding="utf-8")) if isinstance(t, dict) and "id" in t]
+    except (OSError, ValueError):
+        return
+    for t in pend:
+        t.update(estado="na fila", passos=[], progresso=None)
+    trabalhos.extend(pend); fila.extend(pend)
+
+
+def egg_do_mapa(zp, onde):
+    """Poe o audio do mapa em .cache\\regerar\\<onde>. Devolve (pasta, etapa em que o mapa foi feito, dificuldades que ele tem)."""
+    tmp = RAIZ / ".cache" / "regerar" / onde
+    shutil.rmtree(tmp, ignore_errors=True)
+    tmp.mkdir(parents=True)
+    with zipfile.ZipFile(zp) as z:
+        info = json.loads(z.read("Info.dat").decode("utf-8-sig"))
+        (tmp / "song.egg").write_bytes(z.read(info["_songFilename"]))
+    etapa = (re.search(r"auto v([1-4])", info.get("_songSubName", "")) or ["", "4"])[1]  # o mapa refeito sai no mesmo modo (completo ou rapido)
+    difs = [b["_difficulty"] for s in info["_difficultyBeatmapSets"] if s["_beatmapCharacteristicName"] == "Standard" for b in s["_difficultyBeatmaps"]]
+    return tmp, etapa, [x for x in DIFS if x in difs]
 
 
 def enviados():
@@ -98,25 +136,34 @@ def rodar(trab):
         trab["passos"].append(txt)
 
     try:
-        audio, d = trab.get("arquivo"), {}
-        if trab.get("link"):
-            passo("baixando")
-            MUSICAS.mkdir(exist_ok=True)
-            # a miniatura do video vem junto para virar a capa; o --print devolve, depois do download, o caminho do arquivo e os dados da faixa
-            j = json.loads(ytdlp("-x", "--audio-format", "mp3", "--audio-quality", "0", "--restrict-filenames", "--write-thumbnail",
-                                 "--convert-thumbnails", "jpg", "-o", str(MUSICAS / "%(title)s.%(ext)s"), "--print",
-                                 "after_move:%(.{filepath,title,track,artist,creator,album,release_year,release_date,upload_date,webpage_url,thumbnail,channel,uploader,duration})j",
-                                 "--", trab["link"]).splitlines()[-1])
-            audio = str(Path(j["filepath"]))
-            d = dados_do_link(j)
-            capa = Path(audio).with_suffix(".jpg")
-            d["capa"] = str(capa) if capa.exists() else None
-        d = {**d, **{k: trab[k] for k in ("nome", "artista", "album", "ano") if trab.get(k)}}  # o que a pessoa escreveu vale mais
-        trab["titulo"] = d.get("nome") or Path(audio).stem
-        cmd = [PY, "-u", str(RAIZ / "generate.py"), audio, "--etapa", str(trab.get("etapa") or 4), "--densidade", str(trab.get("densidade") or 1)]
-        cmd += ["--difs", ",".join(trab["difs"])] if trab.get("difs") else []
-        for k in ("nome", "artista", "album", "ano", "link", "capa"):
-            cmd += [f"--{k}", str(d[k])] if d.get(k) else []
+        audio, d, refaz = trab.get("arquivo"), {}, trab.get("regerar")
+        if refaz:  # refaz as notas de um mapa pronto com as regras e os gostos de agora; o audio sai do zip, entao a analise ja esta no cache
+            zp = SAIDA / refaz
+            ger = (ler_relatorio(zp) or {}).get("gerador") or {}
+            tmp, etapa, difs = egg_do_mapa(zp, "fila")
+            trab["difs"] = difs
+            cmd = [PY, "-u", str(RAIZ / "generate.py"), str(tmp / "song.egg"), "--etapa", etapa, "--densidade", str(ger.get("densidade") or 1), "--difs", ",".join(difs),
+                   "--nome", "regerar", "--saida", str(tmp), "--prefs", prefs()]
+        else:
+            if trab.get("link"):
+                passo("baixando")
+                MUSICAS.mkdir(exist_ok=True)
+                # a miniatura do video vem junto para virar a capa; o --print devolve, depois do download, o caminho do arquivo e os dados da faixa
+                j = json.loads(ytdlp("-x", "--audio-format", "mp3", "--audio-quality", "0", "--restrict-filenames", "--write-thumbnail",
+                                     "--convert-thumbnails", "jpg", "-o", str(MUSICAS / "%(title)s.%(ext)s"), "--print",
+                                     "after_move:%(.{filepath,title,track,artist,creator,album,release_year,release_date,upload_date,webpage_url,thumbnail,channel,uploader,duration})j",
+                                     "--", trab["link"]).splitlines()[-1])
+                audio = str(Path(j["filepath"]))
+                d = dados_do_link(j)
+                capa = Path(audio).with_suffix(".jpg")
+                d["capa"] = str(capa) if capa.exists() else None
+            d = {**d, **{k: trab[k] for k in ("nome", "artista", "album", "ano") if trab.get(k)}}  # o que a pessoa escreveu vale mais
+            trab["titulo"] = d.get("nome") or Path(audio).stem
+            cmd = [PY, "-u", str(RAIZ / "generate.py"), audio, "--etapa", str(trab.get("etapa") or 4), "--densidade", str(trab.get("densidade") or 1)]
+            cmd += ["--difs", ",".join(trab["difs"])] if trab.get("difs") else []
+            cmd += ["--prefs", prefs()]
+            for k in ("nome", "artista", "album", "ano", "link", "capa"):
+                cmd += [f"--{k}", str(d[k])] if d.get(k) else []
         p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8", errors="replace", cwd=RAIZ)
         rotulos = {"[1/4]": "ouvindo", "[2/4]": "golpes", "[3/4]": "empacotando", "[4/4]": "conferindo"}
         cauda = []
@@ -134,7 +181,19 @@ def rodar(trab):
             if linha.startswith("Mapa: "):
                 trab["zip"] = Path(linha[6:].strip()).name
         p.wait()
-        if not trab.get("zip"):
+        if refaz:
+            novo = tmp / f"regerar-v{etapa}.zip"
+            if not novo.exists():
+                raise RuntimeError("gerador|" + " ".join(cauda)[-300:])
+            for dif in difs:
+                trocar_dificuldade(zp, novo, dif)
+            subprocess.run([PY, str(RAIZ / "report.py"), str(zp)], capture_output=True, cwd=RAIZ)  # relatorio do mapa inteiro, de novo
+            R = ler_relatorio(zp)
+            if R:  # o report.py nao sabe como o mapa foi gerado: a densidade e os gostos ficam para a proxima vez
+                R["gerador"] = {**ger, "prefs": [x for x in prefs().split(",") if x]}
+                zp.with_suffix(".relatorio.json").write_text(json.dumps(R, ensure_ascii=False), encoding="utf-8")
+            trab["zip"] = zp.name
+        elif not trab.get("zip"):
             raise RuntimeError("gerador|" + " ".join(cauda)[-300:])
         trab["estado"] = "pronto"
     except Exception as e:
@@ -144,13 +203,15 @@ def rodar(trab):
 def operario():
     while True:
         with trava:
-            trab = fila.pop(0) if fila else None
+            trab = fila.pop(0) if fila and not pausada[0] else None
             if trab:
                 trab["estado"] = "rodando"  # dentro da trava: quem dispensa da fila nao pega um trabalho que ja saiu dela
         if trab is None:
             time.sleep(0.5)
             continue
         rodar(trab)
+        with trava:
+            guardar_fila()
 
 
 def ler_relatorio(zp):
@@ -283,7 +344,7 @@ class H(BaseHTTPRequestHandler):
                 self.manda(arq.read_bytes(), TIPOS[arq.suffix] + ("; charset=utf-8" if arq.suffix in (".css", ".js", ".json") else ""), guarda=arq.suffix == ".woff2")
             elif u.path == "/api/estado":
                 vivos = [t for t in trabalhos if t["estado"] in ("na fila", "rodando")]  # a fila inteira (uma playlist enche) e os ultimos que acabaram
-                self.manda({"trabalhos": vivos + [t for t in trabalhos if t not in vivos][-6:], "mapas": lista_de_mapas(), "visor": (ARC / "index.html").exists(), "difs": list(DIFS)})
+                self.manda({"trabalhos": vivos + [t for t in trabalhos if t not in vivos][-6:], "mapas": lista_de_mapas(), "visor": (ARC / "index.html").exists(), "difs": list(DIFS), "pausada": pausada[0]})
             elif u.path == "/api/preparo":
                 self.manda(preparo.estado())
             elif u.path == "/api/config":
@@ -357,13 +418,25 @@ class H(BaseHTTPRequestHandler):
             if not novos:
                 return self.manda({"erro": "vazio"}, cod=400)
             with trava:
-                trabalhos.extend(novos); fila.extend(novos)
+                trabalhos.extend(novos); fila.extend(novos); guardar_fila()
             return self.manda({"id": novos[0]["id"]})
-        if u.path == "/api/trabalho/dispensar":  # tira da lista um trabalho que acabou (pronto ou com erro) ou que ainda esta na fila
+        if u.path == "/api/trabalho/dispensar":  # tira da lista um trabalho que acabou (pronto ou com erro) ou que ainda esta na fila; "fila" = todos os que esperam
             with trava:
-                fila[:] = [t for t in fila if t["id"] != d.get("id")]
-                trabalhos[:] = [t for t in trabalhos if t["id"] != d.get("id") or t["estado"] == "rodando"]
+                sai = (lambda t: t["estado"] == "na fila") if d.get("fila") else (lambda t: t["id"] == d.get("id") and t["estado"] != "rodando")
+                fila[:] = [t for t in fila if not sai(t)]
+                trabalhos[:] = [t for t in trabalhos if not sai(t)]
+                guardar_fila()
             return self.manda({"ok": True})
+        if u.path == "/api/fila":  # pausar ou continuar
+            pausada[0] = bool(d.get("pausar"))
+            return self.manda({"pausada": pausada[0]})
+        if u.path == "/api/regerar" and isinstance(d.get("zips"), list):  # refaz as notas de varios mapas: um trabalho na fila para cada
+            nomes = {m["zip"]: m["nome"] for m in lista_de_mapas()}
+            novos = [{"id": int(time.time() * 1000) + i, "estado": "na fila", "passos": [], "progresso": None, "regerar": z, "titulo": nomes[z], "capa": "/api/capa?zip=" + quote(z)}
+                     for i, z in enumerate(d["zips"]) if z in nomes]
+            with trava:
+                trabalhos.extend(novos); fila.extend(novos); guardar_fila()
+            return self.manda({"n": len(novos)})
         if u.path == "/api/previa":  # dados e capa do link, antes de gerar (nao baixa o audio)
             link = (d.get("link") or "").strip()
             if not re.match(r"https?://\S+$", link):
@@ -418,16 +491,10 @@ class H(BaseHTTPRequestHandler):
         if u.path == "/api/regerar":  # refaz uma dificuldade de um mapa pronto (outra quantidade de notas), sem mexer nas outras
             if d.get("dif") not in DIFS:
                 return self.manda({"erro": "invalido"}, cod=400)
-            tmp = RAIZ / ".cache" / "regerar"
-            shutil.rmtree(tmp, ignore_errors=True)
-            tmp.mkdir(parents=True)
-            with zipfile.ZipFile(zp) as z:  # o audio sai do proprio mapa, entao a analise ja esta no cache
-                info = json.loads(z.read("Info.dat").decode("utf-8-sig"))
-                (tmp / "song.egg").write_bytes(z.read(info["_songFilename"]))
-            etapa = (re.search(r"auto v([1-4])", info.get("_songSubName", "")) or ["", "4"])[1]  # a dificuldade nova sai no mesmo modo do mapa
+            tmp, etapa, _ = egg_do_mapa(zp, "um")  # o audio sai do proprio mapa, entao a analise ja esta no cache
             novo = tmp / f"regerar-v{etapa}.zip"
             dens = min(max(float(d.get("densidade") or 1), 0.8), 1.3)
-            r = subprocess.run([PY, str(RAIZ / "generate.py"), str(tmp / "song.egg"), "--difs", d["dif"], "--densidade", str(dens), "--etapa", etapa, "--nome", "regerar", "--saida", str(tmp)],
+            r = subprocess.run([PY, str(RAIZ / "generate.py"), str(tmp / "song.egg"), "--difs", d["dif"], "--densidade", str(dens), "--etapa", etapa, "--nome", "regerar", "--saida", str(tmp), "--prefs", prefs()],
                                capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=RAIZ)
             if not novo.exists():
                 return self.manda({"erro": "gerador|" + (r.stdout + r.stderr)[-300:]}, cod=500)
@@ -445,6 +512,7 @@ class H(BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     SAIDA.mkdir(exist_ok=True)
+    ler_fila()
     threading.Thread(target=operario, daemon=True).start()
     ThreadingHTTPServer.allow_reuse_address = False  # no Windows, reusar o endereco deixaria dois servidores na mesma porta
     try:
