@@ -181,6 +181,30 @@ Limites conhecidos e decisões que fogem do texto original:
 - **Luzes novas: o maior risco do bloco.** Os números dos grupos vêm da tabela do bsmap e o formato passa no validador, mas nada disso foi visto aceso. Se um cenário novo sair apagado ou estranho no jogo, tirar ele de `AMBIENTE` (uma linha) devolve aquelas músicas ao cenário clássico. Nos cenários novos o mapa vai sem eventos básicos, então o visualizador da página pode mostrar essas músicas sem luz. Zoom dos anéis e velocidade dos lasers não existem nos grupos.
 - Não conferido aqui: "Refazer as notas" pela página com os itens novos (só as funções por trás foram testadas) e o caderno do Colab. A chave nova foi vista no navegador, no diálogo de mapa novo e na Configuração.
 
+**Itens 6 e 7 feitos em 10/10/2026**, um commit por item. Medido em 17 músicas regeradas do `song.egg` com as preferências do dono (`sem_topo`, `sem_fila`), antes, depois do item 6 e depois do item 7. As notas não mudam (nenhuma nota entra, sai ou troca de lugar), então o `tools/medir.py` deu o mesmo nas três rodadas: Easy 264 notas, Normal 391, Hard 534, Expert 750, Expert+ 919 em média, com os mesmos números de acerto no ataque. 17 de 17 passam em todas as conferências antes e depois, com e sem as preferências, e nenhuma tem erro de paridade. **Nada disso foi visto no jogo.**
+
+| Item | Medida (17 músicas) | Antes | Depois |
+|---|---|---|---|
+| 6 Arcos | a cada mil notas, Hard / Expert / Expert+ (mediana humana: 59) | 33 / 24 / 16 | 68 / 52 / 41 |
+| 6 Correntes | a cada mil notas, Hard / Expert / Expert+ | 0 | 1,5 / 1,2 / 2,5 |
+| 7 Bombas | soma dos mapas, Hard / Expert / Expert+ | 0 | 36 / 23 / 25 |
+| 7 Paredes de desviar | soma dos mapas, Easy / Normal / Hard / Expert / Expert+ | 0 | 64 / 40 / 20 / 12 / 11 |
+| 7 Paredes de agachar | soma dos mapas, sem a preferência "sem notas na linha de cima" | 0 | 13 / 6 / 5 / 2 / 2 |
+
+O que cada item faz (o código está em `generate.py` e `beatloom/engine.py`):
+
+- **6 Arcos seguindo a voz** (`arcos_de_frase`). Quando a mesma mão bate duas vezes enquanto o cantor segura a mesma nota, de 1 a 4 batidas entre os dois golpes, um arco liga as duas notas. Sai no sentido do primeiro corte e chega no do segundo, que é o caminho que o braço já faz. Até 40 a cada mil notas, os mais longos primeiro.
+- **6 Correntes** (`acorrentar`). No ataque seco (forte, nada na meia batida seguinte, sem voz segurando) a nota vira a cabeça de uma corrente de 4 elos, 1 casa na linha do corte, como nos mapas humanos da biblioteca. O golpe é o mesmo. Só do Hard para cima, até 4, 6 e 8 a cada mil notas, e só onde a cauda cabe na grade e nenhuma nota passa por ali em 0,4 segundo.
+- **7 Bombas de reinício** (`engine.reiniciar`). Na volta de um respiro (mão parada há 2 batidas e 1,2 segundo ou mais) num ataque forte, a mão que iria subir ganha uma bomba embaixo, na coluna do meio dela, uma batida antes, e o golpe da volta desce. Toda bomba do conjunto tem corte para baixo antes e depois. Do Hard para cima, até uma a cada 30 segundos.
+- **7 Paredes** (`desvios`, `paredes`). Nos respiros mais longos, paredes de desviar que começam numa batida e trocam de lado a cada 0,75 segundo ou mais, até 4 por respiro e uma a cada 45 segundos de música. A última de uma fila pode ser de agachar (até 2 por mapa); com "sem notas na linha de cima" não sai nenhuma de agachar. Respiro que tem bomba de reinício fica só com parede de enfeite.
+
+Limites conhecidos:
+
+- Correntes ficaram raras (1 a 3 a cada mil notas; nos humanos metade dos mapas não tem nenhuma e o quarto de cima tem de 6 a 10). O que segura é a regra de ataque seco e a casa da cauda livre, não a cota.
+- A bomba só aparece na volta de um respiro. Bomba no meio de um trecho com notas, e parede entre notas, o gerador não faz.
+- Com as preferências do dono o Easy é quem mais ganha paredes de desviar (64 nas 17 músicas), porque é onde há mais respiro longo. A cota era uma a cada 20 segundos e caiu para 45 porque o Easy saía com 7 por mapa.
+- O relatório em texto conta arcos, correntes, bombas e paredes; a ficha do mapa na página não.
+
 1. **Luzes de verdade.** Seguir as partes da música (item 1.1.3): cor por seção, pulso no bumbo, clarão no acento, apagar na pausa, anéis girando e abrindo na queda, velocidade dos lasers conforme a intensidade. É o que mais muda a cara do mapa.
 2. **Cores da música** (pedido do dono). Tirar da capa (ou da miniatura do vídeo) as duas cores dominantes que mais contrastam entre si e gravar como cores do mapa. Hoje toda luz sai vermelha e azul.
    - Luzes sempre com as cores da capa; sabres e notas com elas só se a pessoa ligar (opção na Configuração e no diálogo de mapa novo), porque cor de sabre é gosto e precisa de contraste para ler a nota.
@@ -218,21 +242,17 @@ Um por sessão, para colar como está, na ordem sugerida. Todos em Opus 5.5, esf
 
 1.1: feito em 10/10/2026, não precisa rodar de novo. Resultados no bloco 1.1.
 
-Atualizar os mapas antigos de uma vez, bloco 3 item 9 (bom logo depois do 1.1, antes de refazer a lista toda):
+Atualizar os mapas antigos de uma vez, bloco 3 item 9: a primeira parte (refazer o mapa inteiro, versão da análise, versão anterior guardada) foi feita em 10/10/2026. O que falta:
 
 ```text
-Roadmap bloco 3 item 9 (atualizar os mapas antigos de uma vez, análise em camadas, só as luzes, mapa travado): meça primeiro com tools/timing.py o que o cache guarda e o que roda de novo, depois faça. Atualize o roadmap, commit e push ao final.
+Roadmap bloco 3 item 9, o que falta (contar os mapas atrás da versão atual, só as luzes, mapa travado): faça um por vez, com commit a cada um. Atualize o roadmap, commit e push ao final.
 ```
 
 1.2: feito em 10/10/2026, não precisa rodar de novo. Resultados no bloco 1.2.
 
 1.3, primeira parte (itens 1 a 5): feito em 10/10/2026, não precisa rodar de novo. Resultados no bloco 1.3. Falta o dono ver no jogo.
 
-1.3, segunda parte, o que vale mais (correntes e arcos, bombas e paredes: itens 6 e 7; Opus 5.5 médio, porque mexe no motor de golpes):
-
-```text
-Execute os itens 6 e 7 do bloco 1.3 do roadmap (correntes e arcos melhores; bombas e paredes com função), um por vez. Respeite as preferências sem_topo e sem_fila e a paridade. A cada item: meça antes e depois com tools/medir.py, confira que o mapa passa na conferência, desfaça se piorar, e faça commit. Não pare para aprovar entre itens. No fim, atualize o roadmap, push, e me diga duas músicas para eu testar.
-```
+1.3, segunda parte (correntes e arcos, bombas e paredes: itens 6 e 7): feito em 10/10/2026, não precisa rodar de novo. Resultados no bloco 1.3. Falta o dono ver no jogo.
 
 1.3, o resto da segunda parte, quando der vontade (velocidade por trecho e opções do mapa: itens 9 e 11; modos de jogo, item 8, só se o dono jogar Um Sabre ou 360):
 
@@ -276,7 +296,7 @@ Para proteger as músicas que já ficaram boas, acrescente a qualquer pedido: "E
 
 - Instalador nunca testado numa máquina limpa (instalar, atalho, preparo, gerar, desinstalar).
 - Caderno do Colab/Kaggle nunca rodou de verdade; é também o primeiro teste do caminho da placa NVIDIA.
-- Botões novos da página (fila, refazer as notas, marcar todos, mandar os que faltam) não foram vistos num navegador por quem os escreveu.
+- Botões novos da página (fila, refazer os mapas, refazer todos os mapas, marcar todos, mandar os que faltam) não foram vistos num navegador por quem os escreveu.
 - Decisões do dono em aberto: DirectML na RX 6600, 300 ou 1000 mapas na biblioteca, apagar `dados\mapas` depois de montar.
 - Nunca conferido: envio real ao Quest em lote, telas da primeira vez no visual novo.
 
@@ -290,12 +310,17 @@ Para proteger as músicas que já ficaram boas, acrescente a qualquer pedido: "E
 6. **Quest.** Apagar vários de uma vez.
 7. Mostrar na ficha do mapa com quais preferências ele foi feito.
 8. **Versões de um mapa** (pedido do dono). Refazer um mapa e mandar ao Quest deve trocar a música que já está lá, não criar outra na lista do jogo: mesma pasta e mesmo nome no óculos a cada envio. No computador, cada versão anterior fica guardada (numerada, com data e com o que mudou: modo, preferências, versão do Beatloom), e a ficha do mapa deixa voltar a uma delas ou apagar as antigas. A conferir antes de fazer: como o envio nomeia a pasta hoje e se o jogo mantém a pontuação quando o conteúdo do mapa muda.
-9. **Atualizar os mapas antigos de uma vez** (pedido do dono: não ter que regerar música por música a cada melhoria do gerador).
-   - Cada mapa já guarda com que versão do gerador foi feito. A lista mostra quantos estão atrás da versão atual e um botão só: "Atualizar os N mapas antigos". Usa a fila e o "Refazer as notas" que já existem.
-   - Análise guardada em camadas: separação dos instrumentos (a parte cara, que quase nunca muda), ataques e batidas, e o que cada melhoria acrescenta (voz, partes da música). Mudou uma camada, só ela e as de cima rodam de novo. Hoje qualquer mudança na análise joga fora o conjunto e separa tudo outra vez. A conferir antes: o que o cache guarda hoje e quanto tempo cada camada leva (`tools/timing.py`).
-   - Só as luzes: quando a melhoria for só de luzes ou cores, refazer só elas e deixar as notas como estão. Protege o mapa que já ficou bom de jogar.
-   - Mapa "travado": marcar um mapa de que se gosta para as atualizações em lote não tocarem nas notas dele.
-   - Anda junto com o item 8: a versão anterior fica guardada antes de atualizar.
+9. **Atualizar os mapas antigos de uma vez** (pedido do dono: não ter que regerar música por música a cada melhoria do gerador). **Primeira parte feita em 10/10/2026.**
+   - Feito: "Refazer os mapas" (os marcados) e "Refazer todos os mapas" fazem o mapa de novo por inteiro com o gerador de agora, pela fila: notas, arcos, correntes, bombas, paredes, luzes, cenário, cores da capa, eventos de BPM e o Info.dat. Ficam o nome, o artista, o álbum, o ano, o link, a capa, o modo, a densidade e as dificuldades que o mapa tinha, e o arquivo continua com o mesmo nome. A versão anterior (zip e relatórios) vai para `saida\versoes` com a data e a hora; nada é apagado de lá.
+   - O que o caminho antigo ("Refazer as notas") deixava para trás: mapa antigo sem a origem da capa anotada nunca ganhava as cores da capa; os campos do Info.dat fora da dificuldade (BPM, início da prévia) ficavam os de antes, e o BPM podia divergir do das notas se a análise fosse refeita; os números do gerador no relatório se perdiam; ninguém conferia se a análise guardada ainda servia; a versão anterior era perdida. Notas, luzes, cenário, eventos de BPM e cores da dificuldade já eram trocados.
+   - Feito: a análise guardada tem número de versão (`VERSAO` em `beatloom/audio.py`). Se ele não bate, a música é ouvida de novo reaproveitando os instrumentos já separados, e as camadas de cima (voz, bateria, partes, clima, notas seguradas) são refeitas. As 25 análises que estavam guardadas foram refeitas e comparadas: iguais às do código de agora, então nenhuma precisa ser ouvida de novo hoje. Quem mudar a análise sobe o número.
+   - Tempo por música, medido na máquina do dono: uns 10 segundos com a análise guardada; 25 segundos numa música de 1:43 quando a análise venceu mas os instrumentos separados estão guardados (uns 8 segundos a mais a cada 100 segundos de música); 3 minutos e 40 segundos numa música de 3:54 sem nada guardado (a separação dos instrumentos é 71% disso), o mesmo que gerar do zero.
+   - Capa: a capa de verdade é sempre levada ao gerador; a genérica do Beatloom é reconhecida pelas cores e trocada pela genérica de agora.
+   - Não conferido: os dois botões num navegador (o servidor foi exercitado por HTTP numa pasta à parte, com fila de 2 mapas).
+   - Falta, lista: mostrar quantos mapas estão atrás da versão atual e oferecer "Atualizar os N mapas antigos" (hoje o botão refaz todos).
+   - Falta, só as luzes: quando a melhoria for só de luzes ou cores, refazer só elas e deixar as notas como estão. Protege o mapa que já ficou bom de jogar.
+   - Falta, mapa "travado": marcar um mapa de que se gosta para as atualizações em lote não tocarem nas notas dele.
+   - Falta, com o item 8: ver, voltar e apagar as versões guardadas pela ficha do mapa. A densidade escolhida ao refazer uma dificuldade sozinha não é lembrada (vale a do mapa).
 
 ## 4. Projeto
 

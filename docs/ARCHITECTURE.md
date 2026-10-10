@@ -100,6 +100,12 @@ The engine walks through the song beat by beat:
 
 **Held notes.** Where the song has a long note, both hands cut together at the start (upward from the bottom, or the reverse if the arm is on the other side), an arc links each note to the end note, which is cut the opposite way, and there is nothing in between. Normal does not use them. They go in from longest to shortest, at most one for every 20 seconds of song.
 
+**Arcs that follow the voice.** When the same hand hits twice while the singer holds the same note (1 to 4 beats between the two swings), an arc links the two notes. No note leaves the map: the arc leaves in the direction of the first cut and arrives in the direction of the second, which is the path the arm already takes. Up to 40 per thousand notes, longest first (the median in human maps is 59).
+
+**Chains.** On a dry attack (strong, no other attack in the next half beat and no voice holding), the note becomes the head of a 4-link chain that runs 1 cell along the cut. The swing is the same, so parity does not change. Only where the tail fits the grid and no other note passes there right after. From Hard up, at most 4, 6 and 8 per thousand notes.
+
+**Reset bombs.** Coming back from a rest (the hand idle for 2 beats and 1.2 seconds or more) on a strong attack, the hand that would cut up gets a bomb at the bottom of its middle column, one beat earlier: the player lifts the arm and the comeback swing goes down. It is the same rule bsmap uses to check parity with bombs. From Hard up, at most one for every 30 seconds of song.
+
 **Safety net.** At the end, one pass fixes rare leftovers by changing only note positions (this never changes parity).
 
 The defects it avoids:
@@ -114,7 +120,7 @@ The defects it avoids:
 - **Lights**: they follow the song sections and the drums. The generator writes "cues" (when, which light, what it does, colour, brightness) and only at the end turns them into map events. Intro and verse keep the back lights on and pulse the rings on the kick; the build-up starts almost dark and turns on one light after another; right before the drop everything goes off; the drop comes in with a white flash, everything on, lasers hitting on the snare and rings spinning on the kick; a break stays dark. A crash cymbal gives a white flash.
 - **Colours**: taken from the cover. The most common tone and the second one (or its opposite, when the cover has a single tone) are the light colours; another pair comes in on the drops. Sabers and notes only use them if you turn the option on, and only when the two tones are clearly different. A grey cover keeps the game colours.
 - **Environment**: follows the mood of the song. Machine tempo or drums in front of everything is "electronic", a noisy sound is "heavy", the rest is "calm". Each mood has a classic environment and a new one; the song decides which. Classic ones light up with basic events, new ones with light groups, and the same cue script feeds both.
-- **Walls**: in pauses of 1.6 seconds or more and at the start of each drop, in the outer column, where there is no note. They are decoration; none of them makes you move.
+- **Walls**: in rests of 1.6 seconds or more without notes. In the longest ones, dodge walls on the beat (they start on a beat, switch sides every 0.75 second or more, up to 4 per rest and one for every 45 seconds of song); the last one of a row may be a crouch wall (up to 2 per map, and none for players who asked for "no notes on the top row"). In the other rests and at the start of each drop, decorative walls in the outer column, which ask for no movement.
 
 ## 5. Pack (`generate.py`)
 
@@ -161,6 +167,6 @@ The page is plain HTML, CSS and JS with no build step (`site\app.html`, `app.css
 ## What it cannot do yet
 
 - Notes faster than a quarter of a beat, triplets and swing.
-- Bombs, chains and dot notes.
+- Dot notes, and bombs or walls in the middle of a passage with notes.
 - Understand song structure beyond "this bar equals that one" and "this one is more intense".
 - Know whether the map is fun. That is what `tools\blind_test.py` is for: it shuffles two versions of the same song as A and B so you can play them without knowing which is which.

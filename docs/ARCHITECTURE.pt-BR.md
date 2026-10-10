@@ -100,6 +100,12 @@ O motor anda pela música batida a batida:
 
 **Notas seguradas.** Onde há nota longa na música, as duas mãos cortam juntas no começo (de baixo para cima, ou o inverso se o braço estiver do outro lado), um arco liga cada nota à nota do fim, cortada no sentido contrário, e não há nada no meio. O Normal não usa. Entram das mais longas para as mais curtas, no máximo uma a cada 20 segundos de música.
 
+**Arcos seguindo a voz.** Quando a mesma mão bate duas vezes enquanto o cantor segura a mesma nota (de 1 a 4 batidas entre os dois golpes), um arco liga as duas notas. Nenhuma nota sai do mapa: o arco sai no sentido do primeiro corte e chega no sentido do segundo, que é o caminho que o braço já faz. Até 40 a cada mil notas, os mais longos primeiro (nos mapas humanos a mediana é 59).
+
+**Correntes.** No ataque seco (forte, sem outro ataque na meia batida seguinte e sem voz segurando), a nota vira a cabeça de uma corrente de 4 elos que segue 1 casa na linha do corte. O golpe é o mesmo, então a paridade não muda. Só onde a cauda cabe na grade e nenhuma outra nota passa por ali logo depois. Do Hard para cima, até 4, 6 e 8 a cada mil notas.
+
+**Bombas de reinício.** Na volta de um respiro (a mão parada há 2 batidas e 1,2 segundo ou mais) num ataque forte, a mão que iria subir ganha uma bomba embaixo, na coluna do meio dela, uma batida antes: a pessoa ergue o braço e o golpe da volta desce. É a mesma regra que o bsmap usa para conferir a paridade com bomba. Do Hard para cima, no máximo uma a cada 30 segundos de música.
+
 **Rede de segurança.** No fim, uma passada conserta sobras raras mexendo só na posição das notas (isso nunca altera a paridade).
 
 Os defeitos evitados:
@@ -114,7 +120,7 @@ Os defeitos evitados:
 - **Luzes**: seguem as partes da música e a bateria. O gerador escreve "deixas" (quando, qual luz, o que ela faz, cor, brilho) e só no fim elas viram evento do mapa. Introdução e verso têm o fundo aceso e os anéis pulsando no bumbo; a subida começa quase apagada e acende uma luz depois da outra; logo antes da queda apaga tudo; a queda entra com um clarão branco, tudo aceso, lasers batendo na caixa e anéis girando no bumbo; a pausa fica no escuro. Prato de ataque dá um clarão branco.
 - **Cores**: saem da capa. O tom que mais aparece e o segundo (ou o oposto dele, se a capa tem um tom só) são as cores das luzes; outro par entra nas quedas. Sabres e notas só usam essas cores se você ligar a opção, e só quando os dois tons são bem diferentes. Capa cinza fica com as cores do jogo.
 - **Cenário**: segue o clima da música. Andamento de máquina ou bateria na frente de tudo é "eletrônico", som cheio de ruído é "pesado", o resto é "calmo". Cada clima tem um cenário clássico e um novo; a música decide qual. Os clássicos acendem com eventos básicos; os novos, com grupos de luzes, e o mesmo roteiro de deixas serve aos dois.
-- **Paredes**: nas pausas de 1,6 segundo ou mais e na entrada de cada queda, na coluna da ponta, onde não há nota. São decoração; nenhuma exige que você se mova.
+- **Paredes**: nos respiros de 1,6 segundo ou mais sem nota. Nos mais longos, paredes de desviar no ritmo (começam numa batida, trocam de lado a cada 0,75 segundo ou mais, até 4 por respiro e uma a cada 45 segundos de música); a última de uma fila pode ser de agachar (até 2 por mapa, e nenhuma para quem pediu "sem notas na linha de cima"). Nos outros respiros e na entrada de cada queda, paredes de enfeite na coluna da ponta, que não pedem movimento.
 
 ## 5. Empacotar (`generate.py`)
 
@@ -161,6 +167,6 @@ A página é HTML, CSS e JS puros, sem etapa de build (`site\app.html`, `app.css
 ## O que ele ainda não sabe fazer
 
 - Notas mais rápidas que 1/4 de batida, tercinas e swing.
-- Bombas, correntes e notas de ponto.
+- Notas de ponto, e bombas ou paredes no meio de um trecho com notas.
 - Entender a estrutura da música além de "este compasso é igual àquele" e "este é mais intenso".
 - Saber se o mapa ficou divertido. Para isso existe o `tools\blind_test.py`: ele embaralha duas versões da mesma música como A e B para você jogar sem saber qual é qual.

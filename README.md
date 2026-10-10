@@ -14,7 +14,7 @@ Beatloom is an unofficial hobby project and is not affiliated with Beat Games.
 2. Separates drums, bass, vocals and the rest with [Demucs](https://github.com/adefossez/demucs), so strong notes follow the drums.
 3. Spends a note budget per bar that follows the energy of the song, and reuses the rhythm of repeated bars (choruses).
 4. Picks swings from a library of 1, 2 and 4 beat windows cut from human maps, keeping wrist parity valid. Repeated bars reuse the same swing pattern when parity allows.
-5. Turns long vocal or melody notes into held notes (arcs), adds lights that follow the song sections and the drums, with the cover colours and an environment picked by the mood of the song, side walls where there is no note, packs the zip, and checks it.
+5. Turns long vocal or melody notes into held notes (arcs), links with arcs the swings the voice carries across, adds chains on dry attacks, reset bombs after rests, lights that follow the song sections and the drums, with the cover colours and an environment picked by the mood of the song, walls where there is no note (decorative, dodge and crouch), packs the zip, and checks it.
 6. Uses the cover and song data (name, artist, album, year, link) found in the file or the link.
 
 Every map comes with a report. It checks: valid schema ([bsmap](https://github.com/KivalEvan/BeatSaber-JSMap)), parity errors, vision blocks, handclaps, stacked notes, one hand's saber passing through the other hand's note, notes on the beat grid, slack at the start and end, and notes per second within the range of each difficulty.
@@ -23,7 +23,7 @@ Every map comes with a report. It checks: valid schema ([bsmap](https://github.c
 
 Be realistic about this. It was developed against one fixed-tempo electronic song with a human map as reference (87% to 96% of our note times also appear in the human map, depending on the difficulty; we cover about 72% of the human's times), and then run on five more songs (indie pop and one heavy rock track). All of them pass the automatic checks. Passing the checks means "playable, no known defect", not "fun". Few of these maps have been played in a headset yet.
 
-Known limits: 1/4 grid only (no triplets or swing), no bombs or chains, no dot notes, the long-note detection behind arcs is simple and has not been checked by ear on many songs, the lights of the newer environments have not been checked in the game yet, and slow songs get many double notes on Expert+ to reach the target density.
+Known limits: 1/4 grid only (no triplets or swing), no dot notes, chains, bombs and dodge walls have not been seen in the game yet, the long-note detection behind arcs is simple and has not been checked by ear on many songs, the lights of the newer environments have not been checked in the game yet, and slow songs get many double notes on Expert+ to reach the target density.
 
 How it works, step by step: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
@@ -79,9 +79,9 @@ The map goes to `saida\<name>-v4.zip` with `saida\<name>-v4.relatorio.txt` next 
 
 Other tools: `report.py <zip>` re-runs the checks, `tools\blind_test.py <a.zip> <b.zip>` builds a blind A/B pair of the same song, and `tools\batch.py <list.txt> <folder>` generates several songs at once and summarises the reports. `tools\check_i18n.py` checks that both languages have the same phrases and `tools\timing.py <audio>` measures how long each part of the generation takes.
 
-The link can be a YouTube playlist: each track is queued and becomes a map, one at a time. Pasting the same playlist again does not repeat work: a track that already has a map is left out, one whose check failed gets its notes redone, and only the missing ones are queued. You can pause the queue, clear it or remove one item; it is saved to disk, so closing Beatloom does not lose it (the song that was being made starts over).
+The link can be a YouTube playlist: each track is queued and becomes a map, one at a time. Pasting the same playlist again does not repeat work: a track that already has a map is left out, one whose check failed is redone, and only the missing ones are queued. You can pause the queue, clear it or remove one item; it is saved to disk, so closing Beatloom does not lose it (the song that was being made starts over).
 
-In Settings, "The way you play" has three preferences: no notes on the top row, no note hidden behind another (two notes in a row in the same spot less than 0.3 s apart), and how much the arms may cross on Expert and Expert+ (never, a little, free). They apply to new maps and to the ones you redo: select maps in the list and use "Redo the notes", which reuses the saved analysis and takes seconds per map. On the command line it is `--prefs sem_topo,sem_fila,cruzar_nunca` (or `cruzar_livre`; with neither, a little).
+In Settings, "The way you play" has three preferences: no notes on the top row, no note hidden behind another (two notes in a row in the same spot less than 0.3 s apart), and how much the arms may cross on Expert and Expert+ (never, a little, free). They apply to new maps and to the ones you redo: select maps in the list and use "Redo the maps", or "Redo all maps" for the whole list. The map is made again from scratch with the current generator (notes, lights, environment, colours) and keeps its name, artist, link, cover, mode and difficulties; the previous version is kept in `saida\versoes`. The saved analysis is reused while it is still valid, and then it takes about 10 seconds per map. On the command line it is `--prefs sem_topo,sem_fila,cruzar_nunca` (or `cruzar_livre`; with neither, a little).
 
 The installer and the release come from CI (`.github\workflows\release.yml`): `git tag v1.0.1` and `git push origin v1.0.1` build `beatloom-setup.exe` with Inno Setup (`installer\beatloom.iss`) and publish the release with the list of commits since the previous tag.
 
