@@ -81,7 +81,7 @@ Other tools: `report.py <zip>` re-runs the checks, `tools\blind_test.py <a.zip> 
 
 The link can be a YouTube playlist: each track is queued and becomes a map, one at a time. Pasting the same playlist again does not repeat work: a track that already has a map is left out, one whose check failed gets its notes redone, and only the missing ones are queued. You can pause the queue, clear it or remove one item; it is saved to disk, so closing Beatloom does not lose it (the song that was being made starts over).
 
-In Settings, "The way you play" has two preferences: no notes on the top row, and no note hidden behind another (two notes in a row in the same spot less than 0.3 s apart). They apply to new maps and to the ones you redo: select maps in the list and use "Redo the notes", which reuses the saved analysis and takes seconds per map. On the command line it is `--prefs sem_topo,sem_fila`.
+In Settings, "The way you play" has three preferences: no notes on the top row, no note hidden behind another (two notes in a row in the same spot less than 0.3 s apart), and how much the arms may cross on Expert and Expert+ (never, a little, free). They apply to new maps and to the ones you redo: select maps in the list and use "Redo the notes", which reuses the saved analysis and takes seconds per map. On the command line it is `--prefs sem_topo,sem_fila,cruzar_nunca` (or `cruzar_livre`; with neither, a little).
 
 The installer and the release come from CI (`.github\workflows\release.yml`): `git tag v1.0.1` and `git push origin v1.0.1` build `beatloom-setup.exe` with Inno Setup (`installer\beatloom.iss`) and publish the release with the list of commits since the previous tag.
 

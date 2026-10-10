@@ -78,10 +78,13 @@ O motor anda pela música batida a batida:
 
 1. Olha o ritmo das próximas 4 batidas e procura na biblioteca janelas humanas com **exatamente o mesmo ritmo**.
 2. Testa as candidatas contra o estado atual dos seus braços: onde cada sabre está, para que lado foi o último golpe, quanto o pulso está girado. Descarta as que quebram a paridade, as que pedem um movimento rápido demais para a mão, e as que criam defeito (ver abaixo).
-3. Entre as que sobram, prefere aquelas em que o braço chega vindo do mesmo lugar que no mapa humano original, e as que deixam a próxima batida fácil de continuar.
-4. Se nenhuma janela de 4 batidas serve, tenta de 2, depois de 1. Se nada serve, usa o último recurso: sobe e desce reto, cada mão no seu lado.
+3. Entre as que sobram, prefere aquelas em que o braço chega vindo do mesmo lugar que no mapa humano original. A emenda entre duas janelas que mapa humano quase nunca faz (as trocas de posição mais raras, que somam 2% de todas as da biblioteca) perde pontos. Do Hard para cima, a janela que vem de mapas mais bem avaliados ganha um pouco.
+4. As cinco melhores candidatas são então ensaiadas até 8 batidas à frente, cada uma seguida pela melhor escolha de cada janela seguinte. Ganha a que deixa o resto da frase sair melhor: janelas maiores que ainda cabem, desenho repetido que consegue voltar, nada de cair no último recurso.
+5. Se nenhuma janela de 4 batidas serve, tenta de 2, depois de 1. Se nada serve, usa o último recurso: sobe e desce reto, cada mão no seu lado.
 
 **Refrão igual, desenho igual.** Em compasso repetido, o motor tenta reusar o desenho que usou no original. Há um detalhe: cada nota inverte o lado do braço, então metade das vezes você chega ao refrão "pelo outro lado" e o desenho idêntico seria impossível. Nesses casos ele usa o mesmo desenho espelhado de cima para baixo: mesmo ritmo, mesmas mãos, mesmas colunas.
+
+**Motivo e variação.** Repetir nem sempre é copiar. Na segunda vez que um compasso volta (e na sexta, na décima...) o motor tenta primeiro o desenho espelhado da esquerda para a direita, com as mãos trocando de papel. Na terceira, tenta o mesmo desenho com um acento a mais: no ataque mais forte em cima da batida em que só uma mão bate, a outra entra junto, ao lado. Se a variação não cabe, vale o desenho normal.
 
 **Altura por instrumento.** Entre padrões equivalentes, bateria tende a ficar embaixo (bumbo na linha de baixo, caixa na do meio) e voz e melodia em cima. Onde começa uma sílaba cantada sem batida forte da bateria junto, quem escolhe é a voz: nota mais aguda que a frase em volta vai para cima, mais grave vai para baixo, e melodia subindo prefere corte para cima. É uma preferência, não uma regra: a paridade e os defeitos vêm antes, então só parte das notas segue a voz.
 
@@ -89,7 +92,11 @@ O motor anda pela música batida a batida:
 
 **Verso diferente de refrão.** Trecho intenso prefere desenhos abertos (linhas de cima, pontas, diagonais); trecho calmo prefere sobe e desce simples embaixo. Um desenho que já saiu muitas vezes perde pontos, para não repetir sempre o mesmo.
 
-**Velocidade do braço.** Cada dificuldade tem um teto para a distância que a mesma mão percorre entre duas notas (6, 8, 10 e 12 casas por segundo), tirado do 1% mais rápido dos mapas humanos. No Normal e no Hard os braços nunca cruzam; no Expert e no Expert+ cruzar perde pontos. O Normal também evita diagonais.
+**Velocidade do braço.** Cada dificuldade tem um teto para a distância que a mesma mão percorre entre duas notas (6, 8, 10 e 12 casas por segundo), tirado do 1% mais rápido dos mapas humanos. O Normal também evita diagonais.
+
+**Braços cruzados.** No Easy, no Normal e no Hard os braços nunca cruzam. No Expert e no Expert+ quem escolhe é o jogador, na Configuração: nunca, pouco (o padrão: no máximo 8 cruzamentos a cada mil notas no Expert e 20 no Expert+, que é o quarto dos mapas humanos que menos cruza) ou livre (cruzar só perde pontos).
+
+**Pilhas.** Depois de escolhidos os golpes, os acentos mais fortes dos trechos intensos ganham uma pilha: uma segunda nota da mesma cor na casa vizinha, na linha do corte, e um golpe só passa pelas duas. O Hard recebe umas 3 a cada mil notas, o Expert 8 e o Expert+ 15, perto dos mapas humanos mais leves. No Expert e no Expert+ uma pilha por mapa vira torre de três notas. A pilha só entra onde a mão tem um quarto de segundo livre antes e depois e onde não cria defeito.
 
 **Notas seguradas.** Onde há nota longa na música, as duas mãos cortam juntas no começo (de baixo para cima, ou o inverso se o braço estiver do outro lado), um arco liga cada nota à nota do fim, cortada no sentido contrário, e não há nada no meio. O Normal não usa. Entram das mais longas para as mais curtas, no máximo uma a cada 20 segundos de música.
 
@@ -147,7 +154,7 @@ A página é HTML, CSS e JS puros, sem etapa de build (`site\app.html`, `app.css
 
 ## A biblioteca de padrões (`tools\download_maps.py`, `tools\extract_patterns.py`)
 
-`tools\download_maps.py` busca no BeatSaver mapas com nota alta e muitos votos, feitos por pessoas, sem mods, e guarda só os arquivos de notas (o áudio é descartado). `tools\extract_patterns.py` corta esses mapas nas janelas descritas acima, também em versão espelhada (esquerda ↔ direita), e grava um arquivo por dificuldade em `dados\`.
+`tools\download_maps.py` busca no BeatSaver mapas com nota alta e muitos votos, feitos por pessoas, sem mods, e guarda só os arquivos de notas (o áudio é descartado). `tools\extract_patterns.py` corta esses mapas nas janelas descritas acima, também em versão espelhada (esquerda ↔ direita), e grava um arquivo por dificuldade em `dados\`. Janela de mapa mais bem avaliado pesa mais: pela posição na ordem das avaliações, de 0,5 no mapa pior avaliado do conjunto a 2 no melhor.
 
 ## O que ele ainda não sabe fazer
 

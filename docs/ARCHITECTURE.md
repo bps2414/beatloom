@@ -78,10 +78,13 @@ The engine walks through the song beat by beat:
 
 1. It looks at the rhythm of the next 4 beats and searches the library for human windows with **exactly the same rhythm**.
 2. It tests the candidates against the current state of your arms: where each saber is, which way the last swing went, how far the wrist is rotated. It drops the ones that break parity, the ones that need a move too fast for the hand, and the ones that create a defect (see below).
-3. Among those left, it prefers windows where the arm arrives from the same place as in the original human map, and windows that leave the next beat easy to continue.
-4. If no 4-beat window fits, it tries 2 beats, then 1. If nothing fits, it uses the last resort: straight up and down, each hand on its own side.
+3. Among those left, it prefers windows where the arm arrives from the same place as in the original human map. A join between two windows that human maps almost never make (the rarest position changes, which add up to 2% of all of them in the library) loses points. From Hard up, a window that comes from better-rated maps gains a little.
+4. The five best candidates are then rehearsed up to 8 beats ahead, each one followed by the best choice for every next window. The one that leaves the rest of the phrase in better shape wins: larger windows that still fit, a repeated layout that can come back, no fall to the last resort.
+5. If no 4-beat window fits, it tries 2 beats, then 1. If nothing fits, it uses the last resort: straight up and down, each hand on its own side.
 
 **Same chorus, same layout.** In a repeated bar, the engine tries to reuse the layout it used the first time. There is a catch: every note flips the side your arm is on, so about half the time you arrive at the chorus "from the other side" and the identical layout would be impossible. In that case it uses the same layout flipped top to bottom: same rhythm, same hands, same columns.
+
+**Motif and variation.** A repeat is not always a copy. The second time a bar comes back (and the sixth, the tenth...) the engine first tries the layout mirrored left to right, so the hands swap roles. The third time it tries the same layout with one more accent: on the strongest on-beat hit where only one hand plays, the other joins in beside it. If the variation does not fit, the plain layout is used.
 
 **Height by instrument.** Among equivalent patterns, drums tend to go low (kick on the bottom row, snare on the middle one) and vocals and melody go high. Where a sung syllable starts with no strong drum hit on it, the voice decides: a note higher than the phrase around it goes up, a lower one goes down, and a rising melody prefers an upward cut. This is a preference, not a rule: parity and defects come first, so only part of the notes follow the voice.
 
@@ -89,7 +92,11 @@ The engine walks through the song beat by beat:
 
 **Verse differs from chorus.** An intense part prefers open layouts (upper rows, outer columns, diagonals); a calm part prefers simple up and down swings low. A layout that has already been used many times loses points, so the same one does not keep coming back.
 
-**Arm speed.** Each difficulty has a cap on how far the same hand travels between two notes (6, 8, 10 and 12 slots per second), taken from the fastest 1% of the human maps. On Normal and Hard the arms never cross; on Expert and Expert+ crossing loses points. Normal also avoids diagonals.
+**Arm speed.** Each difficulty has a cap on how far the same hand travels between two notes (6, 8, 10 and 12 slots per second), taken from the fastest 1% of the human maps. Normal also avoids diagonals.
+
+**Crossed arms.** On Easy, Normal and Hard the arms never cross. On Expert and Expert+ it is the player's choice, in Settings: never, a little (the default: at most 8 crossings per thousand notes on Expert and 20 on Expert+, which is the quarter of the human maps that crosses least) or free (crossing only loses points).
+
+**Stacks.** After the swings are chosen, the strongest accents of the intense parts get a stack: a second note of the same colour in the next cell along the cut, so one swing goes through both. Hard gets about 3 per thousand notes, Expert 8 and Expert+ 15, close to the lighter human maps. On Expert and Expert+ one stack per map becomes a tower of three notes. A stack only goes where the hand is free for a quarter of a second before and after and where it creates no defect.
 
 **Held notes.** Where the song has a long note, both hands cut together at the start (upward from the bottom, or the reverse if the arm is on the other side), an arc links each note to the end note, which is cut the opposite way, and there is nothing in between. Normal does not use them. They go in from longest to shortest, at most one for every 20 seconds of song.
 
@@ -147,7 +154,7 @@ The page is plain HTML, CSS and JS with no build step (`site\app.html`, `app.css
 
 ## The pattern library (`tools\download_maps.py`, `tools\extract_patterns.py`)
 
-`tools\download_maps.py` searches BeatSaver for maps with a high rating and many votes, made by people, without mods, and keeps only the note files (the audio is discarded). `tools\extract_patterns.py` cuts those maps into the windows described above, also in a mirrored version (left ↔ right), and writes one file per difficulty into `dados\`.
+`tools\download_maps.py` searches BeatSaver for maps with a high rating and many votes, made by people, without mods, and keeps only the note files (the audio is discarded). `tools\extract_patterns.py` cuts those maps into the windows described above, also in a mirrored version (left ↔ right), and writes one file per difficulty into `dados\`. A window from a better-rated map weighs more: by its position in the rating order, from 0.5 for the lowest-rated map of the set to 2 for the best.
 
 ## What it cannot do yet
 

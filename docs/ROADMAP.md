@@ -6,7 +6,7 @@ Escrito em 10/10/2026, depois das quatro fatias do redesenho ([plan/README.md](p
 
 Pedido do dono: detector melhor, mapa mais humano, mais intenso e mais realista; vocais melhor detectados; "sentir" a música; notas mais coerentes.
 
-Como está hoje (depois do bloco 1.1), para saber de onde se parte: batidas pelo beat_this, ataques pelo librosa na música inteira e em cada uma das quatro faixas do Demucs (bateria, baixo, voz, resto), altura cantada pelo pYIN, peças da bateria por faixa de frequência, partes da música (intro, verso, subida, queda, pausa), intensidade por compasso, compassos repetidos reaproveitam o desenho, e os golpes vêm de trechos de 1, 2 ou 4 batidas tirados de mapas humanos.
+Como está hoje (depois dos blocos 1.1 e 1.2), para saber de onde se parte: batidas pelo beat_this, ataques pelo librosa na música inteira e em cada uma das quatro faixas do Demucs (bateria, baixo, voz, resto), altura cantada pelo pYIN, peças da bateria por faixa de frequência, partes da música (intro, verso, subida, queda, pausa), intensidade por compasso, e os golpes vêm de trechos de 1, 2 ou 4 batidas tirados de mapas humanos, escolhidos ensaiando 8 batidas à frente; compasso repetido reaproveita o desenho, espelhado ou com um acento a mais nas voltas; pilhas nos acentos; braços cruzados com teto.
 
 **Ordem.** O 1.0 vem primeiro, porque os outros medem com ele. O 1.4 (pesquisa) pode vir a qualquer hora e rende mais antes do 1.1, porque pode poupar trabalho. O 1.1 vem antes do 1.2 e de parte do 1.3: as luzes (1.3 item 1) usam as partes da música (1.1 item 3) e os arcos (1.3 item 6) usam a voz (1.1 item 1). Do 1.3, os itens 2, 3, 7 e 8 não dependem de nada. Os blocos 2, 3 e 4 são livres.
 
@@ -84,6 +84,57 @@ Limites conhecidos:
 
 ### 1.2 Golpes mais humanos
 
+**Feito em 10/10/2026**, um commit por item. Medido nas mesmas 18 músicas do 1.1 (o zip mais novo de cada uma em `saida\`, regerado do `song.egg`, sem preferências). Os números do `tools/medir.py`, antes do bloco → depois:
+
+| Dificuldade | Notas | Cobertura | Precisão | Correlação |
+|---|---|---|---|---|
+| Easy | 259 → 261 | 47% → 47% | 73% → 73% | 0,88 → 0,87 |
+| Normal | 390 → 391 | 62% → 62% | 66% → 66% | 0,91 → 0,91 |
+| Hard | 534 → 537 | 70% → 70% | 61% → 61% | 0,82 → 0,82 |
+| Expert | 748 → 754 | 83% → 83% | 53% → 53% | 0,83 → 0,83 |
+| Expert+ | 917 → 932 | 88% → 88% | 49% → 49% | 0,75 → 0,76 |
+
+Passam em todas as conferências: 18 de 18 antes e depois, sem preferências e com as do dono (`sem_topo`, `sem_fila`). Nenhum aviso de paridade.
+
+O que os números dizem e o que não dizem:
+
+- O `medir.py` só enxerga os tempos das notas, e este bloco quase não mexe neles: a tabela acima mostra que nada piorou, não que melhorou. As notas a mais são as pilhas. A correlação do Easy foi de 0,878 para 0,874 no bloco, 0,003 disso no item 5; as outras ficaram iguais ou subiram (Expert+ 0,748 → 0,755). Foi tratado como ruído e o item 5 ficou; é a única queda do bloco no `medir.py`.
+- Por isso cada item tem medida própria (scripts de bancada, fora do repositório). A principal é nova: **trocas de posição raras**. Dos mil mapas humanos saem todas as trocas de posição da mesma mão (casa e direção de uma nota para a seguinte, até 4 batidas); as mais raras, que somam 2% do total, contam como "raras". Mapa humano tem 2% por definição. Notas seguradas ficam de fora da conta (o desenho delas é do bloco 1.3).
+- Essa medida balança: no Easy ela foi de 2,3% a 3,0% entre os itens 1 e 3, que quase não mexem nele. Diferença de meio ponto não quer dizer nada.
+- Nenhum mapa foi jogado. O botão novo da Configuração foi visto no navegador; o resto é número.
+
+| Item | Medida | Antes | Depois |
+|---|---|---|---|
+| 1 Contexto | trocas de posição raras (Easy / Normal / Hard / Expert / Expert+) | 6,6% / 4,0% / 3,6% / 2,9% / 2,0% | 2,3% / 3,1% / 2,6% / 2,8% / 1,2% |
+| 1 Contexto | Expert+: janelas que caíram na regra simples, e notas descartadas (soma das 18 músicas) | 43 e 47 | 30 e 26 |
+| 2 Variação | janelas de compasso repetido que voltaram espelhadas (Easy / Normal / Hard / Expert / Expert+) | 0 | 207 / 147 / 145 / 143 / 150 |
+| 2 Variação | janelas de compasso repetido com um acento a mais (mesma ordem) | 0 | 35 / 15 / 16 / 2 / 2 |
+| 2 Variação | janelas de compasso repetido que reaproveitaram o desenho, em qualquer versão (Hard / Expert / Expert+) | 80% / 72% / 62% | 80% / 72% / 63% |
+| 3 Pilhas | pilhas a cada mil notas (Hard / Expert / Expert+); nos mapas humanos a mediana é 6 / 16 / 30 e o quarto mais leve 0 / 3 / 11 | 0 | 2,6 / 6,6 / 13,1 |
+| 3 Pilhas | torres (Expert, Expert+) | 0 | uma por mapa, em quase todos |
+| 4 Cruzados | a cada mil notas, com as preferências do dono (Expert / Expert+) | 16,9 / 46,3 | pouco 5,7 / 18,2; nunca 0 / 0; livre 16,9 / 46,3 |
+| 4 Cruzados | a cada mil notas, sem preferências (Expert / Expert+) | 9,8 / 25,7 | pouco 4,3 / 17,2 |
+| 5 Qualidade | peso médio dos mapas de origem dos padrões escolhidos, de 0,5 a 2 (Hard / Expert / Expert+, em 6 músicas) | 1,35 / 1,33 / 1,30 | 1,41 / 1,40 / 1,37 |
+
+"Antes" e "depois" de cada linha são o código logo antes e logo depois daquele item. No fim do bloco, com tudo junto, as trocas raras ficaram em 2,7% / 2,3% / 2,5% / 2,4% / 1,0%.
+
+O que cada item faz:
+
+- **1 Contexto.** Duas coisas. A emenda entre dois padrões agora é comparada com o que os mapas humanos fazem: troca de posição rara perde pontos (a tabela sai da própria biblioteca, sem arquivo novo). E os cinco melhores encaixes de cada janela são ensaiados até 8 batidas à frente; ganha o que deixa o resto da frase sair melhor. Só o ensaio, sem a tabela, deu empate com o ponto de partida; só a tabela deu 4,4% / 3,3% / 3,5% / 2,2% / 1,3%; os dois juntos, o resultado acima.
+- **2 Variação.** Na 2ª, 6ª... vez que um compasso volta, o desenho vem espelhado (as mãos trocam de papel); na 3ª, 7ª..., com um acento a mais (a outra mão entra junto no ataque mais forte). Se a variação não cabe, vale o desenho igual, e depois o invertido na vertical, como antes.
+- **3 Pilhas e torres.** Nos acentos mais fortes dos trechos intensos a nota ganha outra da mesma cor na casa vizinha, na linha do corte. Cota por dificuldade perto do quarto mais leve dos mapas humanos. Uma torre por mapa no Expert e no Expert+. A primeira versão punha as pilhas onde a mão estava livre, que é o trecho calmo, e a correlação caía (Expert 0,83 → 0,81); pesar o acento pela intensidade do compasso resolveu.
+- **4 Braços cruzados.** Chave nova na Configuração, em "Seu jeito de jogar": Nunca, Pouco (padrão), Livre. "Pouco" é um teto de 8 cruzamentos a cada mil notas no Expert e 20 no Expert+ (o quarto dos mapas humanos que menos cruza). Na linha de comando, `--prefs cruzar_nunca` ou `cruzar_livre`.
+- **5 Qualidade.** Na biblioteca, cada padrão pesa conforme a avaliação do mapa de onde veio (0,5 no pior avaliado dos mil, 2 no melhor, pela posição na fila) e guarda a qualidade média das fontes, que do Hard para cima soma pontos na escolha.
+
+Limites conhecidos:
+
+- **Contexto.** A voz perdeu um pouco: notas de sílaba na linha que a altura da voz pede foram de 45% para 43% no Hard e de 44% para 42% no Expert (o sentido do corte subiu de 54% para 59% no Hard). A emenda humana e a voz disputam os mesmos pontos. Desenho idêntico em compasso repetido também caiu um pouco (Expert+: 290 → 258 janelas), compensado pelo invertido.
+- **Variação.** Desenho idêntico ao original caiu para a metade (no Hard, de 252 janelas para 139), porque metade das voltas agora vem espelhada: é o que o item pede, mas só jogando se sabe se o refrão continua reconhecível. O acento a mais quase não aparece no Expert e no Expert+ (2 em 18 músicas): ele só cabe onde a outra mão não bate mais na janela, e nessas dificuldades as duas mãos se alternam o tempo todo. Lá o acento vem das pilhas.
+- **Torres.** Mapper humano quase não usa (0,1 a 0,2 a cada mil notas, mais ou menos uma a cada sete mapas). Aqui sai uma por mapa porque o item pede; se incomodar, é um trecho curto para tirar (`empilhar` em `generate.py`). Com "sem notas na linha de cima" não há torre, porque ela ocupa as três linhas.
+- **Cruzados.** Com as preferências do dono ligadas, segurar os braços custa encaixe no Expert+: as janelas resolvidas pela regra simples sobem de 148 para 223 (soma das 18 músicas, uns 4 a mais por mapa) e as notas descartadas de 106 para 138. Com "nunca", 293 e 148.
+- **Qualidade.** O efeito é pequeno: os mil mapas têm avaliação entre 0,96 e 0,99, então há pouco o que separar. No Easy e no Normal o peso na escolha ficou desligado: com ele as trocas raras subiam (Easy 3,0% → 4,1%, Normal 2,2% → 2,7%) e o ganho de qualidade era de 0,02 a 0,04. Quem já tem a biblioteca instalada continua com a antiga, que funciona igual, sem o peso; para ganhar o peso é preciso montar de novo (`tools\extract_patterns.py`, um minuto, precisa de `dados\mapas`). Nesta máquina já foi montada.
+- Corrigido no caminho: o motor conferia braço cruzado com uma janela curta demais e sem folga de arredondamento, e em música de 150 BPM (batida de exatamente 0,4 s) podia escapar um cruzamento no Hard.
+
 1. **Contexto maior.** Escolher o trecho olhando 8 batidas e o que vem depois, não só o encaixe com o estado atual dos braços.
 2. **Motivo e variação.** Refrão repete o desenho (já faz), mas a segunda vez pode vir espelhada ou com um acento a mais, como mapper faz.
 3. **Vocabulário que falta.** Torres e pilhas em acento; correntes, bombas e paredes estão no bloco 1.3.
@@ -137,11 +188,7 @@ Atualizar os mapas antigos de uma vez, bloco 3 item 9 (bom logo depois do 1.1, a
 Roadmap bloco 3 item 9 (atualizar os mapas antigos de uma vez, análise em camadas, só as luzes, mapa travado): meça primeiro com tools/timing.py o que o cache guarda e o que roda de novo, depois faça. Atualize o roadmap, commit e push ao final.
 ```
 
-1.2 inteira (golpes mais humanos):
-
-```text
-Execute o bloco 1.2 do roadmap inteiro, um item por vez. A cada item: meça antes e depois com tools/medir.py, desfaça se piorar, e faça commit. Não pare para aprovar entre itens. No fim, atualize o roadmap com o que foi feito, push, e me diga duas músicas para eu testar.
-```
+1.2: feito em 10/10/2026, não precisa rodar de novo. Resultados no bloco 1.2.
 
 1.3, primeira parte (luzes, cores da capa, ambiente, o mapa reagindo à música: itens 1 a 5):
 
