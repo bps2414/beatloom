@@ -59,7 +59,7 @@ function traduzir() {
   $("lingua").textContent = lingua === "pt" ? "English" : "Português";
   for (const b of $("p-linguas").children) b.setAttribute("aria-pressed", b.dataset.l === lingua);
   for (const id of ["dens", "c-dens", "r-dens"]) dens(id);
-  pintarArquivo(); pintarTrabalhos(); pintarLista(); pintarMapa(); pintarQuest();
+  pintarArquivo(); pintarTrabalhos(); pintarLista(); pintarMapa(); pintarQuest(); resumo();
   if ($("painel").open) { botoes(); verPreparo(); verConfig(); }
 }
 function mudarLingua(l) { lingua = l; salvar({ lingua }); traduzir(); }
@@ -78,12 +78,23 @@ function previa(d, capa, info) {  // capa, nome e artista antes de gerar, para a
   $("p-info").textContent = lista ? t("lista_n", { n: lista.length, nome: d.nome }) : [d.album, d.ano, info, t("confira")].filter(Boolean).join(", ");
 }
 function semPrevia() { $("previa").hidden = true; $("nome").value = ""; $("artista").value = ""; extra = {}; miniatura = null; lista = null; }
+function resumo() {  // o que as opcoes fechadas dizem: as dificuldades marcadas, a quantidade de notas e o modo rapido
+  const d = +$("dens").value;
+  $("opc-resumo").textContent = [marcadasEm("escolha").map((n) => NOMES[n]).join(" "), d !== 1 && "×" + num(d, 2), $("rapido").checked && t("rapido")].filter(Boolean).join(" · ");
+}
+$("dens").addEventListener("input", resumo); $("rapido").onchange = resumo;
 function abrirNovo() {
   if ($("d-novo").open) return;
-  $("erro").hidden = true; alternadores("escolha", cfg.difs); $("dens").value = cfg.densidade; dens("dens"); $("rapido").checked = cfg.modo === "rapido"; $("sabres").checked = !!cfg.sabres_capa;
+  $("erro").hidden = true; alternadores("escolha", cfg.difs, resumo); $("dens").value = cfg.densidade; dens("dens"); $("rapido").checked = cfg.modo === "rapido"; $("sabres").checked = !!cfg.sabres_capa;
+  $("opcoes").open = false; resumo();
   $("d-novo").showModal();
 }
-$("novo").onclick = $("vz-novo").onclick = abrirNovo;
+$("novo").onclick = abrirNovo;
+$("vz-form").onsubmit = (e) => {  // o campo da tela vazia leva o link ao dialogo, que mostra a previa e as opcoes
+  e.preventDefault(); const l = $("vz-link").value.trim(); abrirNovo();
+  if (l) { $("link").value = l; verLink(); }
+  $("vz-link").value = "";
+};
 async function verLink() {
   const link = $("link").value.trim();
   if (link === ultimoLink) return;
@@ -135,6 +146,13 @@ $("form").onsubmit = async (e) => {
 // ---------- biblioteca: geracoes em andamento e mapas prontos
 const vistos = new Set(), linhas = new Map(), marcados = new Set();
 let primeira = true;
+const ETAPAS = ["ouvindo", "golpes", "empacotando", "conferindo"];
+function trilha(tr, passo, qual) {  // um trecho por etapa: as feitas cheias, a de agora enchendo (separacao em %, golpes por dificuldade) ou pulsando quando nao ha medida
+  const nomes = tr.passos.includes("baixando") ? ["baixando", ...ETAPAS] : ETAPAS, agora = Math.max(nomes.indexOf(passo), 0), g = /\((\d+)\/(\d+)\)/.exec(qual || "");
+  const p = tr.progresso != null ? tr.progresso : passo === "golpes" && g ? ((g[1] - 1) / g[2]) * 100 : null, c = el("div", "trilha"); c.setAttribute("aria-hidden", "true");
+  nomes.forEach((_, i) => { const b = el("i", i < agora ? "feito" : i > agora ? "falta" : p == null ? "agora corre" : "agora"); if (i === agora && p != null) b.style.setProperty("--p", p + "%"); c.append(b); });
+  return c;
+}
 function pintarTrabalhos() {
   const vivos = estado.trabalhos.filter((tr) => tr.estado !== "pronto"), chave = JSON.stringify([vivos, lingua, estado.pausada]);
   if (chave === pintarTrabalhos.chave) return;  // so redesenha quando muda: nao rouba o foco do botao de dispensar
@@ -155,7 +173,7 @@ function pintarTrabalhos() {
     const etapaDe = tr.progresso != null ? "separando" : passo;  // a separacao acontece dentro de "ouvindo" e tem barra propria
     const etapa = e ? e.msg : tr.estado === "na fila" ? t("fila") : t("passo_" + etapaDe) + (qual ? " " + qual.replace("ExpertPlus", "Expert+") : "") + (tr.progresso != null ? " " + tr.progresso + "%" : "");
     c.append(capa, el("b", "", tr.titulo), el("span", "etapa", etapa));
-    if (tr.estado === "rodando") { const p = el("progress"); p.max = 100; if (tr.progresso != null) p.value = tr.progresso; c.append(p); }
+    if (tr.estado === "rodando") c.append(trilha(tr, passo, qual));
     if (ruim || tr.estado === "na fila") {
       const fim = el("div", "fim"), b = el("button", "quieto", t("dispensar")); b.type = "button";
       b.onclick = async () => { await api("/api/trabalho/dispensar", { id: tr.id }); atualizar(); };
@@ -164,10 +182,20 @@ function pintarTrabalhos() {
     $("trabalhos").append(c);
   }
 }
+let busca = "", ordem = "recentes", listadas = [];  // listadas: os mapas que a lista mostra neste momento (a busca esconde o resto)
+const ls = { ler: (k) => { try { return localStorage.getItem(k); } catch { return null; } }, gravar: (k, v) => { try { localStorage.setItem(k, v); } catch { /* sem armazenamento: so nao lembra */ } } };
+const sem = (x) => String(x).normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
+const ORDENS = { nome: (a, b) => a.nome.localeCompare(b.nome, lingua), artista: (a, b) => a.artista.localeCompare(b.artista, lingua) || a.nome.localeCompare(b.nome, lingua), bpm: (a, b) => b.bpm - a.bpm, falhou: (a, b) => (a.ok === false ? 0 : 1) - (b.ok === false ? 0 : 1) };  // "recentes" e a ordem do servidor
+if (ORDENS[ls.ler("beatloom.ordem")]) ordem = ls.ler("beatloom.ordem");
+$("ordem").value = ordem;
+$("busca").oninput = () => { busca = $("busca").value; pintarLista(); };
+$("ordem").onchange = () => { ordem = $("ordem").value; ls.gravar("beatloom.ordem", ordem); pintarLista(); };
 function pintarLista() {
-  const ul = $("mapas");
+  const ul = $("mapas"), q = sem(busca.trim());
+  listadas = estado.mapas.filter((m) => !q || sem(m.nome + " " + m.artista).includes(q)); if (ORDENS[ordem]) listadas.sort(ORDENS[ordem]);
+  for (const z of marcados) if (!listadas.some((m) => m.zip === z)) marcados.delete(z);  // o que a busca esconde sai da selecao: o lote so mexe no que se ve
   for (const [z, li] of linhas) if (!estado.mapas.some((m) => m.zip === z)) { li.remove(); linhas.delete(z); marcados.delete(z); }
-  estado.mapas.forEach((m, i) => {  // uma linha por zip, reaproveitada: refazer a lista roubaria o foco e faria as capas piscarem
+  [...listadas, ...estado.mapas.filter((m) => !listadas.includes(m))].forEach((m, i) => {  // uma linha por zip, reaproveitada: refazer a lista roubaria o foco e faria as capas piscarem; as escondidas vao para o fim
     let li = linhas.get(m.zip);
     if (!li) {
       li = $("m-linha").content.firstElementChild.cloneNode(true); linhas.set(m.zip, li);
@@ -175,6 +203,7 @@ function pintarLista() {
       li.querySelector(".marcar").onchange = (e) => { marcados[e.target.checked ? "add" : "delete"](m.zip); pintarLote(); };
     }
     if (ul.children[i] !== li) ul.insertBefore(li, ul.children[i] || null);
+    li.hidden = !listadas.includes(m);
     const q = (s) => li.querySelector(s), capa = `/api/capa?zip=${enc(m.zip)}&v=${m.v}`, la = quest.mapas[m.zip];
     if (q(".capa").getAttribute("src") !== capa) q(".capa").src = capa;
     q(".n").textContent = m.nome; q(".a").textContent = m.artista; q(".bpm").textContent = num(m.bpm); q(".dur").textContent = m.dur ? tempo(m.dur) : "–";
@@ -187,27 +216,40 @@ function pintarLista() {
     q(".marcar").checked = marcados.has(m.zip); q(".marcar").setAttribute("aria-label", t("marcar", { nome: m.nome }));
   });
   const nada = !estado.mapas.length && !estado.trabalhos.some((tr) => tr.estado !== "pronto");
-  $("sem-mapas").hidden = estado.mapas.length > 0; document.body.classList.toggle("sem-nada", nada);
-  $("vz-titulo").textContent = t(estado.mapas.length ? "convite" : "titulo"); $("vz-sub").textContent = estado.mapas.length ? "" : t("sub"); $("vz-novo").hidden = estado.mapas.length > 0;
+  $("sem-mapas").hidden = estado.mapas.length > 0; $("sem-achado").hidden = !estado.mapas.length || listadas.length > 0; $("filtro").hidden = estado.mapas.length < 5; document.body.classList.toggle("sem-nada", nada);
+  $("vz-titulo").textContent = t(estado.mapas.length ? "convite" : "titulo"); $("vz-sub").textContent = estado.mapas.length ? "" : t("sub"); $("vz-form").hidden = estado.mapas.length > 0;
   pintarLote();
 }
 function pintarLote() {
-  const faltam = quest.conectado ? estado.mapas.filter((m) => quest.mapas[m.zip] !== "ok") : [];  // os que nao estao no Quest, ou estao numa versao antiga
+  const faltam = quest.conectado ? listadas.filter((m) => quest.mapas[m.zip] !== "ok") : [];  // os que nao estao no Quest, ou estao numa versao antiga
   $("barra-lista").hidden = !estado.mapas.length; $("q-novos").hidden = !faltam.length; $("q-novos").textContent = t("q_novos", { n: faltam.length });
   $("q-novos").onclick = () => enviar(faltam.map((m) => m.zip), $("q-novos"));
-  $("marcar-todos").textContent = t(marcados.size === estado.mapas.length ? "desmarcar_todos" : "marcar_todos"); $("lote-enviar").hidden = !quest.conectado;
+  $("marcar-todos").textContent = t(marcados.size === listadas.length ? "desmarcar_todos" : "marcar_todos"); $("lote-enviar").hidden = !quest.conectado;
   $("lote").hidden = !marcados.size; $("mapas").classList.toggle("marcando", marcados.size > 0);
   $("lote-n").textContent = t(marcados.size === 1 ? "lote_um" : "lote_varios", { n: marcados.size });
 }
 $("lote-limpar").onclick = () => { marcados.clear(); pintarLista(); };
-$("marcar-todos").onclick = () => { if (marcados.size === estado.mapas.length) marcados.clear(); else for (const m of estado.mapas) marcados.add(m.zip); pintarLista(); };
+$("marcar-todos").onclick = () => { if (marcados.size === listadas.length) marcados.clear(); else for (const m of listadas) marcados.add(m.zip); pintarLista(); };
+// teclado na lista: setas andam pelas linhas que aparecem, Espaco marca, Enter abre (e o proprio botao); / vai para a busca
+$("mapas").onkeydown = (e) => {
+  const b = e.target.closest(".abre"); if (!b) return;
+  if (e.key === " ") { e.preventDefault(); b.closest(".linha").querySelector(".marcar").click(); return; }
+  const bs = [...$("mapas").querySelectorAll(".linha:not([hidden]) .abre")], d = { ArrowDown: 1, ArrowUp: -1 }[e.key], v = bs[bs.indexOf(b) + d];
+  if (d && v) { e.preventDefault(); v.focus(); }
+};
+$("mapas").onkeyup = (e) => { if (e.key === " " && e.target.closest(".abre")) e.preventDefault(); };  // o Firefox clica o botao ao soltar o Espaco
+$("busca").onkeydown = (e) => { const v = $("mapas").querySelector(".linha:not([hidden]) .abre"); if (e.key === "ArrowDown" && v) { e.preventDefault(); v.focus(); } };
+addEventListener("keydown", (e) => {
+  if (e.key !== "/" || e.ctrlKey || e.metaKey || e.altKey || /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName) || document.querySelector("dialog[open]") || $("filtro").hidden) return;
+  e.preventDefault(); $("busca").focus();
+});
 $("lote-regerar").onclick = async () => {  // refaz os marcados por inteiro com o gerador e os gostos de agora; entra na fila
   if (!await confirmar("confirma_regerar", "regerar_marcados")) return;
   try { await api("/api/regerar", { zips: [...marcados] }); marcados.clear(); pintarLista(); atualizar(); } catch (x) { falhou(x); }
 };
 $("refazer-todos").onclick = async () => {  // depois de uma melhoria do gerador: todos os mapas da lista entram na fila para serem refeitos por inteiro
   if (!await confirmar("confirma_refazer_todos", "refazer_todos")) return;
-  try { await api("/api/regerar", { zips: estado.mapas.map((m) => m.zip) }); atualizar(); } catch (x) { falhou(x); }
+  try { await api("/api/regerar", { zips: listadas.map((m) => m.zip) }); atualizar(); } catch (x) { falhou(x); }
 };
 async function apagar(zips) {  // sem perguntar: vai para saida\lixeira e o aviso traz o Desfazer, que e mais rapido que confirmar toda vez
   const feitos = [];

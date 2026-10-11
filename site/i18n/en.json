@@ -237,5 +237,14 @@
   "apagado_varios": "{n} maps deleted.",
   "mais": "More actions",
   "visor_carrega": "Loading the viewer…",
-  "conferencias": "Checks"
+  "conferencias": "Checks",
+  "buscar": "Search (press /)",
+  "ordem_por": "Sort by",
+  "o_recentes": "Newest",
+  "o_nome": "Name",
+  "o_artista": "Artist",
+  "o_bpm": "Fastest",
+  "o_falhou": "Failed first",
+  "sem_achado": "No map with that name or artist.",
+  "opcoes": "Options"
 }

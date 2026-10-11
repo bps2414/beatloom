@@ -237,5 +237,14 @@
   "apagado_varios": "{n} mapas apagados.",
   "mais": "Mais ações",
   "visor_carrega": "Carregando o visualizador…",
-  "conferencias": "Conferências"
+  "conferencias": "Conferências",
+  "buscar": "Buscar (tecla /)",
+  "ordem_por": "Ordenar por",
+  "o_recentes": "Mais recentes",
+  "o_nome": "Nome",
+  "o_artista": "Artista",
+  "o_bpm": "Mais rápidos",
+  "o_falhou": "Falhou primeiro",
+  "sem_achado": "Nenhum mapa com esse nome ou artista.",
+  "opcoes": "Opções"
 }

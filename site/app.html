@@ -28,16 +28,21 @@
 <div class="casca">
   <aside class="biblioteca" data-ta="mapas">
     <div id="trabalhos" aria-live="polite"></div>
+    <div class="filtro" id="filtro" hidden>
+      <input class="campo" id="busca" type="search" data-tp="buscar" autocomplete="off" aria-keyshortcuts="/">
+      <select class="campo" id="ordem" data-ta="ordem_por"><option value="recentes" data-t="o_recentes"></option><option value="nome" data-t="o_nome"></option><option value="artista" data-t="o_artista"></option><option value="bpm" data-t="o_bpm"></option><option value="falhou" data-t="o_falhou"></option></select>
+    </div>
     <div class="barra" id="barra-lista"><button type="button" class="quieto" id="marcar-todos" data-t="marcar_todos"></button><button type="button" class="quieto" id="refazer-todos" data-t="refazer_todos"></button><button type="button" class="quieto" id="q-novos" hidden></button></div>
     <ul class="mapas" id="mapas"></ul>
-    <p class="fraco" id="sem-mapas" data-t="sem_mapas" hidden></p>
+    <p class="fraco" id="sem-mapas" data-t="sem_mapas" hidden></p><p class="fraco" id="sem-achado" data-t="sem_achado" hidden></p>
     <div class="lote" id="lote" hidden>
       <div><span id="lote-n"></span><button type="button" class="quieto" id="lote-limpar" data-t="cancelar"></button></div>
       <div><button type="button" class="quieto" id="lote-apagar" data-t="apagar_marcados"></button><span></span><button type="button" class="sec" id="lote-regerar" data-t="regerar_marcados"></button><button type="button" class="acao" id="lote-enviar" data-t="quest"></button></div></div>
   </aside>
 
   <main class="detalhe">
-    <div class="chamada" id="vazio"><h1 id="vz-titulo"></h1><p id="vz-sub"></p><button type="button" class="acao" id="vz-novo" data-t="novo_mapa"></button></div>
+    <div class="chamada" id="vazio"><h1 id="vz-titulo"></h1><p id="vz-sub"></p>
+      <form class="rapido" id="vz-form"><input class="campo" id="vz-link" type="url" inputmode="url" data-tp="link" autocomplete="off"><button class="acao" data-t="continuar"></button></form></div>
     <article id="aberto" hidden>
       <button type="button" class="quieto voltar" id="voltar"><svg class="ic"><use href="#i-volta"/></svg><span data-t="mapas"></span></button>
       <header class="ficha"><img id="f-capa" alt="">
@@ -88,11 +93,13 @@
     <div class="campos"><input class="campo" id="nome" data-tp="nome"><input class="campo" id="artista" data-tp="artista"></div>
     <small class="fraco" id="p-info"></small>
   </div>
-  <fieldset><legend data-t="quais"></legend><div class="difs" id="escolha"></div></fieldset>
-  <label class="densidade"><span data-t="densidade"></span><span id="dens-v"></span>
-    <input type="range" id="dens" min="0.8" max="1.3" step="0.05" value="1"></label>
-  <label class="chave"><input type="checkbox" id="rapido"><span><b data-t="rapido"></b><small class="fraco" data-t="rapido_sub"></small></span></label>
-  <label class="chave"><input type="checkbox" id="sabres"><span><b data-t="sabres_capa"></b><small class="fraco" data-t="sabres_capa_sub"></small></span></label>
+  <details class="opcoes" id="opcoes"><summary><b data-t="opcoes"></b> <small class="fraco" id="opc-resumo"></small></summary>
+    <fieldset><legend data-t="quais"></legend><div class="difs" id="escolha"></div></fieldset>
+    <label class="densidade"><span data-t="densidade"></span><span id="dens-v"></span>
+      <input type="range" id="dens" min="0.8" max="1.3" step="0.05" value="1"></label>
+    <label class="chave"><input type="checkbox" id="rapido"><span><b data-t="rapido"></b><small class="fraco" data-t="rapido_sub"></small></span></label>
+    <label class="chave"><input type="checkbox" id="sabres"><span><b data-t="sabres_capa"></b><small class="fraco" data-t="sabres_capa_sub"></small></span></label>
+  </details>
   <p class="erro" id="erro" role="alert" hidden></p>
   <footer><button type="button" class="quieto" data-fecha data-t="cancelar"></button><button class="acao" id="gerar" data-t="gerar"></button></footer>
 </form></dialog>
