@@ -33,6 +33,7 @@
       <select class="campo" id="ordem" data-ta="ordem_por"><option value="recentes" data-t="o_recentes"></option><option value="nome" data-t="o_nome"></option><option value="artista" data-t="o_artista"></option><option value="bpm" data-t="o_bpm"></option><option value="falhou" data-t="o_falhou"></option></select>
     </div>
     <div class="barra" id="barra-lista"><button type="button" class="quieto" id="marcar-todos" data-t="marcar_todos"></button><button type="button" class="quieto" id="refazer-todos" data-t="refazer_todos"></button><button type="button" class="quieto" id="q-novos" hidden></button></div>
+    <div id="playlists"></div>
     <ul class="mapas" id="mapas"></ul>
     <p class="fraco" id="sem-mapas" data-t="sem_mapas" hidden></p><p class="fraco" id="sem-achado" data-t="sem_achado" hidden></p>
     <div class="lote" id="lote" hidden>
@@ -93,6 +94,7 @@
     <div class="campos"><input class="campo" id="nome" data-tp="nome"><input class="campo" id="artista" data-tp="artista"></div>
     <small class="fraco" id="p-info"></small>
   </div>
+  <label class="chave" hidden><input type="checkbox" id="jogo"><span><b data-t="lista_jogo"></b><small class="fraco" data-t="lista_jogo_sub"></small></span></label>
   <details class="opcoes" id="opcoes"><summary><b data-t="opcoes"></b> <small class="fraco" id="opc-resumo"></small></summary>
     <fieldset><legend data-t="quais"></legend><div class="difs" id="escolha"></div></fieldset>
     <label class="densidade"><span data-t="densidade"></span><span id="dens-v"></span>

@@ -1,10 +1,12 @@
 """Manda mapas ao Quest por Wi-Fi (ADB). Quem guarda o IP e o beatloom.json; aqui so se fala com o aparelho."""
-import re, shlex, shutil, socket, subprocess, sys, tempfile, zipfile
+import base64, hashlib, json, re, shlex, shutil, socket, subprocess, sys, tempfile, zipfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 # Beat Saber 1.40.8 (SongCore). Versoes antigas usavam .../Mods/SongLoader/CustomLevels
-DEST = "/sdcard/ModData/com.beatgames.beatsaber/Mods/SongCore/CustomLevels"
+MODS = "/sdcard/ModData/com.beatgames.beatsaber/Mods"
+DEST = MODS + "/SongCore/CustomLevels"
+LISTAS = ("PlaylistCore", "PlaylistManager")  # o mod de playlists guarda os .bplist em <um destes>/Playlists; vale o que existir no Quest
 PREFIXO = "beatloom-"  # cada mapa vira a pasta beatloom-<nome do zip>: da para saber o que e nosso e mandar de novo por cima
 
 
@@ -86,7 +88,45 @@ def apagar(ip, nome):
     return None if r.returncode == 0 else (r.stderr or r.stdout).strip()[-300:] or "adb"
 
 
+def impressao(zp):
+    """O codigo com que o jogo conhece o mapa: SHA-1 do Info.dat seguido dos arquivos de dificuldade, na ordem em que o Info.dat os cita. -> (codigo, Info.dat)"""
+    with zipfile.ZipFile(zp) as z:
+        cru = z.read("Info.dat"); info = json.loads(cru.decode("utf-8-sig"))
+        return hashlib.sha1(cru + b"".join(z.read(b["_beatmapFilename"]) for s in info["_difficultyBeatmapSets"] for b in s["_difficultyBeatmaps"])).hexdigest().upper(), info
+
+
+def bplist(nome, zips):
+    """O texto de um .bplist (o formato dos mods de playlist) com esses mapas, na ordem; a capa e a do primeiro."""
+    musicas, capa = [], ""
+    for zp in zips:
+        h, info = impressao(zp)
+        musicas.append({"hash": h, "levelid": "custom_level_" + h, "songName": info["_songName"]})
+        if not capa:
+            capa = "data:image/png;base64," + base64.b64encode(zipfile.ZipFile(zp).read(info["_coverImageFilename"])).decode()
+    return json.dumps({"playlistTitle": nome, "playlistAuthor": "Beatloom", "image": capa, "songs": musicas}, ensure_ascii=False)
+
+
+def enviar_lista(ip, arquivo, texto):
+    """Poe um .bplist na pasta do mod de playlists. -> None ou o erro"""
+    serie = f"{ip}:5555"
+    tem = adb("-s", serie, "shell", "ls", MODS).stdout.split()
+    pasta = f"{MODS}/{next((m for m in LISTAS if m in tem), LISTAS[0])}/Playlists"
+    with tempfile.TemporaryDirectory() as tmp:
+        (Path(tmp) / arquivo).write_text(texto, encoding="utf-8")
+        adb("-s", serie, "shell", f"mkdir -p {shlex.quote(pasta)}")
+        r = adb("-s", serie, "push", str(Path(tmp) / arquivo), f"{pasta}/{arquivo}", espera=60)
+    return None if r.returncode == 0 else (r.stderr or r.stdout).strip()[-300:] or "adb"
+
+
 def demo():
+    with tempfile.TemporaryDirectory() as tmp:  # a impressao segue a ordem do Info.dat, nao a do zip
+        zp, info = Path(tmp) / "m.zip", json.dumps({"_songName": "X", "_coverImageFilename": "c.png", "_difficultyBeatmapSets": [{"_difficultyBeatmaps": [{"_beatmapFilename": "a.dat"}, {"_beatmapFilename": "b.dat"}]}]}).encode()
+        with zipfile.ZipFile(zp, "w") as z:
+            z.writestr("b.dat", "B"); z.writestr("a.dat", "A"); z.writestr("Info.dat", info); z.writestr("c.png", b"png")
+        h = hashlib.sha1(info + b"AB").hexdigest().upper()
+        assert impressao(zp)[0] == h
+        j = json.loads(bplist("Lista", [zp]))
+        assert j["songs"] == [{"hash": h, "levelid": "custom_level_" + h, "songName": "X"}] and j["image"].endswith(base64.b64encode(b"png").decode())
     s = socket.socket(); s.bind(("127.0.0.1", 0)); s.listen()
     assert abertos(["127.0.0.1", "127.0.0.2"], s.getsockname()[1]) == ["127.0.0.1"]
     s.close()

@@ -47,6 +47,12 @@
   "passo_conferindo": "Conferindo o mapa…",
 
   "fila_n": "{n} na fila",
+  "lista_jogo": "Criar também a playlist no jogo",
+  "lista_jogo_sub": "Os mapas aparecem agrupados no Beat Saber, com o nome da playlist. Precisa do mod de playlists (PlaylistManager) no Quest; a playlist vai junto quando você manda os mapas.",
+  "pl_marcar": "Marcar os mapas desta playlist",
+  "pl_baixar": "Baixar o arquivo da playlist (.bplist)",
+  "pl_tirar": "Esquecer esta playlist (os mapas ficam)",
+  "q_playlists": "{n} playlist(s) atualizada(s) no Quest.",
   "lista_repetida": "{novos} novas na fila. {pulados} já tinham mapa e ficaram de fora; {refeitos} com conferência falhada vão ser refeitos.",
   "fila_pausada": "Fila pausada, {n} esperando",
   "pausar": "Pausar",

@@ -67,17 +67,17 @@ $("lingua").onclick = () => mudarLingua(lingua === "pt" ? "en" : "pt");
 for (const b of $("p-linguas").children) b.onclick = () => mudarLingua(b.dataset.l);
 
 // ---------- novo mapa
-let arquivo = null, subido = null, extra = {}, miniatura = null, ultimoLink = "", lista = null;  // lista: as faixas quando o link e de playlist
+let arquivo = null, subido = null, extra = {}, miniatura = null, ultimoLink = "", lista = null, playlist = null;  // lista: as faixas quando o link e de playlist; playlist: o id e o nome dela
 const erroNovo = (x) => { $("erro").textContent = x.message; $("erro").hidden = false; };
 function pintarArquivo() { $("arq-nome").textContent = arquivo ? arquivo.name : t("solte"); $("arq-dica").textContent = t(arquivo ? "trocar_arq" : "solte_dica"); }
 function previa(d, capa, info) {  // capa, nome e artista antes de gerar, para a pessoa corrigir
-  extra = { album: d.album, ano: d.ano }; miniatura = capa; lista = d.lista || null;
-  $("previa").hidden = false; $("nome").parentElement.hidden = !!lista;  // playlist: nome e artista saem de cada video
+  extra = { album: d.album, ano: d.ano }; miniatura = capa; lista = d.lista || null; playlist = lista && d.id ? { id: d.id, nome: d.nome } : null;
+  $("previa").hidden = false; $("jogo").parentElement.hidden = !playlist; $("jogo").checked = ls.ler("beatloom.jogo") === "1"; $("nome").parentElement.hidden = !!lista;  // playlist: nome e artista saem de cada video
   $("nome").value = d.nome || ""; $("artista").value = d.artista || "";
   $("p-capa").hidden = !capa; $("p-sem").hidden = !!capa; if (capa) $("p-capa").src = capa;
   $("p-info").textContent = lista ? t("lista_n", { n: lista.length, nome: d.nome }) : [d.album, d.ano, info, t("confira")].filter(Boolean).join(", ");
 }
-function semPrevia() { $("previa").hidden = true; $("nome").value = ""; $("artista").value = ""; extra = {}; miniatura = null; lista = null; }
+function semPrevia() { $("previa").hidden = true; $("nome").value = ""; $("artista").value = ""; extra = {}; miniatura = null; lista = playlist = null; $("jogo").parentElement.hidden = true; }
 function resumo() {  // o que as opcoes fechadas dizem: as dificuldades marcadas, a quantidade de notas e o modo rapido
   const d = +$("dens").value;
   $("opc-resumo").textContent = [marcadasEm("escolha").map((n) => NOMES[n]).join(" "), d !== 1 && "×" + num(d, 2), $("rapido").checked && t("rapido")].filter(Boolean).join(" · ");
@@ -133,7 +133,8 @@ $("form").onsubmit = async (e) => {
     if (!link && arquivo && !subido) subido = await api("/api/arquivo?nome=" + enc(arquivo.name), arquivo, true);
     const comum = { difs, densidade: +$("dens").value, modo: $("rapido").checked ? "rapido" : "completo", sabres_capa: $("sabres").checked };
     if (link && lista) {  // um trabalho por faixa, na fila; o servidor pula as que ja tem mapa e refaz as que falharam na conferencia
-      const r = await api("/api/gerar", { lista: lista.map((m) => ({ link: m.link, titulo: m.nome, capa: m.capa })), ...comum });
+      const r = await api("/api/gerar", { lista: lista.map((m) => ({ link: m.link, titulo: m.nome, capa: m.capa })), playlist: $("jogo").checked ? playlist : null, ...comum });
+      if (playlist) ls.gravar("beatloom.jogo", $("jogo").checked ? "1" : "0");
       if (r.pulados || r.refeitos) avisar(t("lista_repetida", { novos: r.novos, pulados: r.pulados, refeitos: r.refeitos }));
     }
     else await api("/api/gerar", { link, arquivo: link ? null : subido && subido.arquivo, nome: $("nome").value, artista: $("artista").value, ...extra, capa: miniatura, ...comum });
@@ -219,7 +220,19 @@ function pintarLista() {
   const nada = !estado.mapas.length && !estado.trabalhos.some((tr) => tr.estado !== "pronto");
   $("sem-mapas").hidden = estado.mapas.length > 0; $("sem-achado").hidden = !estado.mapas.length || listadas.length > 0; $("filtro").hidden = estado.mapas.length < 5; document.body.classList.toggle("sem-nada", nada);
   $("vz-titulo").textContent = t(estado.mapas.length ? "convite" : "titulo"); $("vz-sub").textContent = estado.mapas.length ? "" : t("sub"); $("vz-form").hidden = estado.mapas.length > 0;
-  pintarLote();
+  pintarLote(); pintarPlaylists();
+}
+function pintarPlaylists() {  // as playlists que vao para o jogo: o nome marca os mapas dela (dai o lote manda ao Quest, refaz ou apaga), o .bplist baixa, o x esquece
+  const ps = estado.playlists || [], chave = JSON.stringify([ps, lingua]);
+  if (chave === pintarPlaylists.chave) return;  // so redesenha quando muda, para nao roubar o foco
+  pintarPlaylists.chave = chave; $("playlists").textContent = "";
+  for (const p of ps) {
+    const c = el("div", "barra"), m = el("button", "quieto", `${p.nome} (${p.zips.length}/${p.total})`), a = el("a", "quieto", ".bplist"), x = el("button", "quieto", "×");
+    m.type = x.type = "button"; m.title = t("pl_marcar"); a.href = "/api/bplist?id=" + enc(p.id); a.title = t("pl_baixar"); x.title = t("pl_tirar"); x.setAttribute("aria-label", t("pl_tirar"));
+    m.onclick = () => { marcados.clear(); for (const z of p.zips) marcados.add(z); pintarLista(); };
+    x.onclick = async () => { try { await api("/api/playlist/apagar", { id: p.id }); atualizar(); } catch (e) { falhou(e); } };
+    c.append(m, a, x); $("playlists").append(c);
+  }
 }
 function pintarLote() {
   const faltam = quest.conectado ? listadas.filter((m) => quest.mapas[m.zip] !== "ok") : [];  // os que nao estao no Quest, ou estao numa versao antiga
@@ -267,9 +280,10 @@ $("lote-enviar").onclick = () => enviar([...marcados], $("lote-enviar")).then(()
 async function enviar(zips, botao) {  // um aviso por mapa que falhou e um com quantos foram
   botao.disabled = true; avisar(t("mandando"));
   try {
-    const r = (await api("/api/quest", { zips })).resultados, bons = zips.filter((z) => !r[z]);
+    const res = await api("/api/quest", { zips }), r = res.resultados, bons = zips.filter((z) => !r[z]);
     for (const z of zips) if (r[z]) { const e = lerErro(r[z]); avisar(t("q_falhou", { nome: (estado.mapas.find((m) => m.zip === z) || {}).nome || z }) + " " + e.msg, true, e.detalhe); }
     if (bons.length) avisar(t(bons.length === 1 ? "q_enviado" : "q_enviados", { n: bons.length }));
+    if (res.playlists) avisar(t("q_playlists", { n: res.playlists }));
   } catch (x) { falhou(x); }
   botao.disabled = false; await verQuest();
 }

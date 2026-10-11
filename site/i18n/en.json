@@ -47,6 +47,12 @@
   "passo_conferindo": "Checking the map…",
 
   "fila_n": "{n} queued",
+  "lista_jogo": "Also create the playlist in the game",
+  "lista_jogo_sub": "The maps show up grouped in Beat Saber under the playlist name. Needs the playlist mod (PlaylistManager) on the Quest; the playlist goes along when you send the maps.",
+  "pl_marcar": "Select the maps of this playlist",
+  "pl_baixar": "Download the playlist file (.bplist)",
+  "pl_tirar": "Forget this playlist (the maps stay)",
+  "q_playlists": "{n} playlist(s) updated on the Quest.",
   "lista_repetida": "{novos} new in the queue. {pulados} already had a map and were left out; {refeitos} with a failed check will be redone.",
   "fila_pausada": "Queue paused, {n} waiting",
   "pausar": "Pause",

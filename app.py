@@ -32,6 +32,7 @@ TIPOS = {".css": "text/css", ".js": "text/javascript", ".json": "application/jso
 trava = threading.Lock()
 pausada = [False]  # fila pausada: a musica que esta rodando termina e a proxima espera
 FILA = RAIZ / ".cache" / "fila.json"
+LISTAS = SAIDA / "playlists.json"  # {id: {nome, videos: [codigo de cada faixa, na ordem]}}: as playlists que a pessoa quis ver no jogo
 
 
 def dados_do_link(j):
@@ -275,6 +276,26 @@ def video(link):
     return m[1] if m else (link or "").strip()
 
 
+def arquivo_da_lista(k):
+    return "beatloom-" + re.sub(r"[^\w-]", "_", k) + ".bplist"
+
+
+def listas():
+    try:
+        return json.loads(LISTAS.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+def mapas_da_lista(p, mapas):
+    """Os zips que existem para as faixas de uma playlist, na ordem dela; de cada faixa, o mapa mais novo."""
+    por = {}
+    for m in mapas:
+        if m.get("link"):
+            por.setdefault(video(m["link"]), m["zip"])
+    return [por[v] for v in p["videos"] if v in por]
+
+
 def conferir(zp):
     """Mapa de antes do .relatorio.json: confere em segundo plano, uma vez por versao do zip. -> esta conferindo agora?"""
     def faz():
@@ -379,7 +400,8 @@ class H(BaseHTTPRequestHandler):
                 self.manda(arq.read_bytes(), TIPOS[arq.suffix] + ("; charset=utf-8" if arq.suffix in (".css", ".js", ".json") else ""), guarda=arq.suffix == ".woff2")
             elif u.path == "/api/estado":
                 vivos = [t for t in trabalhos if t["estado"] in ("na fila", "rodando")]  # a fila inteira (uma playlist enche) e os ultimos que acabaram
-                self.manda({"trabalhos": vivos + [t for t in trabalhos if t not in vivos][-6:], "mapas": lista_de_mapas(), "visor": (ARC / "index.html").exists(), "difs": list(DIFS), "pausada": pausada[0]})
+                mapas = lista_de_mapas()
+                self.manda({"trabalhos": vivos + [t for t in trabalhos if t not in vivos][-6:], "mapas": mapas, "playlists": [{"id": k, "nome": p["nome"], "zips": mapas_da_lista(p, mapas), "total": len(p["videos"])} for k, p in listas().items()], "visor": (ARC / "index.html").exists(), "difs": list(DIFS), "pausada": pausada[0]})
             elif u.path == "/api/preparo":
                 self.manda(preparo.estado())
             elif u.path == "/api/config":
@@ -398,6 +420,9 @@ class H(BaseHTTPRequestHandler):
                 if not fazer_capa(MUSICAS / Path(q["arquivo"]).name, png):
                     raise FileNotFoundError
                 self.manda(png.read_bytes(), "image/png")
+            elif u.path == "/api/bplist":  # a playlist com os mapas que ja existem, para quem poe o arquivo no jogo a mao
+                p = listas()[q["id"]]
+                self.manda(quest.bplist(p["nome"], [SAIDA / z for z in mapas_da_lista(p, lista_de_mapas())]).encode(), extra=[("Content-Disposition", f'attachment; filename="{arquivo_da_lista(q["id"])}"')])
             elif u.path == "/api/zip":
                 nome = Path(q["zip"]).name
                 self.manda((SAIDA / nome).read_bytes(), "application/zip", extra=[("Content-Disposition", f'attachment; filename="{nome}"')])
@@ -439,7 +464,7 @@ class H(BaseHTTPRequestHandler):
             # playlist: "lista" traz as faixas ({link, titulo, capa}); cada uma vira um trabalho com as mesmas dificuldades, densidade e modo
             pedidos, novos = [{**d, "arquivo": None, "nome": None, "artista": None, "album": None, "ano": None, **m} for m in d["lista"] if isinstance(m, dict)] if isinstance(d.get("lista"), list) else [d], []
             # playlist repetida: faixa que ja tem mapa no mesmo modo e pulada, ou tem as notas refeitas se a conferencia dele falhou; a que ja espera na fila tambem e pulada
-            varios, pulados, refeitos = isinstance(d.get("lista"), list), 0, 0
+            varios, pulados, refeitos, pl = isinstance(d.get("lista"), list), 0, 0, d.get("playlist")
             feitos = {(video(m["link"]), m["sub"][-1:]): m for m in reversed(lista_de_mapas()) if m.get("link")} if varios else {}
             with trava:
                 esperando = {(video(t["link"]), str(t.get("etapa"))) for t in trabalhos if t.get("link") and t["estado"] in ("na fila", "rodando")} | {t["regerar"] for t in fila if t.get("regerar")}
@@ -465,6 +490,10 @@ class H(BaseHTTPRequestHandler):
                               "etapa": 3 if (d.get("modo") or config()["modo"]) == "rapido" else 4})  # rapido = sem separar instrumentos (etapa 3 do gerador)
             if not novos and not pulados:
                 return self.manda({"erro": "vazio"}, cod=400)
+            if varios and isinstance(pl, dict) and pl.get("id"):  # "criar a playlist no jogo": so anota as faixas; o .bplist e montado na hora, com os mapas que existirem
+                ls = listas()
+                ls[str(pl["id"])[:80]] = {"nome": str(pl.get("nome") or pl["id"])[:120], "videos": list(dict.fromkeys(video(str(m.get("link") or "")) for m in pedidos))}
+                LISTAS.write_text(json.dumps(ls, ensure_ascii=False, indent=1), encoding="utf-8")
             with trava:
                 trabalhos.extend(novos); fila.extend(novos); guardar_fila()
             return self.manda({"id": novos[0]["id"] if novos else None, "novos": len(novos) - refeitos, "pulados": pulados, "refeitos": refeitos})
@@ -474,6 +503,11 @@ class H(BaseHTTPRequestHandler):
                 fila[:] = [t for t in fila if not sai(t)]
                 trabalhos[:] = [t for t in trabalhos if not sai(t)]
                 guardar_fila()
+            return self.manda({"ok": True})
+        if u.path == "/api/playlist/apagar":  # esquece a playlist; os mapas ficam
+            ls = listas()
+            if ls.pop(d.get("id"), None):
+                LISTAS.write_text(json.dumps(ls, ensure_ascii=False, indent=1), encoding="utf-8")
             return self.manda({"ok": True})
         if u.path == "/api/fila":  # pausar ou continuar
             pausada[0] = bool(d.get("pausar"))
@@ -493,7 +527,7 @@ class H(BaseHTTPRequestHandler):
                 j = json.loads(ytdlp("--skip-download", "--flat-playlist", "--dump-single-json", "--", link))
                 if j.get("_type") == "playlist":  # link so de playlist: a pagina pede um mapa por faixa (video com &list= continua sendo so o video, pelo --no-playlist)
                     itens = [{"link": e["url"], "nome": e.get("title") or e["url"], "capa": (e.get("thumbnails") or [{}])[-1].get("url")} for e in j.get("entries") or [] if e and e.get("url")]
-                    return self.manda({"nome": j.get("title"), "capa": itens[0]["capa"], "lista": itens}) if itens else self.manda({"erro": "ytdlp"}, cod=400)
+                    return self.manda({"nome": j.get("title"), "id": j.get("id"), "capa": itens[0]["capa"], "lista": itens}) if itens else self.manda({"erro": "ytdlp"}, cod=400)
                 return self.manda(dados_do_link(j))
             except (RuntimeError, ValueError) as e:
                 return self.manda({"erro": str(e) if str(e).startswith("ytdlp|") else "ytdlp"}, cod=400)
@@ -526,7 +560,12 @@ class H(BaseHTTPRequestHandler):
                 if not res[z.name]:
                     env[z.name] = z.stat().st_mtime
             ENVIADOS.write_text(json.dumps(env), encoding="utf-8")
-            return self.manda({"resultados": res})
+            ls, feitas = listas(), 0  # as playlists vao junto, cada uma com os mapas dela que estao no Quest (o codigo do mapa muda quando ele e refeito)
+            la, mapas = quest.no_quest(ip) if ls else set(), lista_de_mapas() if ls else []
+            for k, p in ls.items():
+                zs = [SAIDA / z for z in mapas_da_lista(p, mapas) if z[:-4] in la]
+                feitas += bool(zs) and not quest.enviar_lista(ip, arquivo_da_lista(k), quest.bplist(p["nome"], zs))
+            return self.manda({"resultados": res, "playlists": feitas})
         zp = SAIDA / Path(d.get("zip") or "-").name
         if u.path == "/api/restaurar":  # o Desfazer do apagar: traz da lixeira de volta, a menos que ja exista um mapa com esse nome
             if not (SAIDA / "lixeira" / zp.name).is_file():

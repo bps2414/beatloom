@@ -84,6 +84,7 @@ input[type="checkbox"]:checked { background: var(--dir) url("data:image/svg+xml,
 .lote { position: sticky; bottom: 0; z-index: 2; margin-top: auto; display: grid; gap: 6px; padding: 8px 8px 12px 14px; background: var(--painel); border: 1px solid var(--borda); border-radius: 10px; box-shadow: inset 3px 0 0 var(--dir), 0 -14px 30px -14px #000; }
 .lote div { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; } .lote span { flex: 1; font-weight: 600; }
 .lote .sec, .lote .acao { padding: 7px 14px; font-size: 14px; } .lote .quieto { padding: 6px 8px; font-size: 14px; } #lote-apagar:hover { color: var(--erro); }
+#playlists .quieto:first-child { flex: 1; justify-content: flex-start; text-align: left; min-width: 0; } #playlists a { text-decoration: none; }
 
 .trabalho { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 2px 12px; padding: 12px;background: var(--painel); border: 1px solid var(--borda); border-radius: 10px; margin-bottom: 6px; }
 .trabalho .capa, .trabalho .sem-capa { grid-row: 1 / 3; }

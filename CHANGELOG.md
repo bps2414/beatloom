@@ -2,6 +2,10 @@
 
 O que mudou em cada versão, para quem usa. A seção de uma versão vira o texto da release dela; a lista completa dos commits vai junto, recolhida. Os números medidos de cada mudança do gerador estão em [docs/RESULTADOS.md](docs/RESULTADOS.md).
 
+## Próxima versão
+
+- **Playlist no jogo.** Ao colar um link de playlist, "Criar também a playlist no jogo" faz os mapas aparecerem agrupados no Beat Saber (precisa de um mod de playlists no Quest). A playlist vai junto a cada envio ao Quest e também pode ser baixada como `.bplist`.
+
 ## v1.1.0
 
 O gerador passou a ouvir mais da música e a usar mais do que o jogo oferece. Mapas feitos na 1.0.0 não mudam sozinhos: use "Refazer todos os mapas" para trazê-los ao gerador novo.
