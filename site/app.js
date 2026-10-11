@@ -154,8 +154,10 @@ function trilha(tr, passo, qual) {  // um trecho por etapa: as feitas cheias, a 
   nomes.forEach((_, i) => { const b = el("i", i < agora ? "feito" : i > agora ? "falta" : p == null ? "agora corre" : "agora"); if (i === agora && p != null) b.style.setProperty("--p", p + "%"); c.append(b); });
   return c;
 }
+let filaAberta = false;  // com muita coisa na fila, so as 2 primeiras aparecem: o resto nao empurra a lista de mapas para fora da tela
+const NA_FILA = 2;
 function pintarTrabalhos() {
-  const vivos = estado.trabalhos.filter((tr) => tr.estado !== "pronto"), chave = JSON.stringify([vivos, lingua, estado.pausada]);
+  const vivos = estado.trabalhos.filter((tr) => tr.estado !== "pronto"), chave = JSON.stringify([vivos, lingua, estado.pausada, filaAberta]);
   if (chave === pintarTrabalhos.chave) return;  // so redesenha quando muda: nao rouba o foco do botao de dispensar
   pintarTrabalhos.chave = chave; $("trabalhos").textContent = "";
   const esperam = vivos.filter((tr) => tr.estado === "na fila").length;
@@ -166,8 +168,10 @@ function pintarTrabalhos() {
     v.onclick = async () => { if (await confirmar("confirma_esvaziar", "esvaziar")) { await api("/api/trabalho/dispensar", { fila: true }); atualizar(); } };
     barra.append(el("span", "", t(estado.pausada ? "fila_pausada" : "fila_n", { n: esperam })), p, v); $("trabalhos").append(barra);
   }
+  let vistos = 0;
   for (const tr of vivos) {
-    const ruim = tr.estado === "erro", c = el("div", "trabalho" + (ruim ? " ruim" : tr.estado === "rodando" ? " vivo" : "")), capa = tr.capa ? el("img", "capa") : el("div", "sem-capa");
+    if (tr.estado === "na fila" && ++vistos > NA_FILA && !filaAberta) continue;
+    const ruim = tr.estado === "erro", c = el("div", "trabalho" + (ruim ? " ruim" : tr.estado === "rodando" ? " vivo" : " espera")), capa = tr.capa ? el("img", "capa") : el("div", "sem-capa");
     if (tr.capa) { capa.src = tr.capa; capa.alt = ""; }
     const [passo, qual] = (tr.passos.at(-1) || "comecando").split("|");  // "golpes|Hard (2/4)"
     const e = ruim ? lerErro(tr.erro) : null;
@@ -182,6 +186,37 @@ function pintarTrabalhos() {
     }
     $("trabalhos").append(c);
   }
+  if (esperam > NA_FILA) {
+    const b = el("button", "quieto mais-fila", t(filaAberta ? "fila_menos" : "fila_mostrar", { n: esperam - NA_FILA })); b.type = "button";
+    b.onclick = () => { filaAberta = !filaAberta; pintarTrabalhos(); }; $("trabalhos").append(b);
+  }
+}
+function pontosDe(m) {  // um ponto por dificuldade, na cor do botao dela
+  const p = el("span", "pontos"); for (const d of m.difs) { const i = el("i"); i.dataset.n = d; i.title = NOMES[d] || d; p.append(i); }
+  return p;
+}
+const ULTIMO = "beatloom.ultimo";  // o ultimo mapa aberto: o inicio oferece continuar dele
+function pintarInicio() {  // a tela sem mapa aberto: o que ha na biblioteca e uma parede de capas para escolher
+  const ms = estado.mapas; if (!ms.length) return;
+  const volta = ms.find((m) => m.zip === ls.ler(ULTIMO)), cabeca = volta || ms[0], mostra = [cabeca, ...ms.filter((m) => m !== cabeca).slice(0, 11)];
+  const total = ms.reduce((s, m) => s + (m.dur || 0), 0), ok = ms.filter((m) => m.ok === true).length, ruim = ms.filter((m) => m.ok === false).length, noq = quest.conectado ? ms.filter((m) => quest.mapas[m.zip] === "ok").length : 0;
+  const chave = JSON.stringify([mostra.map((m) => [m.zip, m.v, m.ok, m.nome, m.artista, m.difs]), !!volta, ms.length, total, ok, ruim, noq, quest.conectado, lingua]);
+  if (chave === pintarInicio.chave) return; pintarInicio.chave = chave;
+  const h = Math.floor(total / 3600), min = Math.round((total % 3600) / 60), st = $("in-stats"); st.textContent = "";
+  for (const [v, r, cls] of [[num(ms.length), "ini_mapas"], [h ? h + " h " + min + " min" : min + " min", "ini_tempo"], [num(ok), "ini_ok", "ok"], ruim && [num(ruim), "ini_falhou", "ruim"], quest.conectado && [num(noq), "ini_quest"]].filter(Boolean)) {
+    const li = el("li", cls || ""), b = cls === "ruim" ? el("button") : li;  // o que falhou leva a lista para os que falharam
+    if (cls === "ruim") { b.type = "button"; b.onclick = () => { ordem = $("ordem").value = "falhou"; ls.gravar("beatloom.ordem", ordem); pintarLista(); }; li.append(b); }
+    b.append(el("b", "", v), el("span", "", t(r))); st.append(li);
+  }
+  const ul = $("parede"); ul.textContent = "";
+  mostra.forEach((m, i) => {
+    const li = el("li", i ? "" : "destaque"), b = el("button", "cartao"), img = el("img"), txt = el("span", "txt");
+    b.type = "button"; b.onclick = () => abrir(m.zip); img.alt = ""; img.src = `/api/capa?zip=${enc(m.zip)}&v=${m.v}`;
+    if (!i) txt.append(el("small", "rotulo", t(volta ? "ini_continuar" : "ini_recente")));
+    txt.append(el("b", "", m.nome), el("span", "", m.artista), pontosDe(m)); if (m.ok === false) txt.append(el("span", "falha", t("tag_falhou")));
+    b.append(img, txt); li.append(b); ul.append(li);
+  });
+  $("in-fundo").style.backgroundImage = `url("/api/capa?zip=${enc(cabeca.zip)}&v=${cabeca.v}")`;
 }
 let busca = "", ordem = "recentes", listadas = [];  // listadas: os mapas que a lista mostra neste momento (a busca esconde o resto)
 const ls = { ler: (k) => { try { return localStorage.getItem(k); } catch { return null; } }, gravar: (k, v) => { try { localStorage.setItem(k, v); } catch { /* sem armazenamento: so nao lembra */ } } };
@@ -210,7 +245,7 @@ function pintarLista() {
     q(".n").textContent = m.nome; q(".a").textContent = m.artista; q(".bpm").textContent = num(m.bpm); q(".dur").textContent = m.dur ? tempo(m.dur) : "–";
     q(".bpm").title = "BPM"; q(".dur").title = t("duracao");
     q(".tags").textContent = "";
-    const pontos = el("span", "pontos"); for (const d of m.difs) { const i = el("i"); i.dataset.n = d; i.title = NOMES[d] || d; pontos.append(i); } q(".tags").append(pontos);  // um ponto por dificuldade, na cor do botao dela
+    q(".tags").append(pontosDe(m));
     if (/ v3/.test(m.sub)) q(".tags").append(el("span", "rapido", t("tag_rapido")));
     if (m.ok === false) q(".tags").append(el("span", "falha", t("tag_falhou")));
     if (la) q(".tags").append(el("span", la === "ok" ? "la" : "velho", t(la === "ok" ? "no_quest" : "q_velho")));
@@ -219,8 +254,8 @@ function pintarLista() {
   });
   const nada = !estado.mapas.length && !estado.trabalhos.some((tr) => tr.estado !== "pronto");
   $("sem-mapas").hidden = estado.mapas.length > 0; $("sem-achado").hidden = !estado.mapas.length || listadas.length > 0; $("filtro").hidden = estado.mapas.length < 5; document.body.classList.toggle("sem-nada", nada);
-  $("vz-titulo").textContent = t(estado.mapas.length ? "convite" : "titulo"); $("vz-sub").textContent = estado.mapas.length ? "" : t("sub"); $("vz-form").hidden = estado.mapas.length > 0;
-  pintarLote(); pintarPlaylists();
+  $("vz-titulo").textContent = t("titulo"); $("vz-sub").textContent = t("sub");
+  pintarLote(); pintarInicio(); pintarPlaylists();
 }
 function pintarPlaylists() {  // as playlists que vao para o jogo: o nome marca os mapas dela (dai o lote manda ao Quest, refaz ou apaga), o .bplist baixa, o x esquece
   const ps = estado.playlists || [], chave = JSON.stringify([ps, lingua]);
@@ -302,7 +337,7 @@ async function atualizar() {
 async function abrir(zip) {
   try { mapa = await api("/api/mapa?zip=" + enc(zip)); } catch (x) { return falhou(x); }
   if (atual !== zip) { const f = $("aberto"); f.classList.remove("troca"); void f.offsetWidth; f.classList.add("troca"); }  // fade curto ao trocar de mapa, nao a cada atualizacao
-  atual = zip; document.body.classList.add("vendo"); $("mais").open = false;
+  atual = zip; ls.gravar(ULTIMO, zip); document.body.classList.add("vendo"); $("mais").open = false;
   if (!mapa.difs.some((d) => d.nome === dif)) dif = mapa.difs.some((d) => d.nome === "Expert") ? "Expert" : mapa.difs[0].nome;
   pintarMapa(); pintarLista();
   clearTimeout(abrir.t);
@@ -312,7 +347,8 @@ function fechar() {
   atual = mapa = null; document.body.classList.remove("vendo"); $("visor").removeAttribute("src"); $("visor").dataset.de = "";
   pintarMapa(); pintarLista();
 }
-$("voltar").onclick = () => document.body.classList.remove("vendo");
+$("voltar").onclick = fechar;  // volta ao inicio, no celular e no computador
+document.querySelector(".marca").onclick = () => { if (atual) fechar(); };  // o logo tambem leva ao inicio
 const falhas = (r) => (r ? r.metas.filter((m) => !m.ok).length + (r.esquema_ok && r.notas ? 0 : 1) : 0);
 function valorMeta(m) {
   if (m.id === "esquema") return "";
@@ -328,7 +364,7 @@ function carregando() {  // ate o ArcViewer baixar e montar (ai ele mostra a bar
   $("visor").onload = fim; clearTimeout(carregando.limite); carregando.limite = setTimeout(fim, 20000);  // se o load nunca vier, nao prende o aviso
 }
 function pintarMapa() {
-  $("aberto").hidden = !mapa; $("vazio").hidden = !!mapa;
+  $("aberto").hidden = !mapa; $("vazio").hidden = !!mapa || estado.mapas.length > 0; $("inicio").hidden = $("in-fundo").hidden = !!mapa || !estado.mapas.length;
   if (!mapa) return;
   const R = mapa.relatorio, d = mapa.difs.find((x) => x.nome === dif), r = R && R.difs.find((x) => x.nome === dif);
   const capa = `/api/capa?zip=${enc(atual)}&v=${mapa.v}`;

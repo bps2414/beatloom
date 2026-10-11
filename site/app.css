@@ -43,7 +43,7 @@ p { margin: 0; }
 .campo::placeholder { color: var(--texto-2); }
 
 .topo { display: flex; align-items: center; gap: 6px 14px; flex-wrap: wrap; padding: 12px clamp(14px, 2.4vw, 28px); background: rgba(18, 17, 31, .82); border-bottom: 1px solid var(--borda); }
-.marca { font: 800 19px/1 var(--titulo); font-stretch: 80%; letter-spacing: -.02em; display: flex; align-items: center; gap: 9px; margin-right: 8px; }
+.marca { cursor: pointer; font: 800 19px/1 var(--titulo); font-stretch: 80%; letter-spacing: -.02em; display: flex; align-items: center; gap: 9px; margin-right: 8px; }
 .marca i { width: 20px; height: 20px; transform: var(--inclina); border-radius: 3px; background: linear-gradient(90deg, var(--esq) 0 50%, var(--dir) 50% 100%); }
 .q::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--texto-2); }
 .q.ok { color: var(--texto); } .q.ok::before { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
@@ -96,6 +96,10 @@ input[type="checkbox"]:checked { background: var(--dir) url("data:image/svg+xml,
 .trilha .corre { background: var(--dir); animation: pulsa 1.4s ease-in-out infinite; } @keyframes pulsa { 50% { opacity: .35; } }
 .trabalho.vivo { box-shadow: inset 3px 0 0 var(--dir), 0 0 26px -14px var(--dir); } .trabalho:not(.vivo, .ruim) { opacity: .75; }  /* o que esta rodando acende; o que espera na fila recua */
 .trabalho.ruim { border-color: rgba(255, 92, 122, .5); box-shadow: inset 3px 0 0 var(--erro); } .trabalho.ruim .etapa { color: var(--erro); }
+.trabalho.espera { grid-template-columns: 36px minmax(0, 1fr) auto; align-items: center; padding: 8px 12px; }
+.trabalho.espera .capa, .trabalho.espera .sem-capa { width: 36px; height: 36px; } .trabalho.espera b { font-size: 15px; align-self: end; }
+.trabalho.espera .fim { grid-column: 3; grid-row: 1 / 3; margin: 0; }
+.mais-fila { justify-self: start; margin: -2px 0 4px; }
 .trabalho .fim { grid-column: 1 / -1; display: flex; align-items: start; justify-content: space-between; gap: 8px; margin-top: 4px; }
 /* barra propria: a do navegador era cinza e grossa. Sem valor (etapa sem medida) um brilho azul corre pelo trilho */
 progress { appearance: none; height: 5px; border: 0; border-radius: 3px; overflow: hidden; background: rgba(255, 255, 255, .1); vertical-align: middle; }
@@ -112,9 +116,29 @@ details pre { font: 12px/1.5 ui-monospace, Consolas, monospace; white-space: pre
 .chamada { min-height: 100%; display: grid; align-content: center; justify-items: start; gap: 16px; max-width: 760px; }
 .chamada h1 { font-size: clamp(34px, 5.4vw, 72px); font-weight: 800; font-stretch: 76%; line-height: .96; text-wrap: balance; }
 .chamada p { font-size: 18px; color: var(--texto-2); max-width: 46ch; }
+/* o inicio: a tela sem mapa aberto. Um brilho com a cor da capa mais recente, numeros da biblioteca e uma parede de capas */
+.detalhe { position: relative; }
+.in-fundo { position: absolute; inset: 0 0 auto 0; height: 460px; background: center / cover; filter: blur(80px) saturate(1.4); opacity: .3; pointer-events: none; -webkit-mask-image: linear-gradient(#000, transparent); mask-image: linear-gradient(#000, transparent); }
+.inicio { position: relative; display: grid; gap: 24px; max-width: 1180px; align-content: start; }
+.inicio h1 { font-size: clamp(34px, 4.6vw, 62px); font-weight: 800; font-stretch: 76%; line-height: .96; text-wrap: balance; }
+.stats { list-style: none; display: flex; flex-wrap: wrap; gap: 10px; padding: 0; margin: 0; }
+.stats li, .stats button { display: grid; gap: 2px; padding: 10px 18px; text-align: left; color: var(--texto); background: rgba(27, 26, 46, .7); border: 1px solid var(--borda); border-radius: 10px; font: inherit; }
+.stats li:has(> button) { padding: 0; border: 0; background: none; }
+.stats b { font: 700 28px/1.1 var(--titulo); font-stretch: 80%; font-variant-numeric: tabular-nums; } .stats span { font-size: 13px; color: var(--texto-2); }
+.stats .ok b { color: var(--ok); } .stats .ruim b { color: var(--alerta); } .stats button { cursor: pointer; border-color: rgba(255, 176, 32, .45); } .stats button:hover { background: rgba(255, 176, 32, .1); }
+.parede { list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; padding: 0; margin: 0; }
+.parede .destaque { grid-column: span 2; grid-row: span 2; }
+.cartao { position: relative; display: block; width: 100%; aspect-ratio: 1; padding: 0; border: 1px solid var(--borda); border-radius: 12px; overflow: hidden; background: var(--painel); color: var(--texto); text-align: left; cursor: pointer; transition: transform .18s, box-shadow .18s; }
+.cartao img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .4s; }
+.cartao .txt { position: absolute; inset: auto 0 0 0; display: grid; gap: 3px; padding: 36px 12px 11px; background: linear-gradient(transparent, rgba(5, 4, 12, .94)); font-size: 12px; color: var(--texto-2); }
+.cartao .txt b { font: 600 15px/1.2 var(--titulo); font-stretch: 85%; color: var(--texto); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cartao .txt span:not(.pontos) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .cartao .pontos { margin-top: 3px; } .cartao .falha { color: var(--alerta); }
+.destaque .txt { padding: 60px 18px 16px; gap: 5px; font-size: 15px; } .destaque .txt b { font-size: clamp(22px, 2.6vw, 34px); white-space: normal; } .destaque .pontos i { width: 11px; height: 11px; }
+.rotulo { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--dir); }
+.cartao:hover, .cartao:focus-visible { transform: translateY(-3px); box-shadow: 0 18px 36px -16px #000, 0 0 30px -12px var(--dir); } .cartao:hover img { transform: scale(1.05); }
 .rapido { display: flex; flex-wrap: wrap; gap: 10px; width: min(560px, 100%); } .rapido .campo { flex: 1; min-width: 220px; }
 #aberto { display: grid; gap: 18px; max-width: 1180px; padding-bottom: 20px; }
-.voltar { display: none; justify-self: start; margin: -6px 0 -8px -8px; }
+.voltar { display: inline-flex; justify-self: start; margin: -6px 0 -8px -8px; }
 .ficha { display: grid; grid-template-columns: clamp(84px, 11vw, 132px) minmax(0, 1fr); gap: clamp(14px, 2vw, 24px); align-items: start; }
 .ficha img { width: 100%; aspect-ratio: 1; border-radius: 8px; object-fit: cover; background: var(--palco); box-shadow: 0 14px 40px -18px #000; }
 .ficha h1 { font-size: clamp(28px, 3.6vw, 50px); font-weight: 800; font-stretch: 78%; overflow-wrap: anywhere; text-wrap: balance; }

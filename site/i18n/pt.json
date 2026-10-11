@@ -5,7 +5,6 @@
   "config": "Configuração",
   "mapas": "Seus mapas",
   "sem_mapas": "Nenhum mapa ainda.",
-  "convite": "Escolha um mapa na lista para assistir antes de jogar",
   "cancelar": "Cancelar",
   "salvar": "Salvar",
   "voltar": "Voltar",
@@ -252,5 +251,15 @@
   "o_bpm": "Mais rápidos",
   "o_falhou": "Falhou primeiro",
   "sem_achado": "Nenhum mapa com esse nome ou artista.",
-  "opcoes": "Opções"
+  "opcoes": "Opções",
+  "ini_titulo": "O que vamos jogar hoje?",
+  "ini_continuar": "Continue de onde parou",
+  "ini_recente": "O mais recente",
+  "ini_mapas": "mapas",
+  "ini_tempo": "de música",
+  "ini_ok": "passaram nas conferências",
+  "ini_falhou": "com conferência falhada",
+  "ini_quest": "no Quest",
+  "fila_mostrar": "Mostrar as outras {n}",
+  "fila_menos": "Mostrar menos"
 }

@@ -5,7 +5,6 @@
   "config": "Settings",
   "mapas": "Your maps",
   "sem_mapas": "No maps yet.",
-  "convite": "Pick a map from the list to watch it before you play",
   "cancelar": "Cancel",
   "salvar": "Save",
   "voltar": "Back",
@@ -252,5 +251,15 @@
   "o_bpm": "Fastest",
   "o_falhou": "Failed first",
   "sem_achado": "No map with that name or artist.",
-  "opcoes": "Options"
+  "opcoes": "Options",
+  "ini_titulo": "What are we playing today?",
+  "ini_continuar": "Pick up where you left off",
+  "ini_recente": "Latest map",
+  "ini_mapas": "maps",
+  "ini_tempo": "of music",
+  "ini_ok": "passed all checks",
+  "ini_falhou": "failed a check",
+  "ini_quest": "on the Quest",
+  "fila_mostrar": "Show the other {n}",
+  "fila_menos": "Show fewer"
 }

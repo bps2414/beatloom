@@ -4,7 +4,7 @@
 
 **Cole um link do YouTube e receba um mapa de Beat Saber pronto para jogar.**
 
-![A página do Beatloom: a lista de mapas à esquerda e um mapa aberto no visualizador 3D](docs/tela.jpg)
+![A tela inicial do Beatloom: a lista de mapas à esquerda, os números da biblioteca e uma parede de capas à direita](docs/tela.jpg)
 
 O Beatloom ouve a música e monta o mapa (Easy, Normal, Hard, Expert e Expert+) com regras e com padrões tirados de mapas humanos bem avaliados. Nenhum modelo é treinado. Tudo roda no seu computador, numa página local: você assiste ao mapa em 3D, confere o relatório e manda para o Quest pelo Wi-Fi.
 
