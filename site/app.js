@@ -299,14 +299,15 @@ $("d-lista").onclose = async () => {
 $("lote-limpar").onclick = () => { marcados.clear(); pintarLista(); };
 $("marcar-todos").onclick = () => { if (marcados.size === listadas.length) marcados.clear(); else for (const m of listadas) marcados.add(m.zip); pintarLista(); };
 // arrasto: apertar a caixa de uma linha e arrastar marca (ou desmarca, o contrario do que a caixa estava) todas as linhas por onde o mouse passa
-let pincel = null, origem = null, arrastou = false;  // pincel = o que as linhas viram; origem = a linha do aperto; arrastou = o mouse saiu dela (entao o clique solto nao vale)
-const pintar = (li) => { marcados[pincel ? "add" : "delete"](li.zip); li.querySelector(".marcar").checked = pincel; pintarLote(); };
-$("mapas").onpointerdown = (e) => { if (e.button === 0 && e.pointerType === "mouse" && e.target.matches(".marcar")) { pincel = !e.target.checked; origem = e.target.closest(".linha"); arrastou = false; } };
+let pincel = null, origem = null, base = null, arrastou = false;  // pincel = o que o trecho vira; origem = a linha do aperto; base = a selecao de antes do aperto; arrastou = o mouse saiu da origem (entao o clique solto nao vale)
+$("mapas").onpointerdown = (e) => { if (e.button === 0 && e.pointerType === "mouse" && e.target.matches(".marcar")) { pincel = !e.target.checked; origem = e.target.closest(".linha"); base = new Set(marcados); arrastou = false; } };
 $("mapas").onmousedown = (e) => { if (e.target.matches(".marcar")) e.preventDefault(); };  // sem isso o arrasto seleciona texto
-$("mapas").onpointerover = (e) => {
+$("mapas").onpointerover = (e) => {  // o trecho da origem ate a linha de agora vira o pincel e o resto volta ao que era: voltar com o mouse desfaz
   const li = e.target.closest(".linha"); if (pincel === null || !li || li === origem && !arrastou) return;
-  if (!arrastou) { arrastou = true; pintar(origem); }
-  pintar(li);
+  arrastou = true;
+  const ls = [...$("mapas").querySelectorAll(".linha:not([hidden])")], a = ls.indexOf(origem), b = ls.indexOf(li), [de, ate] = a < b ? [a, b] : [b, a];
+  ls.forEach((l, i) => { const v = i >= de && i <= ate ? pincel : base.has(l.zip); marcados[v ? "add" : "delete"](l.zip); l.querySelector(".marcar").checked = v; });
+  pintarLote();
 };
 const soltou = () => { if (pincel !== null) { pincel = null; setTimeout(() => { arrastou = false; }); } };  // o clique vem logo depois do soltar: arrastou so zera depois dele
 addEventListener("pointerup", soltou); addEventListener("pointercancel", soltou);
