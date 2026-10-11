@@ -6,7 +6,7 @@ r"""Interface web do Beatloom. Roda so neste PC.
 Cole um link (YouTube etc., via yt-dlp) ou escolha um arquivo, gere o mapa, assista no ArcViewer (visualizador 3D embutido) e mande ao Quest.
 Na primeira vez a pagina confere o que falta (ffmpeg, Node, padroes...) e baixa para dentro da pasta do projeto: beatloom\preparo.py.
 """
-import importlib.metadata, json, mimetypes, os, re, shutil, subprocess, sys, threading, time, webbrowser, zipfile
+import importlib.metadata, json, mimetypes, os, re, shutil, subprocess, sys, tempfile, threading, time, webbrowser, zipfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, quote, unquote, urlparse
@@ -154,13 +154,18 @@ def enviados():
         return {}
 
 
+def situacao(z, la, env):
+    """Um zip diante do Quest: "novo" (nao esta la), "velho" (esta, mas o zip mudou depois do envio: vai por cima) ou "igual" (mesma versao: pula)."""
+    return "novo" if z.stem not in la else "igual" if env.get(z.name) == z.stat().st_mtime else "velho"
+
+
 def estado_quest():
     """-> tem adb?, ip, conectado? e, por zip, "ok" (a versao de agora esta no Quest) ou "velho" (o mapa mudou depois do envio)."""
     ip = config()["quest_ip"]
     on = quest.conectado(ip)
     la, env = quest.no_quest(ip) if on else set(), enviados()
     return {"adb": preparo.tem("adb"), "ip": ip, "conectado": on,
-            "mapas": {z.name: "ok" if env.get(z.name) == z.stat().st_mtime else "velho" for z in SAIDA.glob("*.zip") if z.stem in la}}
+            "mapas": {z.name: "ok" if situacao(z, la, env) == "igual" else "velho" for z in SAIDA.glob("*.zip") if z.stem in la}}
 
 
 def capa_do_zip(zp):
@@ -388,6 +393,10 @@ def demo():
     assert p["extras"] == ["c.zip"] and mapas_da_lista(p, mapas) == ["b2.zip", "a.zip", "c.zip"]
     mexer_na_lista(p, ["a.zip", "c.zip"], mapas, tirar=True)
     assert mapas_da_lista(p, mapas) == ["b2.zip"] and len(p["videos"]) == 2
+    with tempfile.TemporaryDirectory() as tmp:  # situacao: novo, igual ao enviado, ou refeito depois do envio
+        z = Path(tmp) / "m.zip"; z.write_bytes(b"x"); mt = z.stat().st_mtime
+        assert situacao(z, set(), {}) == "novo" and situacao(z, {"m"}, {"m.zip": mt}) == "igual"
+        assert situacao(z, {"m"}, {"m.zip": mt - 5}) == "velho" and situacao(z, {"m"}, {}) == "velho"
     print("demo ok")
 
 
@@ -663,13 +672,19 @@ class H(BaseHTTPRequestHandler):
             gravar_config({"quest_ip": ip})
             time.sleep(2)  # o Quest leva um instante para voltar a responder depois de ligar o Wi-Fi
             return self.manda(estado_quest())
-        if u.path == "/api/quest":  # so roda quando a pessoa clica no botao; "zips" = varios de uma vez
-            ip, res, env = config()["quest_ip"], {}, enviados()
+        if u.path == "/api/quest":  # so roda quando a pessoa clica no botao; "zips" = varios de uma vez; "forcar" manda tambem o que ja esta igual no Quest
+            ip, res, env, sit = config()["quest_ip"], {}, enviados(), {}
             if not quest.conectado(ip):
                 return self.manda({"erro": "sem_quest"}, cod=400)
+            antes = quest.no_quest(ip)
             for nome in d.get("zips") or [d.get("zip")]:
                 z = SAIDA / Path(nome or "-").name
-                res[z.name] = quest.enviar(ip, z) if z.is_file() else "sem_mapa"
+                if not z.is_file():
+                    res[z.name] = "sem_mapa"; continue
+                sit[z.name] = situacao(z, antes, env)
+                if sit[z.name] == "igual" and not d.get("forcar"):
+                    continue  # mesma versao ja esta no Quest: nao some do resultado, so nao e mandada
+                res[z.name] = quest.enviar(ip, z)
                 if not res[z.name]:
                     env[z.name] = z.stat().st_mtime
             ENVIADOS.write_text(json.dumps(env), encoding="utf-8")
@@ -678,7 +693,7 @@ class H(BaseHTTPRequestHandler):
             for k, p in ls.items():
                 zs = [SAIDA / z for z in mapas_da_lista(p, mapas) if z[:-4] in la]
                 feitas += bool(zs) and not quest.enviar_lista(ip, arquivo_da_lista(k), quest.bplist(p["nome"], zs))
-            return self.manda({"resultados": res, "playlists": feitas})
+            return self.manda({"resultados": res, "situacao": sit, "playlists": feitas})
         zp = SAIDA / Path(d.get("zip") or "-").name
         if u.path == "/api/restaurar":  # o Desfazer do apagar: traz da lixeira de volta, a menos que ja exista um mapa com esse nome
             if not (SAIDA / "lixeira" / zp.name).is_file():

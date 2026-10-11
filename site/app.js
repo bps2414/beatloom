@@ -236,7 +236,8 @@ function pintarLista() {
     if (!li) {
       li = $("m-linha").content.firstElementChild.cloneNode(true); linhas.set(m.zip, li);
       li.querySelector(".abre").onclick = () => abrir(m.zip);
-      li.querySelector(".marcar").onchange = (e) => { marcados[e.target.checked ? "add" : "delete"](m.zip); pintarLote(); };
+      li.zip = m.zip;
+      li.querySelector(".marcar").onchange = (e) => { if (arrastou) { e.target.checked = marcados.has(m.zip); return; } marcados[e.target.checked ? "add" : "delete"](m.zip); pintarLote(); };  // depois de um arrasto o clique solto na caixa de origem nao desfaz o que o arrasto fez
     }
     if (ul.children[i] !== li) ul.insertBefore(li, ul.children[i] || null);
     li.hidden = !listadas.includes(m);
@@ -273,9 +274,9 @@ let daLista = null;  // a playlist cujo nome foi clicado: enquanto so mapas dela
 function pintarLote() {
   const pl = (estado.playlists || []).find((p) => p.id === daLista);
   $("lote-tirar").hidden = !(pl && marcados.size && [...marcados].every((z) => pl.zips.includes(z)));
-  const faltam = quest.conectado ? listadas.filter((m) => quest.mapas[m.zip] !== "ok") : [];  // os que nao estao no Quest, ou estao numa versao antiga
-  $("barra-lista").hidden = !estado.mapas.length; $("q-novos").hidden = !faltam.length; $("q-novos").textContent = t("q_novos", { n: faltam.length });
-  $("q-novos").onclick = () => enviar(faltam.map((m) => m.zip), $("q-novos"));
+  const faltam = listadas.filter((m) => quest.mapas[m.zip] !== "ok");  // os que nao estao no Quest, ou estao numa versao antiga: so esses vao de fato
+  $("barra-lista").hidden = !estado.mapas.length; $("q-novos").hidden = !quest.conectado || !listadas.length; $("q-novos").textContent = t(faltam.length ? "q_novos" : "q_em_dia", { n: faltam.length });
+  $("q-novos").onclick = () => enviar(listadas.map((m) => m.zip), $("q-novos"));  // manda tudo da lista; o servidor pula o que ja esta igual no Quest
   $("marcar-todos").textContent = t(marcados.size === listadas.length ? "desmarcar_todos" : "marcar_todos"); $("lote-enviar").hidden = !quest.conectado;
   $("lote").hidden = !marcados.size; $("mapas").classList.toggle("marcando", marcados.size > 0);
   $("lote-n").textContent = t(marcados.size === 1 ? "lote_um" : "lote_varios", { n: marcados.size });
@@ -297,6 +298,18 @@ $("d-lista").onclose = async () => {
 };
 $("lote-limpar").onclick = () => { marcados.clear(); pintarLista(); };
 $("marcar-todos").onclick = () => { if (marcados.size === listadas.length) marcados.clear(); else for (const m of listadas) marcados.add(m.zip); pintarLista(); };
+// arrasto: apertar a caixa de uma linha e arrastar marca (ou desmarca, o contrario do que a caixa estava) todas as linhas por onde o mouse passa
+let pincel = null, origem = null, arrastou = false;  // pincel = o que as linhas viram; origem = a linha do aperto; arrastou = o mouse saiu dela (entao o clique solto nao vale)
+const pintar = (li) => { marcados[pincel ? "add" : "delete"](li.zip); li.querySelector(".marcar").checked = pincel; pintarLote(); };
+$("mapas").onpointerdown = (e) => { if (e.button === 0 && e.pointerType === "mouse" && e.target.matches(".marcar")) { pincel = !e.target.checked; origem = e.target.closest(".linha"); arrastou = false; } };
+$("mapas").onmousedown = (e) => { if (e.target.matches(".marcar")) e.preventDefault(); };  // sem isso o arrasto seleciona texto
+$("mapas").onpointerover = (e) => {
+  const li = e.target.closest(".linha"); if (pincel === null || !li || li === origem && !arrastou) return;
+  if (!arrastou) { arrastou = true; pintar(origem); }
+  pintar(li);
+};
+const soltou = () => { if (pincel !== null) { pincel = null; setTimeout(() => { arrastou = false; }); } };  // o clique vem logo depois do soltar: arrastou so zera depois dele
+addEventListener("pointerup", soltou); addEventListener("pointercancel", soltou);
 // teclado na lista: setas andam pelas linhas que aparecem, Espaco marca, Enter abre (e o proprio botao); / vai para a busca
 $("mapas").onkeydown = (e) => {
   const b = e.target.closest(".abre"); if (!b) return;
@@ -330,12 +343,13 @@ async function apagar(zips) {  // sem perguntar: vai para saida\lixeira e o avis
 }
 $("lote-apagar").onclick = () => apagar([...marcados]);
 $("lote-enviar").onclick = () => enviar([...marcados], $("lote-enviar")).then(() => { marcados.clear(); pintarLista(); });
-async function enviar(zips, botao) {  // um aviso por mapa que falhou e um com quantos foram
+async function enviar(zips, botao, forcar = false) {  // um aviso por mapa que falhou, um com quantos foram e um com quantos ja estavam iguais (so o forcar manda esses)
   botao.disabled = true; avisar(t("mandando"));
   try {
-    const res = await api("/api/quest", { zips }), r = res.resultados, bons = zips.filter((z) => !r[z]);
+    const res = await api("/api/quest", { zips, forcar }), r = res.resultados, bons = zips.filter((z) => z in r && !r[z]), igual = zips.filter((z) => !(z in r)).length, porcima = bons.filter((z) => res.situacao[z] === "velho").length;
     for (const z of zips) if (r[z]) { const e = lerErro(r[z]); avisar(t("q_falhou", { nome: (estado.mapas.find((m) => m.zip === z) || {}).nome || z }) + " " + e.msg, true, e.detalhe); }
-    if (bons.length) avisar(t(bons.length === 1 ? "q_enviado" : "q_enviados", { n: bons.length }));
+    if (bons.length) avisar(t(bons.length === 1 ? "q_enviado" : "q_enviados", { n: bons.length }) + (porcima ? " " + t("q_por_cima", { n: porcima }) : ""));
+    if (igual) avisar(t(bons.length ? "q_iguais" : "q_tudo_igual", { n: igual }));
     if (res.playlists) avisar(t("q_playlists", { n: res.playlists }));
   } catch (x) { falhou(x); }
   botao.disabled = false; await verQuest();
@@ -444,7 +458,7 @@ $("selo").onclick = () => $("conf").scrollIntoView({ behavior: matchMedia("(pref
 $("mais").onclick = (e) => { if (e.target.closest(".menu button")) $("mais").open = false; };
 addEventListener("click", (e) => { if (!$("mais").contains(e.target)) $("mais").open = false; });
 addEventListener("keydown", (e) => { if (e.key === "Escape") $("mais").open = false; });
-$("quest").onclick = () => enviar([atual], $("quest"));
+$("quest").onclick = () => enviar([atual], $("quest"), true);  // o botao do mapa aberto e um pedido explicito: manda mesmo se ja estiver igual
 $("q-apagar").onclick = async () => {
   if (!await confirmar("confirma_q_apagar", "q_apagar")) return;
   try { await api("/api/quest/apagar", { zip: atual }); avisar(t("q_apagado")); } catch (x) { falhou(x); }
