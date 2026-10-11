@@ -28,6 +28,7 @@
 <div class="casca">
   <aside class="biblioteca" data-ta="mapas">
     <div id="trabalhos" aria-live="polite"></div>
+    <div id="envio" hidden></div>
     <div class="filtro" id="filtro" hidden>
       <input class="campo" id="busca" type="search" data-tp="buscar" autocomplete="off" aria-keyshortcuts="/">
       <select class="campo" id="ordem" data-ta="ordem_por"><option value="recentes" data-t="o_recentes"></option><option value="nome" data-t="o_nome"></option><option value="artista" data-t="o_artista"></option><option value="bpm" data-t="o_bpm"></option><option value="falhou" data-t="o_falhou"></option></select>
@@ -37,8 +38,9 @@
     <ul class="mapas" id="mapas"></ul>
     <p class="fraco" id="sem-mapas" data-t="sem_mapas" hidden></p><p class="fraco" id="sem-achado" data-t="sem_achado" hidden></p>
     <div class="lote" id="lote" hidden>
-      <div><span id="lote-n"></span><button type="button" class="quieto" id="lote-tirar" data-t="pl_tirar_mapas" hidden></button><button type="button" class="quieto" id="lote-lista" data-t="pl_adicionar"></button><button type="button" class="quieto" id="lote-limpar" data-t="cancelar"></button></div>
-      <div><button type="button" class="quieto" id="lote-apagar" data-t="apagar_marcados"></button><span></span><button type="button" class="sec" id="lote-regerar" data-t="regerar_marcados"></button><button type="button" class="acao" id="lote-enviar" data-t="quest"></button></div></div>
+      <div><span id="lote-n"></span><button type="button" class="quieto" id="lote-limpar" data-t="cancelar"></button></div>
+      <div class="meio"><button type="button" class="sec" id="lote-lista" data-t="pl_adicionar"></button><button type="button" class="sec" id="lote-tirar" data-t="pl_tirar_mapas" hidden></button><button type="button" class="sec" id="lote-regerar" data-t="regerar_marcados"></button></div>
+      <div><button type="button" class="quieto" id="lote-apagar" data-t="apagar_marcados"></button><span></span><button type="button" class="acao" id="lote-enviar" data-t="quest"></button></div></div>
   </aside>
 
   <main class="detalhe">

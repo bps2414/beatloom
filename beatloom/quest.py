@@ -1,5 +1,5 @@
 """Manda mapas ao Quest por Wi-Fi (ADB). Quem guarda o IP e o beatloom.json; aqui so se fala com o aparelho."""
-import base64, hashlib, json, re, shlex, shutil, socket, subprocess, sys, tempfile, zipfile
+import base64, hashlib, json, re, shlex, shutil, socket, subprocess, sys, tempfile, time, zipfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -71,13 +71,38 @@ def no_quest(ip):
     return {l.strip()[len(PREFIXO):] for l in saida.splitlines() if l.strip().startswith(PREFIXO)}
 
 
-def enviar(ip, zp):
+def fracao(du, total):
+    """A saida de `du -sk` na pasta de destino diante do tamanho total que vai subir -> 0..1 (0 se nao deu para ler)."""
+    m = re.match(r"\d+", du.strip())
+    return min(int(m[0]) * 1024 / total, 1) if m and total else 0
+
+
+def empurrar(serie, origem, destino, total, andamento, espera=300):
+    """adb push; o adb sem terminal nao conta o andamento, entao de segundo em segundo se pergunta ao Quest quanto ja chegou e se chama andamento(0..1)."""
+    try:
+        p = subprocess.Popen(["adb", "-s", serie, "push", origem, destino], stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding="utf-8", errors="replace")
+    except OSError as e:
+        return subprocess.CompletedProcess([], 1, "", str(e))
+    t0 = time.time()
+    while True:
+        try:
+            out, err = p.communicate(timeout=1)
+            return subprocess.CompletedProcess(p.args, p.returncode, out, err)
+        except subprocess.TimeoutExpired:
+            if time.time() - t0 > espera:
+                p.kill(); out, err = p.communicate()
+                return subprocess.CompletedProcess(p.args, 1, out, err or "timeout")
+            if andamento:
+                andamento(min(fracao(adb("-s", serie, "shell", "du", "-sk", destino, espera=5).stdout, total), 0.99))
+
+
+def enviar(ip, zp, andamento=None):
     """Sobe com nome temporario e troca no fim: envio cortado no meio nao deixa mapa pela metade. -> None ou o erro"""
     serie, alvo, part = f"{ip}:5555", shlex.quote(f"{DEST}/{PREFIXO}{Path(zp).stem}"), shlex.quote(f"{DEST}/.part")
     with tempfile.TemporaryDirectory() as tmp:
         zipfile.ZipFile(zp).extractall(Path(tmp) / "mapa")
         adb("-s", serie, "shell", f"mkdir -p {shlex.quote(DEST)} && rm -rf {part}")
-        r = adb("-s", serie, "push", str(Path(tmp) / "mapa"), f"{DEST}/.part", espera=300)
+        r = empurrar(serie, str(Path(tmp) / "mapa"), f"{DEST}/.part", sum(f.stat().st_size for f in (Path(tmp) / "mapa").rglob("*") if f.is_file()), andamento)
         if r.returncode == 0:
             r = adb("-s", serie, "shell", f"rm -rf {alvo} && mv {part} {alvo}")
     return None if r.returncode == 0 else (r.stderr or r.stdout).strip()[-300:] or "adb"
@@ -127,6 +152,7 @@ def demo():
         assert impressao(zp)[0] == h
         j = json.loads(bplist("Lista", [zp]))
         assert j["songs"] == [{"hash": h, "levelid": "custom_level_" + h, "songName": "X"}] and j["image"].endswith(base64.b64encode(b"png").decode())
+    assert fracao("512\t/x/.part\n", 2048 * 1024) == 0.25 and fracao("9999\t/x", 1024) == 1 and fracao("du: No such file", 1024) == 0 and fracao("5", 0) == 0
     s = socket.socket(); s.bind(("127.0.0.1", 0)); s.listen()
     assert abertos(["127.0.0.1", "127.0.0.2"], s.getsockname()[1]) == ["127.0.0.1"]
     s.close()

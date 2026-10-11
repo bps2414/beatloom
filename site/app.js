@@ -8,7 +8,7 @@ const ITENS = ["ffmpeg", "node", "padroes", "visor", "adb"];
 
 const T = {};
 let lingua = navigator.language.startsWith("pt") ? "pt" : "en";  // ate o beatloom.json dizer outra coisa
-let cfg = { difs: [], densidade: 1 }, quest = { mapas: {} }, estado = { mapas: [], trabalhos: [], visor: true };
+let cfg = { difs: [], densidade: 1 }, quest = { mapas: {} }, estado = { mapas: [], trabalhos: [], visor: true, envio: { itens: [] } }, enviando = false;
 let atual = null, mapa = null, dif = "Expert";
 
 const t = (k, v = {}) => (T[lingua][k] ?? k).replace(/\{(\w+)\}/g, (_, n) => v[n] ?? "");
@@ -59,7 +59,7 @@ function traduzir() {
   $("lingua").textContent = lingua === "pt" ? "English" : "Português";
   for (const b of $("p-linguas").children) b.setAttribute("aria-pressed", b.dataset.l === lingua);
   for (const id of ["dens", "c-dens", "r-dens"]) dens(id);
-  pintarArquivo(); pintarTrabalhos(); pintarLista(); pintarMapa(); pintarQuest(); resumo();
+  pintarArquivo(); pintarTrabalhos(); pintarEnvio(); pintarLista(); pintarMapa(); pintarQuest(); resumo();
   if ($("painel").open) { botoes(); verPreparo(); verConfig(); }
 }
 function mudarLingua(l) { lingua = l; salvar({ lingua }); traduzir(); }
@@ -227,7 +227,7 @@ $("ordem").value = ordem;
 $("busca").oninput = () => { busca = $("busca").value; pintarLista(); };
 $("ordem").onchange = () => { ordem = $("ordem").value; ls.gravar("beatloom.ordem", ordem); pintarLista(); };
 function pintarLista() {
-  const ul = $("mapas"), q = sem(busca.trim());
+  const ul = $("mapas"), q = sem(busca.trim()), noenvio = new Map(estado.envio.itens.map((i) => [i.zip, i]));
   listadas = estado.mapas.filter((m) => !q || sem(m.nome + " " + m.artista).includes(q)); if (ORDENS[ordem]) listadas.sort(ORDENS[ordem]);
   for (const z of marcados) if (!listadas.some((m) => m.zip === z)) marcados.delete(z);  // o que a busca esconde sai da selecao: o lote so mexe no que se ve
   for (const [z, li] of linhas) if (!estado.mapas.some((m) => m.zip === z)) { li.remove(); linhas.delete(z); marcados.delete(z); }
@@ -250,6 +250,9 @@ function pintarLista() {
     if (/ v3/.test(m.sub)) q(".tags").append(el("span", "rapido", t("tag_rapido")));
     if (m.ok === false) q(".tags").append(el("span", "falha", t("tag_falhou")));
     if (la) q(".tags").append(el("span", la === "ok" ? "la" : "velho", t(la === "ok" ? "no_quest" : "q_velho")));
+    const ev = noenvio.get(m.zip), subindo = ev && (ev.estado === "espera" || ev.estado === "enviando");  // na fila de envio ao Quest: tag e uma barra fina no pe da linha
+    if (subindo) q(".tags").append(el("span", "subindo", ev.estado === "espera" ? t("envio_espera") : t("envio_subindo", { p: ev.pct })));
+    li.dataset.envio = subindo ? ev.estado : ""; li.style.setProperty("--p", subindo ? ev.pct + "%" : "0%");
     q(".abre").setAttribute("aria-current", m.zip === atual);
     q(".marcar").checked = marcados.has(m.zip); q(".marcar").setAttribute("aria-label", t("marcar", { nome: m.nome }));
   });
@@ -344,16 +347,31 @@ async function apagar(zips) {  // sem perguntar: vai para saida\lixeira e o avis
 }
 $("lote-apagar").onclick = () => apagar([...marcados]);
 $("lote-enviar").onclick = () => enviar([...marcados], $("lote-enviar")).then(() => { marcados.clear(); pintarLista(); });
-async function enviar(zips, botao, forcar = false) {  // um aviso por mapa que falhou, um com quantos foram e um com quantos ja estavam iguais (so o forcar manda esses)
+async function enviar(zips, botao, forcar = false) {  // o servidor poe os mapas na fila de envio e volta na hora; o painel e a lista mostram o andamento
   botao.disabled = true; avisar(t("mandando"));
-  try {
-    const res = await api("/api/quest", { zips, forcar }), r = res.resultados, bons = zips.filter((z) => z in r && !r[z]), igual = zips.filter((z) => !(z in r)).length, porcima = bons.filter((z) => (res.situacao || {})[z] === "velho").length;
-    for (const z of zips) if (r[z]) { const e = lerErro(r[z]); avisar(t("q_falhou", { nome: (estado.mapas.find((m) => m.zip === z) || {}).nome || z }) + " " + e.msg, true, e.detalhe); }
-    if (bons.length) avisar(t(bons.length === 1 ? "q_enviado" : "q_enviados", { n: bons.length }) + (porcima ? " " + t("q_por_cima", { n: porcima }) : ""));
-    if (igual) avisar(t(bons.length ? "q_iguais" : "q_tudo_igual", { n: igual }));
-    if (res.playlists) avisar(t("q_playlists", { n: res.playlists }));
-  } catch (x) { falhou(x); }
-  botao.disabled = false; await verQuest();
+  try { await api("/api/quest", { zips, forcar }); } catch (x) { falhou(x); }
+  botao.disabled = false; atualizar();
+}
+const nomeDe = (z) => (estado.mapas.find((m) => m.zip === z) || {}).nome || z;
+function pintarEnvio() {  // o cartao do envio ao Quest: quantos ja foram, o mapa de agora com a barra, os que falharam; fica ate fechar
+  const e = estado.envio, its = e.itens, chave = JSON.stringify([e, lingua, estado.mapas.length]);
+  if (chave === pintarEnvio.chave) return; pintarEnvio.chave = chave;
+  const c = $("envio"); c.textContent = ""; c.hidden = !its.length; if (!its.length) return;
+  const feitos = its.filter((i) => i.estado !== "espera" && i.estado !== "enviando").length, agora = its.find((i) => i.estado === "enviando"), esperam = its.filter((i) => i.estado === "espera").length, ruins = its.filter((i) => i.estado === "erro");
+  const card = el("div", "trabalho envio" + (e.ativo ? " vivo" : ruins.length ? " ruim" : "")), barra = el("progress"), fim = el("div", "fim"), b = el("button", "quieto", t(e.ativo ? "envio_cancelar" : "fechar")); b.type = "button";
+  barra.max = its.length; barra.value = feitos + (agora ? agora.pct / 100 : 0);
+  b.hidden = e.ativo && !esperam; b.onclick = async () => { await api("/api/quest/limpar", { cancelar: true }); atualizar(); };
+  card.append(el("b", "", t(e.ativo ? "envio_titulo" : "envio_fim", { a: feitos, n: its.length })), b);
+  card.append(el("span", "etapa", agora ? nomeDe(agora.zip) + " " + agora.pct + "%" + (esperam ? " · " + t("envio_resto", { n: esperam }) : "") : e.ativo ? t("envio_playlists") : ""), barra);
+  for (const i of ruins) { const x = lerErro(i.erro), l = el("div", "etapa erro", t("q_falhou", { nome: nomeDe(i.zip) }) + " " + x.msg); if (x.detalhe) l.append(tecnico(x.detalhe)); card.append(l); }
+  c.append(card);
+}
+function resumoEnvio(e) {  // o aviso de quando o lote acaba: o que subiu, o que foi trocado, o que ja estava igual (as falhas ficam no cartao)
+  const ok = e.itens.filter((i) => i.estado === "ok"), porcima = ok.filter((i) => i.sit === "velho").length, igual = e.itens.filter((i) => i.estado === "igual").length;
+  if (ok.length) avisar(t(ok.length === 1 ? "q_enviado" : "q_enviados", { n: ok.length }) + (porcima ? " " + t("q_por_cima", { n: porcima }) : ""));
+  if (igual) avisar(t(ok.length ? "q_iguais" : "q_tudo_igual", { n: igual }));
+  if (e.playlists) avisar(t("q_playlists", { n: e.playlists }));
+  if (e.itens.some((i) => i.estado === "erro")) avisar(t("envio_falhas"), true);
 }
 async function atualizar() {
   clearTimeout(atualizar.t);
@@ -361,9 +379,11 @@ async function atualizar() {
   for (const tr of estado.trabalhos) if (tr.estado === "pronto") { if (!primeira && !vistos.has(tr.id) && tr.zip && !estado.trabalhos.some((o) => ["na fila", "rodando"].includes(o.estado))) abrir(tr.zip); vistos.add(tr.id); }  // acabou agora: abre (no meio de uma fila nao, para nao tomar a tela a cada faixa)
   primeira = false;
   if (atual && !estado.mapas.some((m) => m.zip === atual)) fechar();  // o mapa aberto sumiu da pasta
-  pintarTrabalhos(); pintarLista();
+  pintarTrabalhos(); pintarEnvio(); pintarLista();
+  if (enviando && !estado.envio.ativo) { resumoEnvio(estado.envio); verQuest(); }  // o lote acabou agora
+  enviando = estado.envio.ativo;
   if (mapa && $("visor").hidden === estado.visor) pintarMapa();  // o visualizador acabou de ser instalado
-  atualizar.t = setTimeout(atualizar, estado.trabalhos.some((tr) => ["na fila", "rodando"].includes(tr.estado)) ? 1200 : 6000);
+  atualizar.t = setTimeout(atualizar, estado.trabalhos.some((tr) => ["na fila", "rodando"].includes(tr.estado)) || estado.envio.ativo ? 1200 : 6000);
 }
 
 // ---------- detalhe do mapa aberto

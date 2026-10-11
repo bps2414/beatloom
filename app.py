@@ -168,6 +168,48 @@ def estado_quest():
             "mapas": {z.name: "ok" if situacao(z, la, env) == "igual" else "velho" for z in SAIDA.glob("*.zip") if z.stem in la}}
 
 
+envio = {"itens": [], "ativo": False, "playlists": 0, "lote": 0}  # a fila de envio ao Quest, um item por mapa ("espera", "enviando", "ok", "igual", "erro"); a pagina a le em /api/estado
+
+
+def enviador():
+    """Esvazia envio["itens"] um mapa por vez (o adb nao ganha nada em paralelo), depois manda as playlists; quem chegar no meio entra na mesma fila."""
+    while True:
+        ip, env = config()["quest_ip"], enviados()
+        while True:
+            with trava:
+                it = next((i for i in envio["itens"] if i["estado"] == "espera"), None)
+                if it:
+                    it["estado"] = "enviando"
+            if not it:
+                break
+            z = SAIDA / it["zip"]
+            try:
+                it["sit"] = situacao(z, quest.no_quest(ip), env)
+                if it["sit"] == "igual" and not it["forcar"]:
+                    it["estado"] = "igual"; continue  # mesma versao ja esta no Quest: nao e mandada
+                it["erro"] = quest.enviar(ip, z, lambda f: it.update(pct=int(f * 100))) or ""
+                if not it["erro"]:
+                    env[z.name] = z.stat().st_mtime
+                    ENVIADOS.write_text(json.dumps(env), encoding="utf-8")
+                else:
+                    it["erro"] = "adb|" + it["erro"]
+            except Exception as e:  # um mapa que quebra nao derruba a fila
+                it["erro"] = "adb|" + str(e)[-300:]
+            it["pct"], it["estado"] = 100, "erro" if it["erro"] else "ok"
+        try:
+            ls = listas()  # as playlists vao junto, cada uma com os mapas dela que estao no Quest (o codigo do mapa muda quando ele e refeito)
+            la, mapas = quest.no_quest(ip) if ls else set(), lista_de_mapas() if ls else []
+            for k, p in ls.items():
+                zs = [SAIDA / z for z in mapas_da_lista(p, mapas) if z[:-4] in la]
+                envio["playlists"] += bool(zs) and not quest.enviar_lista(ip, arquivo_da_lista(k), quest.bplist(p["nome"], zs))
+        except Exception:
+            pass  # playlist nao e o mapa: a pagina so deixa de contar
+        with trava:
+            if not any(i["estado"] == "espera" for i in envio["itens"]):
+                envio["ativo"] = False
+                return
+
+
 def capa_do_zip(zp):
     z = zipfile.ZipFile(zp)
     return z.read(json.loads(z.read("Info.dat").decode("utf-8-sig"))["_coverImageFilename"])
@@ -385,6 +427,7 @@ def mexer_na_lista(p, zips, mapas, tirar=False):
 
 
 def demo():
+    global SAIDA, ENVIADOS, config
     a, b, c = "https://youtu.be/aaaaaaaaaaa", "https://www.youtube.com/watch?v=bbbbbbbbbbb", None
     mapas = [{"zip": "c.zip", "link": c}, {"zip": "b2.zip", "link": b}, {"zip": "b.zip", "link": b}, {"zip": "a.zip", "link": a}]  # do mais novo ao mais velho, como lista_de_mapas
     p = {"nome": "P", "videos": ["bbbbbbbbbbb", "xxxxxxxxxxx", "aaaaaaaaaaa"]}
@@ -397,6 +440,19 @@ def demo():
         z = Path(tmp) / "m.zip"; z.write_bytes(b"x"); mt = z.stat().st_mtime
         assert situacao(z, set(), {}) == "novo" and situacao(z, {"m"}, {"m.zip": mt}) == "igual"
         assert situacao(z, {"m"}, {"m.zip": mt - 5}) == "velho" and situacao(z, {"m"}, {}) == "velho"
+    with tempfile.TemporaryDirectory() as tmp:  # o enviador com um Quest de mentira: o igual pula, o novo sobe com andamento, o que falha nao derruba a fila
+        SAIDA, ENVIADOS, config = Path(tmp), Path(tmp) / "quest.json", lambda: {"quest_ip": "1.2.3.4"}
+        for n in "abc":
+            (SAIDA / f"{n}.zip").write_bytes(b"x")
+        ENVIADOS.write_text(json.dumps({"a.zip": (SAIDA / "a.zip").stat().st_mtime}), encoding="utf-8")
+        def sobe(ip, z, andamento):
+            andamento(0.5); assert envio["itens"][1]["pct"] == 50 or z.name != "b.zip"
+            return "quebrou" if z.name == "c.zip" else None
+        quest.no_quest, quest.enviar = lambda ip: {"a"}, sobe
+        envio.update(itens=[{"zip": f"{n}.zip", "estado": "espera", "pct": 0, "sit": "", "erro": "", "forcar": False} for n in "abc"], ativo=True)
+        enviador()
+        assert [(i["estado"], i["erro"]) for i in envio["itens"]] == [("igual", ""), ("ok", ""), ("erro", "adb|quebrou")] and not envio["ativo"]
+        assert "b.zip" in enviados() and "c.zip" not in enviados()
     print("demo ok")
 
 
@@ -505,7 +561,7 @@ class H(BaseHTTPRequestHandler):
             elif u.path == "/api/estado":
                 vivos = [t for t in trabalhos if t["estado"] in ("na fila", "rodando")]  # a fila inteira (uma playlist enche) e os ultimos que acabaram
                 mapas = lista_de_mapas()
-                self.manda({"trabalhos": vivos + [t for t in trabalhos if t not in vivos][-6:], "mapas": mapas, "playlists": [{"id": k, "nome": p["nome"], "zips": mapas_da_lista(p, mapas), "total": len(p["videos"]) + len(p.get("extras", []))} for k, p in listas().items()], "visor": (ARC / "index.html").exists(), "difs": list(DIFS), "pausada": pausada[0]})
+                self.manda({"trabalhos": vivos + [t for t in trabalhos if t not in vivos][-6:], "mapas": mapas, "playlists": [{"id": k, "nome": p["nome"], "zips": mapas_da_lista(p, mapas), "total": len(p["videos"]) + len(p.get("extras", []))} for k, p in listas().items()], "visor": (ARC / "index.html").exists(), "difs": list(DIFS), "pausada": pausada[0], "envio": envio})
             elif u.path == "/api/preparo":
                 self.manda(preparo.estado())
             elif u.path == "/api/config":
@@ -672,28 +728,27 @@ class H(BaseHTTPRequestHandler):
             gravar_config({"quest_ip": ip})
             time.sleep(2)  # o Quest leva um instante para voltar a responder depois de ligar o Wi-Fi
             return self.manda(estado_quest())
-        if u.path == "/api/quest":  # so roda quando a pessoa clica no botao; "zips" = varios de uma vez; "forcar" manda tambem o que ja esta igual no Quest
-            ip, res, env, sit = config()["quest_ip"], {}, enviados(), {}
-            if not quest.conectado(ip):
+        if u.path == "/api/quest":  # so roda quando a pessoa clica no botao; "zips" = varios de uma vez; "forcar" manda tambem o que ja esta igual no Quest. Volta na hora: o envio roda no enviador e a pagina acompanha por /api/estado
+            if not quest.conectado(config()["quest_ip"]):
                 return self.manda({"erro": "sem_quest"}, cod=400)
-            antes = quest.no_quest(ip)
-            for nome in d.get("zips") or [d.get("zip")]:
-                z = SAIDA / Path(nome or "-").name
-                if not z.is_file():
-                    res[z.name] = "sem_mapa"; continue
-                sit[z.name] = situacao(z, antes, env)
-                if sit[z.name] == "igual" and not d.get("forcar"):
-                    continue  # mesma versao ja esta no Quest: nao some do resultado, so nao e mandada
-                res[z.name] = quest.enviar(ip, z)
-                if not res[z.name]:
-                    env[z.name] = z.stat().st_mtime
-            ENVIADOS.write_text(json.dumps(env), encoding="utf-8")
-            ls, feitas = listas(), 0  # as playlists vao junto, cada uma com os mapas dela que estao no Quest (o codigo do mapa muda quando ele e refeito)
-            la, mapas = quest.no_quest(ip) if ls else set(), lista_de_mapas() if ls else []
-            for k, p in ls.items():
-                zs = [SAIDA / z for z in mapas_da_lista(p, mapas) if z[:-4] in la]
-                feitas += bool(zs) and not quest.enviar_lista(ip, arquivo_da_lista(k), quest.bplist(p["nome"], zs))
-            return self.manda({"resultados": res, "situacao": sit, "playlists": feitas})
+            with trava:
+                if not envio["ativo"]:  # lote novo: o resultado do anterior sai
+                    envio.update(itens=[], playlists=0, lote=envio["lote"] + 1, ativo=True); inicia = True
+                else:
+                    inicia = False
+                for nome in d.get("zips") or [d.get("zip")]:
+                    z = SAIDA / Path(nome or "-").name
+                    if any(i["zip"] == z.name and i["estado"] in ("espera", "enviando") for i in envio["itens"]):
+                        continue  # ja esta na fila
+                    envio["itens"] = [i for i in envio["itens"] if i["zip"] != z.name]
+                    envio["itens"].append({"zip": z.name, "estado": "espera" if z.is_file() else "erro", "pct": 0, "sit": "", "erro": "" if z.is_file() else "sem_mapa", "forcar": bool(d.get("forcar"))})
+            if inicia:
+                threading.Thread(target=enviador, daemon=True).start()
+            return self.manda({"ok": True})
+        if u.path == "/api/quest/limpar":  # o X do painel (tira o resultado) ou "cancelar" (tira tambem o que ainda espera; o que esta subindo termina)
+            with trava:
+                envio["itens"] = [i for i in envio["itens"] if i["estado"] == "enviando" or i["estado"] == "espera" and not d.get("cancelar")]
+            return self.manda({"ok": True})
         zp = SAIDA / Path(d.get("zip") or "-").name
         if u.path == "/api/restaurar":  # o Desfazer do apagar: traz da lixeira de volta, a menos que ja exista um mapa com esse nome
             if not (SAIDA / "lixeira" / zp.name).is_file():
