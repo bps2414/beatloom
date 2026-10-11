@@ -347,7 +347,7 @@ $("lote-enviar").onclick = () => enviar([...marcados], $("lote-enviar")).then(()
 async function enviar(zips, botao, forcar = false) {  // um aviso por mapa que falhou, um com quantos foram e um com quantos ja estavam iguais (so o forcar manda esses)
   botao.disabled = true; avisar(t("mandando"));
   try {
-    const res = await api("/api/quest", { zips, forcar }), r = res.resultados, bons = zips.filter((z) => z in r && !r[z]), igual = zips.filter((z) => !(z in r)).length, porcima = bons.filter((z) => res.situacao[z] === "velho").length;
+    const res = await api("/api/quest", { zips, forcar }), r = res.resultados, bons = zips.filter((z) => z in r && !r[z]), igual = zips.filter((z) => !(z in r)).length, porcima = bons.filter((z) => (res.situacao || {})[z] === "velho").length;
     for (const z of zips) if (r[z]) { const e = lerErro(r[z]); avisar(t("q_falhou", { nome: (estado.mapas.find((m) => m.zip === z) || {}).nome || z }) + " " + e.msg, true, e.detalhe); }
     if (bons.length) avisar(t(bons.length === 1 ? "q_enviado" : "q_enviados", { n: bons.length }) + (porcima ? " " + t("q_por_cima", { n: porcima }) : ""));
     if (igual) avisar(t(bons.length ? "q_iguais" : "q_tudo_igual", { n: igual }));
