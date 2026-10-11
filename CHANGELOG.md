@@ -4,6 +4,10 @@ O que mudou em cada versão, para quem usa. A seção de uma versão vira o text
 
 ## Próxima versão
 
+## v1.2.0
+
+- **Selecionar arrastando.** Aperte a caixa de uma música e arraste: o trecho até onde o mouse está fica marcado (ou desmarcado, se a primeira estava marcada). Voltar com o mouse, sem soltar, desfaz.
+- **Envio ao Quest sem repetir.** "Mandar tudo ao Quest" compara cada mapa com o que já está no aparelho: o novo é enviado, o que foi refeito ou renomeado depois do último envio é trocado e o que está na mesma versão é pulado. O aviso diz quantos de cada.
 - **Avisos no Discord.** Em Configuração, cole o endereço de um webhook e o Beatloom avisa no canal: uma mensagem única de andamento da fila (barra, música atual, etapa), um cartão por mapa pronto com a capa, os erros e o resumo final. Nas duas línguas, e o botão "Enviar teste" mostra como fica. O endereço fica só no seu computador.
 - **Bandeja do Windows.** `start-bandeja.bat` (ou `start.bat bandeja`) abre o Beatloom minimizado, com um ícone perto do relógio: duplo clique abre a página, "Sair" encerra.
 - **Playlist no jogo.** Ao colar um link de playlist, "Criar também a playlist no jogo" faz os mapas aparecerem agrupados no Beat Saber (precisa de um mod de playlists no Quest). A playlist vai junto a cada envio ao Quest e também pode ser baixada como `.bplist`. Mapas marcados na lista entram numa playlist que já existe ou numa nova, mesmo sem link do YouTube.
