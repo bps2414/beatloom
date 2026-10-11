@@ -6,19 +6,19 @@ r"""Interface web do Beatloom. Roda so neste PC.
 Cole um link (YouTube etc., via yt-dlp) ou escolha um arquivo, gere o mapa, assista no ArcViewer (visualizador 3D embutido) e mande ao Quest.
 Na primeira vez a pagina confere o que falta (ffmpeg, Node, padroes...) e baixa para dentro da pasta do projeto: beatloom\preparo.py.
 """
-import importlib.metadata, json, mimetypes, re, shutil, subprocess, sys, threading, time, webbrowser, zipfile
+import importlib.metadata, json, mimetypes, os, re, shutil, subprocess, sys, threading, time, webbrowser, zipfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, quote, unquote, urlparse
 
-from beatloom import mods, preparo, quest
+from beatloom import discord, mods, preparo, quest
 from generate import DIFS, dados_da_musica, fazer_capa, limpar_titulo
 
 mimetypes.add_type('application/wasm', '.wasm')
 
 RAIZ = Path(__file__).parent
 SAIDA, MUSICAS = RAIZ / "saida", RAIZ / "musicas"
-PORTA = 8777
+PORTA = int(os.environ.get("BEATLOOM_PORTA", 8777))  # so os testes mudam
 PY = sys.executable
 ARC = RAIZ / "arcviewer"
 CONFIG = RAIZ / "beatloom.json"  # escolhas de quem usa; nao vai para o repositorio
@@ -47,7 +47,8 @@ def dados_do_link(j):
 
 
 def config():
-    padrao = {"lingua": None, "quest_ip": "", "difs": list(DIFS), "densidade": 1.0, "modo": "completo", "sem_topo": False, "sem_fila": False, "cruzar": "pouco", "sabres_capa": False, "chroma": False, "noodle": False, "pronto": False}
+    padrao = {"lingua": None, "quest_ip": "", "difs": list(DIFS), "densidade": 1.0, "modo": "completo", "sem_topo": False, "sem_fila": False, "cruzar": "pouco", "sabres_capa": False, "chroma": False, "noodle": False, "pronto": False,
+              "discord_url": "", "discord_eventos": list(discord.EVENTOS), "discord_minimo": 3}
     try:
         return {**padrao, **json.loads(CONFIG.read_text(encoding="utf-8"))}
     except (OSError, ValueError):
@@ -69,11 +70,21 @@ def gravar_config(d):
         c["modo"] = d["modo"]
     if d.get("cruzar") in ("nunca", "pouco", "livre"):
         c["cruzar"] = d["cruzar"]
+    if "discord_url" in d and (not d["discord_url"] or discord.URL.fullmatch(str(d["discord_url"]).strip())):  # vazio desliga; o resto e barrado antes, em POST /api/config
+        c["discord_url"] = str(d["discord_url"]).strip()
+    if isinstance(d.get("discord_eventos"), list):
+        c["discord_eventos"] = [x for x in discord.EVENTOS if x in d["discord_eventos"]]
     for k in ("pronto", "sem_topo", "sem_fila", "sabres_capa", "chroma", "noodle"):
         if isinstance(d.get(k), bool):
             c[k] = d[k]
     CONFIG.write_text(json.dumps(c, indent=1), encoding="utf-8")
     return c
+
+
+def config_publica():
+    """O que a pagina pode ver: o endereco do webhook e um segredo, so o fim dele sai daqui."""
+    c = config()
+    return {**c, "discord_url": discord.mascara(c["discord_url"])}
 
 
 def prefs(sabres=None):
@@ -152,6 +163,11 @@ def estado_quest():
             "mapas": {z.name: "ok" if env.get(z.name) == z.stat().st_mtime else "velho" for z in SAIDA.glob("*.zip") if z.stem in la}}
 
 
+def capa_do_zip(zp):
+    z = zipfile.ZipFile(zp)
+    return z.read(json.loads(z.read("Info.dat").decode("utf-8-sig"))["_coverImageFilename"])
+
+
 def ytdlp(*args):
     r = subprocess.run([PY, "-m", "yt_dlp", "--no-playlist", *args], capture_output=True, text=True, encoding="utf-8", errors="replace")
     if r.returncode:
@@ -162,6 +178,7 @@ def ytdlp(*args):
 def rodar(trab):
     def passo(txt):
         trab["passos"].append(txt)
+        aviso_andamento(trab)
 
     try:
         audio, d, refaz = trab.get("arquivo"), {}, trab.get("regerar")
@@ -230,6 +247,59 @@ def rodar(trab):
         trab["estado"], trab["erro"] = "erro", str(e)
 
 
+lote = {"t0": None, "tj": 0, "feitos": [], "ult": 0}  # a fila de agora, para os avisos do Discord: abre quando o operario sai da folga e fecha quando a fila esvazia
+
+
+def avisar(ev, d, capa=None):
+    c = config()
+    if c["discord_url"] and ev in c["discord_eventos"]:
+        discord.avisar(c["discord_url"], ev, d, c["lingua"] or "pt", capa)
+
+
+def aviso_andamento(trab, forca=False):
+    """A mensagem unica da fila: na troca de musica e, no maximo a cada 20 s, na troca de etapa. So quando a fila tem `discord_minimo` mapas ou mais."""
+    try:
+        with trava:
+            total = len(lote["feitos"]) + 1 + len(fila)
+        if total < config()["discord_minimo"] or (not forca and time.time() - lote["ult"] < 20):
+            return
+        lote["ult"] = time.time()
+        avisar("andamento", {"feitos": list(lote["feitos"]), "total": total, "seg": time.time() - lote["t0"],
+                             "atual": {"titulo": trab.get("titulo"), "capa": trab.get("capa") or "", "passo": (trab["passos"] or [None])[-1], "progresso": trab.get("progresso")}})
+    except Exception as x:  # aviso nunca derruba a geracao
+        print("[discord]", type(x).__name__)
+
+
+def aviso_comecou(trab):
+    if lote["t0"] is None:
+        lote.update(t0=time.time(), feitos=[])
+    lote["tj"] = time.time()
+    aviso_andamento(trab, True)
+
+
+def aviso_acabou(trab):
+    try:
+        ok = trab["estado"] == "pronto"
+        m = next((m for m in lista_de_mapas() if m["zip"] == trab.get("zip")), None) if ok else None
+        lote["feitos"].append({"titulo": m["nome"] if m else trab.get("titulo"), "artista": m["artista"] if m else None, "ok": ok})
+        if m:
+            try:
+                capa = capa_do_zip(SAIDA / m["zip"])
+            except (KeyError, OSError, zipfile.BadZipFile):
+                capa = None
+            avisar("pronto", {"nome": m["nome"], "artista": m["artista"], "bpm": m["bpm"], "dur": m["dur"], "ok": m["ok"], "difs": m["difs"], "tempo": time.time() - lote["tj"]}, capa)
+        elif not ok:
+            avisar("erro", {"titulo": trab.get("titulo"), "erro": trab.get("erro"), "capa": trab.get("capa") or ""})
+        with trava:
+            vazia = not fila
+        if vazia:  # a fila acabou: o resumo so vale a pena se foram varias
+            if len(lote["feitos"]) >= config()["discord_minimo"]:
+                avisar("fim", {"feitos": lote["feitos"], "seg": time.time() - lote["t0"]})
+            lote.update(t0=None, feitos=[])
+    except Exception as x:
+        print("[discord]", type(x).__name__)
+
+
 def operario():
     while True:
         with trava:
@@ -239,9 +309,11 @@ def operario():
         if trab is None:
             time.sleep(0.5)
             continue
+        aviso_comecou(trab)
         rodar(trab)
         with trava:
             guardar_fila()
+        aviso_acabou(trab)
 
 
 def ler_relatorio(zp):
@@ -406,15 +478,14 @@ class H(BaseHTTPRequestHandler):
                 self.manda(preparo.estado())
             elif u.path == "/api/config":
                 cache = sum(f.stat().st_size for p in DESCARTAVEL for f in (RAIZ / ".cache" / p).rglob("*") if f.is_file())
-                self.manda({**config(), "cache": cache, "placa": "+cu" in next((d.version for d in importlib.metadata.distributions(name="torch")), "")})  # torch com CUDA = analise na placa NVIDIA
+                self.manda({**config_publica(), "cache": cache, "placa": "+cu" in next((d.version for d in importlib.metadata.distributions(name="torch")), "")})  # torch com CUDA = analise na placa NVIDIA
             elif u.path == "/api/quest":
                 self.manda(estado_quest())
             elif u.path == "/api/mapa":
                 self.manda(mapa(q["zip"]))
             elif u.path == "/api/capa":  # capa de um mapa pronto (?zip=) ou de um arquivo de audio que acabou de subir (?arquivo=)
                 if "zip" in q:
-                    z = zipfile.ZipFile(SAIDA / Path(q["zip"]).name)
-                    return self.manda(z.read(json.loads(z.read("Info.dat").decode("utf-8-sig"))["_coverImageFilename"]), "image/png", guarda="v" in q)  # com a data na URL a capa pode ficar guardada
+                    return self.manda(capa_do_zip(SAIDA / Path(q["zip"]).name), "image/png", guarda="v" in q)  # com a data na URL a capa pode ficar guardada
                 png = RAIZ / ".cache" / "previa.png"
                 png.unlink(missing_ok=True)
                 if not fazer_capa(MUSICAS / Path(q["arquivo"]).name, png):
@@ -536,7 +607,16 @@ class H(BaseHTTPRequestHandler):
                 preparo.instalar(item)
             return self.manda(preparo.estado())
         if u.path == "/api/config":
-            return self.manda(gravar_config(d))
+            if d.get("discord_url") and not discord.URL.fullmatch(str(d["discord_url"]).strip()):
+                return self.manda({"erro": "discord_url"}, cod=400)
+            gravar_config(d)
+            return self.manda(config_publica())
+        if u.path == "/api/discord/teste":  # com o botao "Enviar teste": um cartao de exemplo, e a resposta diz se o Discord aceitou
+            c = config()
+            if not c["discord_url"]:
+                return self.manda({"erro": "sem_discord"}, cod=400)
+            erro = discord.teste(c["discord_url"], c["lingua"] or "pt")
+            return self.manda({"erro": "discord|" + erro}, cod=502) if erro else self.manda({"ok": True})
         if u.path == "/api/cache":  # apaga as analises guardadas: a proxima geracao de cada musica volta a demorar
             if any(t["estado"] in ("na fila", "rodando") for t in trabalhos):
                 return self.manda({"erro": "ocupado"}, cod=409)

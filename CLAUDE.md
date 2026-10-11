@@ -25,6 +25,7 @@ Há um redesenho combinado em quatro fatias. **Antes de qualquer coisa leia [doc
 
 ```
 start.bat                                   Windows: instala o que falta e abre http://localhost:8777
+start-bandeja.bat                            o mesmo, minimizado na bandeja (toolsandeja.ps1; log em logseatloom.log)
 .venv\Scripts\python app.py --sem-navegador  só o servidor
 python generate.py --demo
 python -m beatloom.preparo --demo
@@ -34,6 +35,7 @@ python -m beatloom.engine --demo
 python -m beatloom.luzes --demo
 python -m beatloom.mods --demo
 python -m beatloom.quest --demo
+python -m beatloom.discord --demo
 python tools/extract_patterns.py --demo
 python report.py --demo
 python tools/timing.py --demo               (tools/timing.py <audio> mede cada etapa da geração)

@@ -40,12 +40,14 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"
 [Files]
 ; lista explicita: dados, saida, musicas, bin e beatloom.json nunca entram
 Source: "..\start.bat"; DestDir: "{app}"
+Source: "..\start-bandeja.bat"; DestDir: "{app}"
 Source: "..\*.py"; DestDir: "{app}"; Excludes: "test_*.py"
 Source: "..\requirements.txt"; DestDir: "{app}"
 Source: "..\LICENSE"; DestDir: "{app}"
 Source: "..\README*.md"; DestDir: "{app}"
 Source: "..\beatloom\*.py"; DestDir: "{app}\beatloom"
 Source: "..\tools\*.py"; DestDir: "{app}\tools"
+Source: "..\tools\bandeja.ps1"; DestDir: "{app}\tools"
 Source: "..\site\*"; DestDir: "{app}\site"; Flags: recursesubdirs
 Source: "..\check\check.mjs"; DestDir: "{app}\check"
 Source: "..\check\package*.json"; DestDir: "{app}\check"
@@ -54,6 +56,7 @@ Source: "beatloom.ico"; DestDir: "{app}\installer"
 
 [Icons]
 Name: "{autoprograms}\Beatloom"; Filename: "{app}\start.bat"; WorkingDir: "{app}"; IconFilename: "{app}\installer\beatloom.ico"
+Name: "{autoprograms}\Beatloom (bandeja)"; Filename: "{app}\start-bandeja.bat"; WorkingDir: "{app}"; IconFilename: "{app}\installer\beatloom.ico"
 Name: "{autodesktop}\Beatloom"; Filename: "{app}\start.bat"; WorkingDir: "{app}"; IconFilename: "{app}\installer\beatloom.ico"; Tasks: desktopicon
 
 [Run]

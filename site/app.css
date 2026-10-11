@@ -228,3 +228,4 @@ fieldset { border: 0; padding: 0; margin: 0; } legend { padding: 0; color: var(-
   .palco { max-height: none; } .topo .vao { display: none; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+.segredo { -webkit-text-security: disc; }  /* o endereco do webhook e um segredo: nao fica a mostra na tela */

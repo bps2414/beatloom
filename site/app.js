@@ -516,7 +516,27 @@ async function verConfig() {
   $("c-sem-topo").checked = !!cfg.sem_topo; $("c-sem-fila").checked = !!cfg.sem_fila; $("c-sabres").checked = !!cfg.sabres_capa; $("c-chroma").checked = !!cfg.chroma; $("c-noodle").checked = !!cfg.noodle;
   for (const b of $("c-cruzar").children) b.setAttribute("aria-pressed", b.dataset.v === cfg.cruzar);
   alternadores("c-difs", cfg.difs, () => (marcadasEm("c-difs").length ? salvar({ difs: marcadasEm("c-difs") }) : verConfig()));  // a ultima marcada nao sai
+  pintarDiscord();
 }
+// avisos no Discord: o endereco do webhook nunca volta inteiro do servidor (cfg.discord_url e so o fim dele)
+const DC = ["andamento", "pronto", "erro", "fim"], dcErro = (x) => { $("dc-erro").textContent = x ? x.message + (x.detalhe ? " (" + x.detalhe + ")" : "") : ""; $("dc-erro").hidden = !x; };
+function pintarDiscord() {
+  $("dc-texto").textContent = cfg.discord_url ? t("dc_ligado", { url: cfg.discord_url }) : t("dc_desligado");
+  $("dc-remover").hidden = $("dc-testar").hidden = !cfg.discord_url;
+  for (const ev of DC) $("dc-ev-" + ev).checked = (cfg.discord_eventos || []).includes(ev);
+}
+$("dc-salvar").onclick = async () => {
+  dcErro();
+  try { await salvar({ discord_url: $("dc-url").value.trim() }); $("dc-url").value = ""; } catch (x) { dcErro(x); }
+  pintarDiscord();
+};
+$("dc-remover").onclick = async () => { dcErro(); await salvar({ discord_url: "" }); pintarDiscord(); };
+for (const ev of DC) $("dc-ev-" + ev).onchange = () => salvar({ discord_eventos: DC.filter((e) => $("dc-ev-" + e).checked) });
+$("dc-testar").onclick = async () => {
+  const b = $("dc-testar"); b.disabled = true; dcErro();
+  try { await api("/api/discord/teste", {}); avisar(t("dc_enviado")); } catch (x) { dcErro(x); }
+  b.disabled = false;
+};
 $("c-dens").onchange = () => salvar({ densidade: +$("c-dens").value });
 $("c-sem-topo").onchange = () => salvar({ sem_topo: $("c-sem-topo").checked });
 $("c-sem-fila").onchange = () => salvar({ sem_fila: $("c-sem-fila").checked });
