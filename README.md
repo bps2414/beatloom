@@ -38,7 +38,7 @@ The page opens at http://localhost:8777, in English or Portuguese, and only answ
 
 - **New map.** Before generating you see the cover, name and artist so you can fix them, and choose the difficulties and the amount of notes.
 - **Playlist.** The link can be a YouTube playlist: each track is queued and becomes a map. Pasting the same playlist again does not repeat what is already done.
-- **Playlist in the game.** With a playlist link, tick "Also create the playlist in the game": the maps show up grouped in Beat Saber under the playlist name. It needs a playlist mod (PlaylistManager) on the Quest. The playlist goes along when you send the maps; with no Quest connected, download the `.bplist` from the list. Not yet tested on a real Quest.
+- **Playlist in the game.** With a playlist link, tick "Also create the playlist in the game": the maps show up grouped in Beat Saber under the playlist name. It needs a playlist mod (PlaylistManager) on the Quest. The playlist goes along when you send the maps; with no Quest connected, download the `.bplist` from the list. Any map can join a playlist, or a new one: select it in the list and use "Add to playlist". Not yet tested on a real Quest.
 - **Queue.** You can pause it, clear it and remove one item. It is saved to disk: closing Beatloom does not lose it.
 - **Map sheet.** 3D viewer, the numbers of each difficulty and the result of the checks. You can rename, download the zip, redo and delete (it goes to `saida\lixeira`).
 - **The way you play** (in Settings). No notes on the top row, no note hidden behind another, how much the arms may cross (never, a little, free), and sabers and notes in the cover colors.

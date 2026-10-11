@@ -38,7 +38,7 @@ A página abre em http://localhost:8777, em português ou inglês, e só respond
 
 - **Novo mapa.** Antes de gerar você vê a capa, o nome e o artista para corrigir, e escolhe as dificuldades e a quantidade de notas.
 - **Playlist.** O link pode ser de uma playlist do YouTube: cada faixa entra na fila e vira um mapa. Colar a mesma playlist de novo não repete o que já foi feito.
-- **Playlist no jogo.** Com um link de playlist, marque "Criar também a playlist no jogo": os mapas aparecem agrupados no Beat Saber, com o nome da playlist. Precisa de um mod de playlists (PlaylistManager) no Quest. A playlist vai junto quando você manda os mapas; sem Quest conectado, baixe o `.bplist` pela lista. Ainda não foi testado num Quest de verdade.
+- **Playlist no jogo.** Com um link de playlist, marque "Criar também a playlist no jogo": os mapas aparecem agrupados no Beat Saber, com o nome da playlist. Precisa de um mod de playlists (PlaylistManager) no Quest. A playlist vai junto quando você manda os mapas; sem Quest conectado, baixe o `.bplist` pela lista. Qualquer mapa entra numa playlist, ou numa nova: marque-o na lista e use "Adicionar à playlist". Ainda não foi testado num Quest de verdade.
 - **Fila.** Dá para pausar, esvaziar e tirar um item. Ela é guardada em disco: fechar o Beatloom não a perde.
 - **Ficha do mapa.** Visualizador 3D, os números de cada dificuldade e o resultado da conferência. Dá para renomear, baixar o zip, refazer e apagar (vai para `saida\lixeira`).
 - **Seu jeito de jogar** (em Configuração). Sem notas na linha de cima, sem nota escondida atrás de outra, quanto os braços podem cruzar (nunca, pouco, livre) e sabres e notas com as cores da capa.

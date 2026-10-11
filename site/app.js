@@ -264,12 +264,15 @@ function pintarPlaylists() {  // as playlists que vao para o jogo: o nome marca 
   for (const p of ps) {
     const c = el("div", "barra"), m = el("button", "quieto", `${p.nome} (${p.zips.length}/${p.total})`), a = el("a", "quieto", ".bplist"), x = el("button", "quieto", "×");
     m.type = x.type = "button"; m.title = t("pl_marcar"); a.href = "/api/bplist?id=" + enc(p.id); a.title = t("pl_baixar"); x.title = t("pl_tirar"); x.setAttribute("aria-label", t("pl_tirar"));
-    m.onclick = () => { marcados.clear(); for (const z of p.zips) marcados.add(z); pintarLista(); };
+    m.onclick = () => { marcados.clear(); for (const z of p.zips) marcados.add(z); daLista = p.id; pintarLista(); };
     x.onclick = async () => { try { await api("/api/playlist/apagar", { id: p.id }); atualizar(); } catch (e) { falhou(e); } };
     c.append(m, a, x); $("playlists").append(c);
   }
 }
+let daLista = null;  // a playlist cujo nome foi clicado: enquanto so mapas dela estiverem marcados, o lote oferece tirar
 function pintarLote() {
+  const pl = (estado.playlists || []).find((p) => p.id === daLista);
+  $("lote-tirar").hidden = !(pl && marcados.size && [...marcados].every((z) => pl.zips.includes(z)));
   const faltam = quest.conectado ? listadas.filter((m) => quest.mapas[m.zip] !== "ok") : [];  // os que nao estao no Quest, ou estao numa versao antiga
   $("barra-lista").hidden = !estado.mapas.length; $("q-novos").hidden = !faltam.length; $("q-novos").textContent = t("q_novos", { n: faltam.length });
   $("q-novos").onclick = () => enviar(faltam.map((m) => m.zip), $("q-novos"));
@@ -277,6 +280,21 @@ function pintarLote() {
   $("lote").hidden = !marcados.size; $("mapas").classList.toggle("marcando", marcados.size > 0);
   $("lote-n").textContent = t(marcados.size === 1 ? "lote_um" : "lote_varios", { n: marcados.size });
 }
+$("lote-tirar").onclick = async () => { try { await api("/api/playlist/mapas", { id: daLista, zips: [...marcados], tirar: true }); marcados.clear(); await atualizar(); } catch (x) { falhou(x); } };
+$("lote-lista").onclick = () => {  // os marcados entram numa playlist que ja existe ou numa nova, que so precisa de um nome
+  const s = $("pl-qual"); s.textContent = "";
+  for (const p of estado.playlists || []) { const o = el("option", "", p.nome); o.value = p.id; s.append(o); }
+  s.append(el("option", "", t("pl_nova"))); s.lastChild.value = "";
+  (s.onchange = () => { $("pl-nome").hidden = !!s.value; $("pl-nome").required = !s.value; })();
+  $("pl-nome").value = ""; $("d-lista").returnValue = ""; $("d-lista").showModal();
+};
+$("d-lista").onclose = async () => {
+  if ($("d-lista").returnValue !== "sim") return;
+  try {
+    const r = await api("/api/playlist/mapas", { id: $("pl-qual").value || null, nome: $("pl-nome").value, zips: [...marcados] });
+    avisar(t("pl_feito", { n: marcados.size, nome: r.nome })); marcados.clear(); await atualizar();
+  } catch (x) { falhou(x); }
+};
 $("lote-limpar").onclick = () => { marcados.clear(); pintarLista(); };
 $("marcar-todos").onclick = () => { if (marcados.size === listadas.length) marcados.clear(); else for (const m of listadas) marcados.add(m.zip); pintarLista(); };
 // teclado na lista: setas andam pelas linhas que aparecem, Espaco marca, Enter abre (e o proprio botao); / vai para a busca

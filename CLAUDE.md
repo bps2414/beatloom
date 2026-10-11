@@ -27,6 +27,7 @@ Há um redesenho combinado em quatro fatias. **Antes de qualquer coisa leia [doc
 start.bat                                   Windows: instala o que falta e abre http://localhost:8777
 start-bandeja.bat                            o mesmo, minimizado na bandeja (toolsandeja.ps1; log em logseatloom.log)
 .venv\Scripts\python app.py --sem-navegador  só o servidor
+python app.py --demo                         (so as playlists)
 python generate.py --demo
 python -m beatloom.preparo --demo
 python -m beatloom.checks --demo

@@ -32,7 +32,7 @@ TIPOS = {".css": "text/css", ".js": "text/javascript", ".json": "application/jso
 trava = threading.Lock()
 pausada = [False]  # fila pausada: a musica que esta rodando termina e a proxima espera
 FILA = RAIZ / ".cache" / "fila.json"
-LISTAS = SAIDA / "playlists.json"  # {id: {nome, videos: [codigo de cada faixa, na ordem]}}: as playlists que a pessoa quis ver no jogo
+LISTAS = SAIDA / "playlists.json"  # {id: {nome, videos: [codigo de cada faixa, na ordem], extras: [zips postos a mao]}}: as playlists que a pessoa quis ver no jogo
 
 
 def dados_do_link(j):
@@ -360,12 +360,35 @@ def listas():
 
 
 def mapas_da_lista(p, mapas):
-    """Os zips que existem para as faixas de uma playlist, na ordem dela; de cada faixa, o mapa mais novo."""
+    """Os zips que existem para as faixas de uma playlist, na ordem dela (de cada faixa, o mapa mais novo), e depois os que a pessoa pos a mao."""
     por = {}
     for m in mapas:
         if m.get("link"):
             por.setdefault(video(m["link"]), m["zip"])
-    return [por[v] for v in p["videos"] if v in por]
+    tem = {m["zip"] for m in mapas}
+    return list(dict.fromkeys([por[v] for v in p["videos"] if v in por] + [z for z in p.get("extras", []) if z in tem]))
+
+
+def mexer_na_lista(p, zips, mapas, tirar=False):
+    """Poe mapas numa playlist ou tira dela. Tirar um mapa que veio do YouTube tira a faixa dele, senao ele voltaria sozinho."""
+    if tirar:
+        fora = {video(m["link"]) for m in mapas if m["zip"] in zips and m.get("link")}
+        p["videos"], p["extras"] = [v for v in p["videos"] if v not in fora], [z for z in p.get("extras", []) if z not in zips]
+    else:
+        ja = mapas_da_lista(p, mapas)
+        p["extras"] = p.get("extras", []) + [m["zip"] for m in reversed(mapas) if m["zip"] in zips and m["zip"] not in ja]  # reversed: na ordem em que foram feitos
+
+
+def demo():
+    a, b, c = "https://youtu.be/aaaaaaaaaaa", "https://www.youtube.com/watch?v=bbbbbbbbbbb", None
+    mapas = [{"zip": "c.zip", "link": c}, {"zip": "b2.zip", "link": b}, {"zip": "b.zip", "link": b}, {"zip": "a.zip", "link": a}]  # do mais novo ao mais velho, como lista_de_mapas
+    p = {"nome": "P", "videos": ["bbbbbbbbbbb", "xxxxxxxxxxx", "aaaaaaaaaaa"]}
+    assert mapas_da_lista(p, mapas) == ["b2.zip", "a.zip"]  # a ordem e a da playlist; faixa sem mapa fica de fora; vale o mapa mais novo
+    mexer_na_lista(p, ["c.zip", "a.zip", "sumiu.zip"], mapas)
+    assert p["extras"] == ["c.zip"] and mapas_da_lista(p, mapas) == ["b2.zip", "a.zip", "c.zip"]
+    mexer_na_lista(p, ["a.zip", "c.zip"], mapas, tirar=True)
+    assert mapas_da_lista(p, mapas) == ["b2.zip"] and len(p["videos"]) == 2
+    print("demo ok")
 
 
 def conferir(zp):
@@ -473,7 +496,7 @@ class H(BaseHTTPRequestHandler):
             elif u.path == "/api/estado":
                 vivos = [t for t in trabalhos if t["estado"] in ("na fila", "rodando")]  # a fila inteira (uma playlist enche) e os ultimos que acabaram
                 mapas = lista_de_mapas()
-                self.manda({"trabalhos": vivos + [t for t in trabalhos if t not in vivos][-6:], "mapas": mapas, "playlists": [{"id": k, "nome": p["nome"], "zips": mapas_da_lista(p, mapas), "total": len(p["videos"])} for k, p in listas().items()], "visor": (ARC / "index.html").exists(), "difs": list(DIFS), "pausada": pausada[0]})
+                self.manda({"trabalhos": vivos + [t for t in trabalhos if t not in vivos][-6:], "mapas": mapas, "playlists": [{"id": k, "nome": p["nome"], "zips": mapas_da_lista(p, mapas), "total": len(p["videos"]) + len(p.get("extras", []))} for k, p in listas().items()], "visor": (ARC / "index.html").exists(), "difs": list(DIFS), "pausada": pausada[0]})
             elif u.path == "/api/preparo":
                 self.manda(preparo.estado())
             elif u.path == "/api/config":
@@ -575,6 +598,16 @@ class H(BaseHTTPRequestHandler):
                 trabalhos[:] = [t for t in trabalhos if not sai(t)]
                 guardar_fila()
             return self.manda({"ok": True})
+        if u.path == "/api/playlist/mapas":  # poe mapas numa playlist ("id") ou numa nova ("nome"), ou tira ("tirar")
+            ls, k = listas(), str(d.get("id") or "")
+            if k not in ls:
+                if d.get("id") or not str(d.get("nome") or "").strip():
+                    return self.manda({"erro": "invalido"}, cod=400)
+                k = f"bl-{int(time.time() * 1000)}"
+                ls[k] = {"nome": str(d["nome"]).strip()[:120], "videos": []}
+            mexer_na_lista(ls[k], [str(z) for z in d.get("zips") or []], lista_de_mapas(), bool(d.get("tirar")))
+            LISTAS.write_text(json.dumps(ls, ensure_ascii=False, indent=1), encoding="utf-8")
+            return self.manda({"id": k, "nome": ls[k]["nome"]})
         if u.path == "/api/playlist/apagar":  # esquece a playlist; os mapas ficam
             ls = listas()
             if ls.pop(d.get("id"), None):
@@ -688,6 +721,8 @@ class H(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
+    if "--demo" in sys.argv:
+        sys.exit(demo())
     SAIDA.mkdir(exist_ok=True)
     ler_fila()
     threading.Thread(target=operario, daemon=True).start()

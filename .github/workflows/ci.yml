@@ -17,7 +17,7 @@ jobs:
         shell: bash
         run: |
           set -e
-          for c in generate.py report.py tools/extract_patterns.py tools/timing.py "-m beatloom.preparo" "-m beatloom.checks" "-m beatloom.audio" "-m beatloom.engine" "-m beatloom.luzes" "-m beatloom.mods" "-m beatloom.quest"; do
+          for c in app.py generate.py report.py tools/extract_patterns.py tools/timing.py "-m beatloom.preparo" "-m beatloom.checks" "-m beatloom.audio" "-m beatloom.engine" "-m beatloom.luzes" "-m beatloom.mods" "-m beatloom.quest"; do
             echo "== $c"; python $c --demo
           done
           python tools/check_i18n.py

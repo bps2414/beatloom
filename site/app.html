@@ -37,7 +37,7 @@
     <ul class="mapas" id="mapas"></ul>
     <p class="fraco" id="sem-mapas" data-t="sem_mapas" hidden></p><p class="fraco" id="sem-achado" data-t="sem_achado" hidden></p>
     <div class="lote" id="lote" hidden>
-      <div><span id="lote-n"></span><button type="button" class="quieto" id="lote-limpar" data-t="cancelar"></button></div>
+      <div><span id="lote-n"></span><button type="button" class="quieto" id="lote-tirar" data-t="pl_tirar_mapas" hidden></button><button type="button" class="quieto" id="lote-lista" data-t="pl_adicionar"></button><button type="button" class="quieto" id="lote-limpar" data-t="cancelar"></button></div>
       <div><button type="button" class="quieto" id="lote-apagar" data-t="apagar_marcados"></button><span></span><button type="button" class="sec" id="lote-regerar" data-t="regerar_marcados"></button><button type="button" class="acao" id="lote-enviar" data-t="quest"></button></div></div>
   </aside>
 
@@ -110,6 +110,13 @@
   </details>
   <p class="erro" id="erro" role="alert" hidden></p>
   <footer><button type="button" class="quieto" data-fecha data-t="cancelar"></button><button class="acao" id="gerar" data-t="gerar"></button></footer>
+</form></dialog>
+
+<dialog class="caixa" id="d-lista"><form method="dialog">
+  <h2 data-t="pl_adicionar"></h2>
+  <select class="campo" id="pl-qual" data-ta="pl_adicionar"></select>
+  <input class="campo" id="pl-nome" data-tp="pl_nome" maxlength="120">
+  <footer><button type="button" class="quieto" data-fecha data-t="cancelar"></button><button class="acao" value="sim" data-t="salvar"></button></footer>
 </form></dialog>
 
 <dialog class="caixa" id="d-nome"><form method="dialog">

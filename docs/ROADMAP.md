@@ -78,7 +78,7 @@ Para proteger as músicas que já ficaram boas, acrescente a qualquer pedido: "E
 
 1. **Página e servidor de versões diferentes.** Aconteceu: a página nova falando com o servidor antigo. A página deve perceber e pedir para reabrir o Beatloom.
 2. **Aviso de versão nova**, com o link da release.
-3. **Playlist no jogo.** **Feito em 10/10/2026**: ao colar um link de playlist, "Criar também a playlist no jogo" anota as faixas em `saida\playlists.json`; o `.bplist` é montado na hora e vai junto a cada envio ao Quest. **Nunca testado num Quest** (a pasta do mod é escolhida entre `PlaylistCore` e `PlaylistManager`, a que existir). Falta: apagar a playlist do Quest pela página, e playlist a partir de mapas marcados na lista.
+3. **Playlist no jogo.** **Feito em 10/10/2026**: ao colar um link de playlist, "Criar também a playlist no jogo" anota as faixas em `saida\playlists.json`; o `.bplist` é montado na hora e vai junto a cada envio ao Quest. **Nunca testado num Quest** (a pasta do mod é escolhida entre `PlaylistCore` e `PlaylistManager`, a que existir). Mapas marcados na lista entram numa playlist que já existe ou numa nova ("Adicionar à playlist"), e saem por "Tirar da playlist". Falta: apagar a playlist do Quest pela página.
 4. **Fila.** Cancelar a música que está rodando, reordenar.
 5. **Preferências por mapa**, além das gerais; e uma versão mais branda da linha de cima (só proibir corte para baixo lá).
 6. **Quest.** Apagar vários de uma vez.
