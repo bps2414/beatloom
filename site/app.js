@@ -304,9 +304,9 @@ $("mapas").onpointerdown = (e) => { if (e.button === 0 && e.pointerType === "mou
 $("mapas").onmousedown = (e) => { if (e.target.matches(".marcar")) e.preventDefault(); };  // sem isso o arrasto seleciona texto
 $("mapas").onpointerover = (e) => {  // o trecho da origem ate a linha de agora vira o pincel e o resto volta ao que era: voltar com o mouse desfaz
   const li = e.target.closest(".linha"); if (pincel === null || !li || li === origem && !arrastou) return;
-  arrastou = true;
+  arrastou = true;  // de volta na origem o trecho some, ela tambem; soltar la deixa tudo como estava, sem o clique desfazer ou refazer
   const ls = [...$("mapas").querySelectorAll(".linha:not([hidden])")], a = ls.indexOf(origem), b = ls.indexOf(li), [de, ate] = a < b ? [a, b] : [b, a];
-  ls.forEach((l, i) => { const v = i >= de && i <= ate ? pincel : base.has(l.zip); marcados[v ? "add" : "delete"](l.zip); l.querySelector(".marcar").checked = v; });
+  ls.forEach((l, i) => { const v = li !== origem && i >= de && i <= ate ? pincel : base.has(l.zip); marcados[v ? "add" : "delete"](l.zip); l.querySelector(".marcar").checked = v; });
   pintarLote();
 };
 const soltou = () => { if (pincel !== null) { pincel = null; setTimeout(() => { arrastou = false; }); } };  // o clique vem logo depois do soltar: arrastou so zera depois dele
