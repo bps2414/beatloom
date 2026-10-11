@@ -125,8 +125,13 @@ details pre { font: 12px/1.5 ui-monospace, Consolas, monospace; white-space: pre
 .dif::before { background: rgba(255, 255, 255, .06); box-shadow: inset 0 -3px 0 var(--c); }
 .dif:hover::before { background: rgba(255, 255, 255, .12); }
 .dif[aria-pressed="true"] { color: var(--ct); } .dif[aria-pressed="true"]::before { background: var(--c); }
-.dif[data-n="Easy"] { --c: #3cb371; } .dif[data-n="Normal"] { --c: #59b0f4; } .dif[data-n="Hard"] { --c: #ff6347; }
-.dif[data-n="Expert"] { --c: #bf2a42; --ct: #fff; } .dif[data-n="ExpertPlus"] { --c: #8f48db; --ct: #fff; }
+.dif[data-n="Easy"], .pontos i[data-n="Easy"] { --c: #3cb371; } .dif[data-n="Normal"], .pontos i[data-n="Normal"] { --c: #59b0f4; } .dif[data-n="Hard"], .pontos i[data-n="Hard"] { --c: #ff6347; }
+.dif[data-n="Expert"], .pontos i[data-n="Expert"] { --c: #bf2a42; --ct: #fff; } .dif[data-n="ExpertPlus"], .pontos i[data-n="ExpertPlus"] { --c: #8f48db; --ct: #fff; }
+.pontos { display: flex; gap: 4px; align-items: center; } .pontos i { width: 8px; height: 8px; border-radius: 2px; background: var(--c); transform: var(--inclina); }
+/* transicoes curtas: a ficha, o dialogo, o menu e o aviso entram em vez de aparecer de uma vez; prefers-reduced-motion desliga tudo no fim do arquivo */
+@keyframes entra { from { opacity: 0; transform: translateY(6px); } }
+.troca { animation: entra .22s ease-out; } .caixa[open] { animation: entra .2s ease-out; } .caixa[open]::backdrop { animation: entra .2s ease-out; transform: none; }
+.mais[open] .menu { animation: entra .14s ease-out; } .aviso { animation: entra .2s ease-out; }
 .dif.falha::after { content: "!"; margin-left: 6px; font-weight: 800; color: var(--alerta); } .dif.falha[aria-pressed="true"]::after { color: inherit; }
 
 .palco { position: relative; background: #05040c; border-radius: 12px; overflow: hidden; aspect-ratio: 16 / 9; max-height: 56vh; width: 100%; border: 1px solid var(--borda); }

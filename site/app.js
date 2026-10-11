@@ -209,6 +209,7 @@ function pintarLista() {
     q(".n").textContent = m.nome; q(".a").textContent = m.artista; q(".bpm").textContent = num(m.bpm); q(".dur").textContent = m.dur ? tempo(m.dur) : "–";
     q(".bpm").title = "BPM"; q(".dur").title = t("duracao");
     q(".tags").textContent = "";
+    const pontos = el("span", "pontos"); for (const d of m.difs) { const i = el("i"); i.dataset.n = d; i.title = NOMES[d] || d; pontos.append(i); } q(".tags").append(pontos);  // um ponto por dificuldade, na cor do botao dela
     if (/ v3/.test(m.sub)) q(".tags").append(el("span", "rapido", t("tag_rapido")));
     if (m.ok === false) q(".tags").append(el("span", "falha", t("tag_falhou")));
     if (la) q(".tags").append(el("span", la === "ok" ? "la" : "velho", t(la === "ok" ? "no_quest" : "q_velho")));
@@ -286,6 +287,7 @@ async function atualizar() {
 // ---------- detalhe do mapa aberto
 async function abrir(zip) {
   try { mapa = await api("/api/mapa?zip=" + enc(zip)); } catch (x) { return falhou(x); }
+  if (atual !== zip) { const f = $("aberto"); f.classList.remove("troca"); void f.offsetWidth; f.classList.add("troca"); }  // fade curto ao trocar de mapa, nao a cada atualizacao
   atual = zip; document.body.classList.add("vendo"); $("mais").open = false;
   if (!mapa.difs.some((d) => d.nome === dif)) dif = mapa.difs.some((d) => d.nome === "Expert") ? "Expert" : mapa.difs[0].nome;
   pintarMapa(); pintarLista();
