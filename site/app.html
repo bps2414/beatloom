@@ -13,6 +13,7 @@
   <symbol id="i-ok" viewBox="0 0 16 16"><path d="M3 8.5l3.5 3.5L13 4.5"/></symbol>
   <symbol id="i-nao" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8"/></symbol>
   <symbol id="i-volta" viewBox="0 0 16 16"><path d="M10 3L5 8l5 5"/></symbol>
+  <symbol id="i-mais" viewBox="0 0 16 16"><path d="M3 8h.01M8 8h.01M13 8h.01" stroke-width="2.6"/></symbol>
 </svg>
 
 <header class="topo">
@@ -40,29 +41,33 @@
     <article id="aberto" hidden>
       <button type="button" class="quieto voltar" id="voltar"><svg class="ic"><use href="#i-volta"/></svg><span data-t="mapas"></span></button>
       <header class="ficha"><img id="f-capa" alt="">
-        <div><h1 id="f-nome"></h1><p class="artista" id="f-artista"></p><p class="dados" id="f-info"></p></div></header>
+        <div><h1 id="f-nome"></h1><p class="artista" id="f-artista"></p><p class="dados" id="f-info"></p>
+          <button type="button" class="selo" id="selo"><svg class="ic" aria-hidden="true"><use id="selo-i" href="#i-ok"/></svg><span id="veredito"></span></button>
+          <div class="acoes">
+            <button type="button" class="acao" id="quest" hidden></button>
+            <a class="acao" id="baixar" data-t="baixar"></a>
+            <details class="mais" id="mais"><summary class="quieto" data-ta="mais"><svg class="ic"><use href="#i-mais"/></svg></summary>
+              <div class="menu">
+                <button type="button" class="quieto" id="regerar" data-t="regerar"></button>
+                <button type="button" class="quieto" id="renomear" data-t="renomear"></button>
+                <button type="button" class="quieto" id="q-apagar" data-t="q_apagar" hidden></button>
+                <button type="button" class="quieto" id="apagar" data-t="apagar"></button>
+              </div></details>
+          </div></div></header>
       <div class="difs" id="difs" role="group" data-ta="quais"></div>
       <div class="palco">
         <iframe id="visor" title="ArcViewer" allow="autoplay; fullscreen" allowfullscreen hidden></iframe>
+        <div class="cartaz carrega" id="carrega" hidden><progress></progress><p data-t="visor_carrega"></p></div>
         <div class="cartaz" id="sem-visor" hidden><p data-t="sem_visor"></p><button type="button" class="acao" id="instalar-visor" data-t="instalar_visor"></button>
           <p id="visor-andamento" hidden><progress id="visor-barra"></progress> <span id="visor-quanto"></span></p></div>
       </div>
       <p class="fraco dica" id="dica"><span data-t="visor_dica"></span> <a id="fora" target="_blank" rel="noopener" data-t="cheia"></a></p>
       <dl class="numeros" id="numeros"></dl>
-      <section class="conf">
-        <h2 class="veredito" id="veredito"></h2>
+      <section class="conf" id="conf">
+        <h2 data-t="conferencias"></h2>
         <ul class="metas" id="metas"></ul>
         <details id="tec-caixa"><summary data-t="tecnico"></summary><dl class="tecnico" id="tecnico"></dl></details>
       </section>
-      <div class="acoes">
-        <button type="button" class="acao" id="quest" hidden></button>
-        <a class="sec" id="baixar" data-t="baixar"></a>
-        <button type="button" class="sec" id="regerar" data-t="regerar"></button>
-        <span class="vao"></span>
-        <button type="button" class="quieto" id="renomear" data-t="renomear"></button>
-        <button type="button" class="quieto" id="q-apagar" data-t="q_apagar" hidden></button>
-        <button type="button" class="quieto" id="apagar" data-t="apagar"></button>
-      </div>
     </article>
   </main>
 </div>

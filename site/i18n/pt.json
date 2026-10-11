@@ -60,7 +60,6 @@
   "refazer_todos": "Refazer todos os mapas",
   "confirma_refazer_todos": "Refazer todos os mapas da lista com o gerador e as preferências de agora? Cada mapa é feito de novo por inteiro (notas, luzes, cenário, cores) e mantém nome, artista, capa, modo e dificuldades. Eles entram na fila, um de cada vez; a música só é ouvida de novo se a análise guardada não servir mais. A versão anterior de cada um fica guardada na pasta saida\\versoes.",
   "apagar_marcados": "Apagar",
-  "confirma_apagar_varios": "Apagar da lista os mapas marcados? Eles vão para a pasta saida\\lixeira, de onde dá para trazer de volta.",
   "confirma_regerar": "Refazer os mapas marcados com o gerador e as preferências de agora? Cada mapa é feito de novo por inteiro (notas, luzes, cenário, cores) e mantém nome, artista, capa, modo e dificuldades. A versão anterior de cada um fica guardada na pasta saida\\versoes.",
   "s_gosto": "Seu jeito de jogar",
   "s_gosto_sub": "Vale para os próximos mapas e para os que você refizer.",
@@ -101,7 +100,6 @@
   "q_falhou": "{nome} não foi:",
   "q_apagado": "Mapa apagado do Quest.",
   "confirma_q_apagar": "Apagar este mapa do Quest? Ele continua aqui no PC.",
-  "confirma_apagar": "Apagar este mapa da lista? Ele vai para a pasta saida\\lixeira, de onde dá para trazer de volta.",
   "confirma_limpar": "Apagar as análises guardadas? Seus mapas ficam; só a próxima geração de cada música volta a demorar.",
 
   "sem_visor": "O visualizador 3D ainda não está instalado. Com ele você assiste ao mapa aqui na página.",
@@ -233,5 +231,11 @@
   "erro_nao_achou": "Nenhum Quest respondeu na rede. Ele precisa estar ligado, acordado e no mesmo Wi-Fi; se ele reiniciou, a conexão sem fio desliga e é preciso o cabo USB de novo.",
   "erro_sem_rede": "Este computador não está em nenhuma rede.",
   "erro_sem_wifi": "O Quest não está conectado a nenhum Wi-Fi.",
-  "erro_adb": "O Quest recusou o pedido."
+  "erro_adb": "O Quest recusou o pedido.",
+  "desfazer": "Desfazer",
+  "apagado_um": "Mapa apagado.",
+  "apagado_varios": "{n} mapas apagados.",
+  "mais": "Mais ações",
+  "visor_carrega": "Carregando o visualizador…",
+  "conferencias": "Conferências"
 }

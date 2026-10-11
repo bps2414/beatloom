@@ -528,6 +528,15 @@ class H(BaseHTTPRequestHandler):
             ENVIADOS.write_text(json.dumps(env), encoding="utf-8")
             return self.manda({"resultados": res})
         zp = SAIDA / Path(d.get("zip") or "-").name
+        if u.path == "/api/restaurar":  # o Desfazer do apagar: traz da lixeira de volta, a menos que ja exista um mapa com esse nome
+            if not (SAIDA / "lixeira" / zp.name).is_file():
+                return self.manda({"erro": "sem_mapa"}, cod=404)
+            if zp.exists():
+                return self.manda({"erro": "invalido"}, cod=409)
+            for f in (zp, zp.with_suffix(".relatorio.txt"), zp.with_suffix(".relatorio.json")):
+                if (SAIDA / "lixeira" / f.name).exists():
+                    (SAIDA / "lixeira" / f.name).replace(f)
+            return self.manda({"ok": True})
         if u.path in ("/api/quest/apagar", "/api/apagar", "/api/renomear", "/api/regerar") and not zp.is_file():
             return self.manda({"erro": "sem_mapa"}, cod=404)
         if u.path == "/api/apagar":  # nao apaga de verdade: vai para saida\lixeira, de onde da para trazer de volta

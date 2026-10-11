@@ -25,11 +25,12 @@ const api = (url, corpo, cru) => fetch(url, corpo === undefined ? {} : {
 }).then(async (r) => { const j = await r.json().catch(() => ({})); if (!r.ok) throw new Erro(j.erro); return j; });
 
 function tecnico(txt) { const d = el("details"); d.append(el("summary", "", t("detalhe_tecnico")), el("pre", "", txt)); return d; }
-function avisar(msg, ruim, detalhe) {  // popover: fica por cima ate de um dialogo aberto
-  const a = $("avisos"), d = el("div", "aviso" + (ruim ? " ruim" : ""), msg);
+function avisar(msg, ruim, detalhe, acao) {  // popover: fica por cima ate de um dialogo aberto. acao = { texto, fazer }: um botao no aviso (o Desfazer)
+  const a = $("avisos"), d = el("div", "aviso" + (ruim ? " ruim" : ""), msg), sumir = () => { d.remove(); if (!a.children.length && a.matches(":popover-open")) a.hidePopover(); };  // o botao e o relogio podem chamar os dois
+  if (acao) { const b = el("button", "quieto", acao.texto); b.type = "button"; b.onclick = () => { sumir(); acao.fazer(); }; d.append(b); }
   if (detalhe) d.append(tecnico(detalhe));
   a.append(d); if (a.matches(":popover-open")) a.hidePopover(); a.showPopover();
-  setTimeout(() => { d.remove(); if (!a.children.length) a.hidePopover(); }, detalhe ? 20000 : 6000);
+  setTimeout(sumir, acao ? 10000 : detalhe ? 20000 : 6000);
 }
 const falhou = (x) => avisar(x.message, true, x.detalhe);
 function confirmar(pergunta, botao) {  // -> Promise<sim ou nao>
@@ -71,7 +72,8 @@ const erroNovo = (x) => { $("erro").textContent = x.message; $("erro").hidden = 
 function pintarArquivo() { $("arq-nome").textContent = arquivo ? arquivo.name : t("solte"); $("arq-dica").textContent = t(arquivo ? "trocar_arq" : "solte_dica"); }
 function previa(d, capa, info) {  // capa, nome e artista antes de gerar, para a pessoa corrigir
   extra = { album: d.album, ano: d.ano }; miniatura = capa; lista = d.lista || null;
-  $("previa").hidden = false; $("nome").parentElement.hidden = !!lista;  // playlist: nome e artista saem de cada video $("nome").value = d.nome || ""; $("artista").value = d.artista || "";
+  $("previa").hidden = false; $("nome").parentElement.hidden = !!lista;  // playlist: nome e artista saem de cada video
+  $("nome").value = d.nome || ""; $("artista").value = d.artista || "";
   $("p-capa").hidden = !capa; $("p-sem").hidden = !!capa; if (capa) $("p-capa").src = capa;
   $("p-info").textContent = lista ? t("lista_n", { n: lista.length, nome: d.nome }) : [d.album, d.ano, info, t("confira")].filter(Boolean).join(", ");
 }
@@ -207,11 +209,17 @@ $("refazer-todos").onclick = async () => {  // depois de uma melhoria do gerador
   if (!await confirmar("confirma_refazer_todos", "refazer_todos")) return;
   try { await api("/api/regerar", { zips: estado.mapas.map((m) => m.zip) }); atualizar(); } catch (x) { falhou(x); }
 };
-$("lote-apagar").onclick = async () => {  // vao para saida\lixeira, como o apagar da ficha
-  if (!await confirmar("confirma_apagar_varios", "apagar_marcados")) return;
-  try { for (const zip of [...marcados]) { await api("/api/apagar", { zip }); marcados.delete(zip); } } catch (x) { falhou(x); }
+async function apagar(zips) {  // sem perguntar: vai para saida\lixeira e o aviso traz o Desfazer, que e mais rapido que confirmar toda vez
+  const feitos = [];
+  try { for (const zip of zips) { await api("/api/apagar", { zip }); feitos.push(zip); marcados.delete(zip); } } catch (x) { falhou(x); }
   await atualizar(); pintarLista();
-};
+  if (!feitos.length) return;
+  avisar(t(feitos.length === 1 ? "apagado_um" : "apagado_varios", { n: feitos.length }), false, "", { texto: t("desfazer"), fazer: async () => {
+    try { for (const zip of feitos) await api("/api/restaurar", { zip }); } catch (x) { falhou(x); }
+    await atualizar(); if (feitos.length === 1) abrir(feitos[0]);
+  } });
+}
+$("lote-apagar").onclick = () => apagar([...marcados]);
 $("lote-enviar").onclick = () => enviar([...marcados], $("lote-enviar")).then(() => { marcados.clear(); pintarLista(); });
 async function enviar(zips, botao) {  // um aviso por mapa que falhou e um com quantos foram
   botao.disabled = true; avisar(t("mandando"));
@@ -236,7 +244,7 @@ async function atualizar() {
 // ---------- detalhe do mapa aberto
 async function abrir(zip) {
   try { mapa = await api("/api/mapa?zip=" + enc(zip)); } catch (x) { return falhou(x); }
-  atual = zip; document.body.classList.add("vendo");
+  atual = zip; document.body.classList.add("vendo"); $("mais").open = false;
   if (!mapa.difs.some((d) => d.nome === dif)) dif = mapa.difs.some((d) => d.nome === "Expert") ? "Expert" : mapa.difs[0].nome;
   pintarMapa(); pintarLista();
   clearTimeout(abrir.t);
@@ -257,6 +265,10 @@ function valorMeta(m) {
   return onde(m);
 }
 const onde = (v) => (v.n ? t("v_ex", { n: num(v.n), t: v.ex.map(tempo).join(", ") }) : "0");
+function carregando() {  // ate o ArcViewer baixar e montar (ai ele mostra a barra dele) fica um aviso no lugar da caixa preta
+  const c = $("carrega"), fim = () => { c.hidden = true; clearTimeout(carregando.limite); }; c.hidden = false;
+  $("visor").onload = fim; clearTimeout(carregando.limite); carregando.limite = setTimeout(fim, 20000);  // se o load nunca vier, nao prende o aviso
+}
 function pintarMapa() {
   $("aberto").hidden = !mapa; $("vazio").hidden = !!mapa;
   if (!mapa) return;
@@ -283,16 +295,16 @@ function pintarMapa() {
   // copia local do ArcViewer; noProxy = le o zip direto deste PC, nada sobe para a internet. Trocar de dificuldade recarrega (uns segundos)
   const visor = `/arcviewer/?noProxy=true&difficulty=${dif}&url=` + enc(location.origin + "/zip/" + enc(atual)), de = visor + mapa.v;
   $("visor").hidden = $("dica").hidden = !estado.visor; $("sem-visor").hidden = estado.visor;
-  if (estado.visor && $("visor").dataset.de !== de) { $("visor").dataset.de = de; $("visor").src = visor; $("fora").href = visor; }
+  if (estado.visor && $("visor").dataset.de !== de) { $("visor").dataset.de = de; $("visor").src = visor; $("fora").href = visor; carregando(); }
 
   const nums = $("numeros"); nums.textContent = "";
   for (const [k, v] of [["notas", num(d.notas)], ["nps", r && r.nps ? num(r.nps, 2) : "–"], ["vel", num(d.njs)], ["paredes", r && r.notas ? num(r.paredes) : "–"], ["arcos", num(d.arcos)]]) {
     const c = el("div"); c.append(el("dt", "", t("n_" + k)), el("dd", "", v)); nums.append(c);
   }
 
-  const total = R ? R.difs.reduce((s, x) => s + falhas(x), 0) + (R.info_ok ? 0 : 1) : 0, ve = $("veredito");
+  const total = R ? R.difs.reduce((s, x) => s + falhas(x), 0) + (R.info_ok ? 0 : 1) : 0, ve = $("veredito"), sem = !R ? "sem" : total ? "nao" : "ok";
   ve.textContent = !R ? t(mapa.conferindo ? "v_conferindo" : "v_sem") : !total ? t("v_ok") : t(total === 1 ? "v_nao_um" : "v_nao_varios", { n: total });
-  ve.className = "veredito " + (!R ? "sem" : total ? "nao" : "ok");
+  $("selo").className = "selo " + sem; $("selo-i").setAttribute("href", "#i-" + (sem === "ok" ? "ok" : sem === "nao" ? "nao" : "tempo"));  // o selo repete o veredito ao lado do titulo, onde ninguem precisa rolar
   const ul = $("metas"); ul.textContent = "";
   const linha = (ok, txt, v) => { const li = el("li", ok ? "" : "nao"); li.append(icone(ok ? "ok" : "nao"), el("span", "", txt), el("span", "v", v)); li.firstChild.setAttribute("role", "img"); li.firstChild.setAttribute("aria-label", t(ok ? "passou" : "nao_passou")); ul.append(li); };
   if (r && !r.esquema_ok) linha(false, t("meta_esquema"), r.erro || "");
@@ -314,18 +326,19 @@ function pintarMapa() {
 
   const la = quest.mapas[atual];
   $("quest").hidden = !quest.conectado; $("quest").textContent = t(la === "ok" ? "q_de_novo" : la ? "q_atualizar" : "quest"); $("q-apagar").hidden = !la || !quest.conectado;
-  $("baixar").href = "/api/zip?zip=" + enc(atual);
+  $("baixar").href = "/api/zip?zip=" + enc(atual); $("baixar").className = quest.conectado ? "sec" : "acao";  // so uma acao em destaque: o Quest, ou o zip quando nao ha Quest
 }
+$("selo").onclick = () => $("conf").scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+$("mais").onclick = (e) => { if (e.target.closest(".menu button")) $("mais").open = false; };
+addEventListener("click", (e) => { if (!$("mais").contains(e.target)) $("mais").open = false; });
+addEventListener("keydown", (e) => { if (e.key === "Escape") $("mais").open = false; });
 $("quest").onclick = () => enviar([atual], $("quest"));
 $("q-apagar").onclick = async () => {
   if (!await confirmar("confirma_q_apagar", "q_apagar")) return;
   try { await api("/api/quest/apagar", { zip: atual }); avisar(t("q_apagado")); } catch (x) { falhou(x); }
   verQuest();
 };
-$("apagar").onclick = async () => {
-  if (!await confirmar("confirma_apagar", "apagar")) return;
-  try { await api("/api/apagar", { zip: atual }); fechar(); await atualizar(); } catch (x) { falhou(x); }
-};
+$("apagar").onclick = () => apagar([atual]);
 $("renomear").onclick = () => { $("n-nome").value = mapa.nome; $("n-artista").value = mapa.artista; $("d-nome").returnValue = ""; $("d-nome").showModal(); };
 $("d-nome").onclose = async () => {
   if ($("d-nome").returnValue !== "sim") return;

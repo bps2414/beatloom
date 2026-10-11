@@ -13,6 +13,14 @@ Combinado com o dono em 10/10/2026. Objetivo: qualquer pessoa no Windows baixa a
 
 Regra: uma fatia por vez. Ao terminar, atualize esta tabela, descreva o que foi verificado e o que não foi, e espere a aprovação do dono.
 
+### Melhoria de UI/UX (depois das quatro fatias, a pedido do dono em 10/10/2026)
+
+Sem redesenho: subir o nível do que existe, em três níveis, um por vez.
+
+- **Nível 1 (feito, aguarda aprovação):** ações no topo da ficha (Quest ou Baixar em destaque, o resto no menu "⋯"), selo do veredito ao lado do título, aviso "Carregando o visualizador…" no lugar da caixa preta, apagar sem confirmar e com **Desfazer** (`POST /api/restaurar` traz da `saida\lixeira`), alvos de 40 px, e correção do nome e artista que não preenchiam na prévia do "Novo mapa" (um comentário engolia a linha em `app.js`). **Requer reiniciar o servidor** (endpoint novo). Verificado num servidor de teste com cópia de 3 mapas: abrir, menu, apagar, desfazer, 409 se já existe, selo rola até as conferências, 375 px sem rolagem lateral. **Não verificado:** com o Quest conectado (botão "Mandar ao Quest" em destaque), a barra de lote, e apagar vários.
+- **Nível 2 (não feito):** busca e ordem na lista, teclado na lista, "Novo mapa" em duas camadas, cartão de geração em trilha de etapas, estado vazio com campo de link, layout em larguras intermediárias.
+- **Nível 3 (não feito):** transições curtas, pontinhos de dificuldade na linha da lista, polimento dos textos.
+
 ## Decisões tomadas (não reabrir)
 
 | Assunto | Decisão | Motivo |

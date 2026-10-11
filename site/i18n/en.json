@@ -60,7 +60,6 @@
   "refazer_todos": "Redo all maps",
   "confirma_refazer_todos": "Redo every map in the list with the current generator and preferences? Each map is made again from scratch (notes, lights, environment, colors) and keeps its name, artist, cover, mode and difficulties. They are queued, one at a time; the song is only analysed again if the saved analysis is no longer valid. The previous version of each one is kept in the saida\\versoes folder.",
   "apagar_marcados": "Delete",
-  "confirma_apagar_varios": "Remove the selected maps from the list? They go to the saida\\lixeira folder, where you can get them back.",
   "confirma_regerar": "Redo the selected maps with the current generator and preferences? Each map is made again from scratch (notes, lights, environment, colors) and keeps its name, artist, cover, mode and difficulties. The previous version of each one is kept in the saida\\versoes folder.",
   "s_gosto": "The way you play",
   "s_gosto_sub": "Applies to new maps and to the ones you redo.",
@@ -101,7 +100,6 @@
   "q_falhou": "{nome} was not sent:",
   "q_apagado": "Map deleted from the Quest.",
   "confirma_q_apagar": "Delete this map from the Quest? It stays here on the PC.",
-  "confirma_apagar": "Remove this map from the list? It goes to the saida\\lixeira folder, where you can get it back.",
   "confirma_limpar": "Delete the saved analyses? Your maps stay; only the next generation of each song gets slow again.",
 
   "sem_visor": "The 3D viewer is not installed yet. With it you can watch the map right here on the page.",
@@ -233,5 +231,11 @@
   "erro_nao_achou": "No Quest answered on the network. It must be on, awake and on the same Wi-Fi; if it restarted, the wireless connection turns off and the USB cable is needed again.",
   "erro_sem_rede": "This computer is not on any network.",
   "erro_sem_wifi": "The Quest is not connected to any Wi-Fi.",
-  "erro_adb": "The Quest refused the request."
+  "erro_adb": "The Quest refused the request.",
+  "desfazer": "Undo",
+  "apagado_um": "Map deleted.",
+  "apagado_varios": "{n} maps deleted.",
+  "mais": "More actions",
+  "visor_carrega": "Loading the viewer…",
+  "conferencias": "Checks"
 }
