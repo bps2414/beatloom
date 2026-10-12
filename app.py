@@ -796,7 +796,7 @@ if __name__ == "__main__":
     SAIDA.mkdir(exist_ok=True)
     ler_fila()
     threading.Thread(target=operario, daemon=True).start()
-    ThreadingHTTPServer.allow_reuse_address = False  # no Windows, reusar o endereco deixaria dois servidores na mesma porta
+    ThreadingHTTPServer.allow_reuse_address = os.name != "nt"  # no Windows, reusar o endereco deixaria dois servidores na mesma porta; no Linux, sem reusar, a porta fica presa por um minuto depois de fechar
     try:
         srv = ThreadingHTTPServer(("127.0.0.1", PORTA), H)
     except OSError:  # a porta esta ocupada: o Beatloom ja esta aberto em outra janela
