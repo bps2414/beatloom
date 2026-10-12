@@ -695,7 +695,7 @@ class H(BaseHTTPRequestHandler):
             try:
                 j = json.loads(ytdlp("--skip-download", "--flat-playlist", "--dump-single-json", "--", link))
                 if j.get("_type") == "playlist":  # link so de playlist: a pagina pede um mapa por faixa (video com &list= continua sendo so o video, pelo --no-playlist)
-                    itens = [{"link": e["url"], "nome": e.get("title") or e["url"], "capa": (e.get("thumbnails") or [{}])[-1].get("url")} for e in j.get("entries") or [] if e and e.get("url")]
+                    itens = [{"link": e["url"], "nome": e.get("title") or e["url"], "capa": (e.get("thumbnails") or [{}])[-1].get("url"), "dur": e.get("duration")} for e in j.get("entries") or [] if e and e.get("url")]
                     return self.manda({"nome": j.get("title"), "id": j.get("id"), "capa": itens[0]["capa"], "lista": itens}) if itens else self.manda({"erro": "ytdlp"}, cod=400)
                 return self.manda(dados_do_link(j))
             except (RuntimeError, ValueError) as e:
