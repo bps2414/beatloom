@@ -62,6 +62,8 @@ Envio ao Quest em segundo plano (a pedido do dono, 10/10/2026): `POST /api/quest
 
 Num servidor Linux de casa (a pedido do dono, 11/10/2026): o Beatloom roda sem mudança como serviço de usuário do systemd (`.venv/bin/python app.py --sem-navegador`, com `uv pip install --torch-backend cpu -r requirements.txt`, `npm ci` em `check/`, `adb` no `PATH` e a biblioteca de padrões copiada do PC), sempre só em `127.0.0.1`. Um painel da própria casa, fora deste repositório, chama `/api/previa` e `/api/gerar` de tempos em tempos para vigiar uma playlist e `/api/quest` quando o Quest aparece; nada disso virou recurso do Beatloom. Para isso `/api/previa` passou a devolver `dur` em cada faixa da playlist. Medido num i5-7200U (2 núcleos, sem placa), música de 3:06: completo 220 s, rápido 44 s, pico de 2,4 GB. Todos os `--demo` passam no Linux. Não contraria "só app local": o gerador continua sem atender a rede. **Não verificado:** o envio ao Quest a partir do Linux.
 
+Visual dos mapas (a pedido do dono, 14/10/2026): **só planejado, aguarda as respostas do dono e a aprovação do nível 0.** Cenário da própria banda e nada de letreiro de banda no sorteio, o nome do artista em luz no fundo com Chroma, mais luz sem mod, luz por luz no Chroma e animação com Noodle, um nível por vez, começando por um mapa de prova no Quest. Plano e perguntas em [visual.md](visual.md).
+
 O que vem depois está em [../ROADMAP.md](../ROADMAP.md).
 
 ## Ambiente na nuvem (Linux, repositório recém-clonado)

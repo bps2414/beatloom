@@ -32,6 +32,7 @@ Antes de qualquer item novo. Cada linha é uma coisa que passa na conferência m
 - **Velocidade por trecho (1.3 item 9).**
 - **Escolher o que vai no mapa (1.3 item 11).** No diálogo de mapa novo: modos de jogo e chaves para bombas, paredes, luzes. Só aparece o que o gerador já sabe fazer.
 - **Chroma, o que ficou de fora.** Acender luzes uma a uma, cor por nota, mexer no cenário. Só depois de ver o Chroma atual no jogo.
+- **Visual dos mapas** (pedido do dono, 14/10/2026): letreiro do Green Day e do Monstercat no lugar do artista, mais luz para todos, Chroma e Noodle de verdade. Planejado em [plan/visual.md](plan/visual.md), começa por um mapa de prova no Quest.
 - **Ficha do mapa.** Mostrar arcos, correntes, bombas e paredes, as cores do mapa, o conjunto Lawless e o resultado da conferência dele.
 
 ### 1.4 Ferramentas de terceiros a aproveitar
