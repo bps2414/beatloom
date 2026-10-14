@@ -5,18 +5,33 @@ acao: 0 apaga, 1 acende, 2 clarao (estoura e fica aceso), 3 pulso (estoura e som
 As outras deixas sao (segundo, GIRO ou ZOOM, 0, 0, 0) para os aneis e (segundo, VEL_E ou VEL_D, velocidade, 0, 0) para os lasers.
 
 Os cenarios classicos acendem com eventos basicos (basicos); os novos so com grupos de luzes (grupos), cada cenario com os seus (GRUPOS).
+O cenario sai do clima da musica, sem nome de banda escrito, a nao ser que a musica seja da propria banda (ambiente, BANDA).
 As cores saem da capa (cores): um par para o mapa e outro para o reforco ("boost"), que entra na queda (reforco).
 """
-import colorsys, subprocess, sys
+import colorsys, re, subprocess, sys, unicodedata
 
 import numpy as np
 
 from beatloom.audio import CASAS, bateria, partes
 
 FUNDO, ANEIS, ESQ, DIR, CENTRO, GIRO, ZOOM, VEL_E, VEL_D = 0, 1, 2, 3, 4, 8, 9, 12, 13
-APAGA, ACENDE, CLARAO, PULSO = 0, 1, 2, 3
-# os cenarios do jogo para cada clima da musica (audio.clima): um classico, que acende com os eventos basicos, e um novo, que acende com grupos de luzes
-AMBIENTE = {"calmo": ("BigMirrorEnvironment", "TheSecondEnvironment"), "pesado": ("GreenDayEnvironment", "RockMixtapeEnvironment"), "eletronico": ("MonstercatEnvironment", "WeaveEnvironment")}
+APAGA, ACENDE, CLARAO, PULSO, TRANSICAO = 0, 1, 2, 3, 4  # transicao: vai do estado anterior da luz ate este, aos poucos, desde a deixa anterior
+# os cenarios do jogo para cada clima da musica (audio.clima): (classicos, novos). Os classicos acendem com os eventos basicos e aceitam as cores do Chroma;
+# os novos so com grupos de luzes. Nenhum tem nome de banda ou de gravadora escrito (antes o pesado caia no Green Day e o eletronico no Monstercat)
+AMBIENTE = {"calmo": (("BigMirrorEnvironment", "OriginsEnvironment"), ("TheSecondEnvironment",)), "pesado": (("TriangleEnvironment", "KaleidoscopeEnvironment"), ("RockMixtapeEnvironment",)),
+            "eletronico": (("NiceEnvironment", "FitBeatEnvironment"), ("WeaveEnvironment",))}
+# musica da propria banda vai para o palco dela, com o letreiro certo (so os classicos). Chave: o nome sem acento, sem espaco e sem pontuacao (ver banda)
+BANDA = {"greenday": ("GreenDayEnvironment", "GreenDayGrenadeEnvironment"), "linkinpark": ("LinkinParkEnvironment",), "bts": ("BTSEnvironment",), "imaginedragons": ("DragonsEnvironment",),
+         "panicatthedisco": ("PanicEnvironment",), "timbaland": ("TimbalandEnvironment",), "skrillex": ("SkrillexEnvironment",), "billieeilish": ("BillieEnvironment",),
+         "kda": ("KDAEnvironment",), "noisestorm": ("CrabRaveEnvironment",)}
+# nesses palcos o giro (8) e o zoom (9) dos aneis sao outra coisa (chuva e sol da Billie, modo dos lasers): nao vao (renamer do bsmap)
+FORA = {"BillieEnvironment": (GIRO, ZOOM), "LinkinParkEnvironment": (GIRO,), "SkrillexEnvironment": (ZOOM,)}
+# quantas luzes cada tipo (fundo, aneis, lasers da esquerda e da direita, centro) tem em cada cenario classico: tabelas de IDs de luz do Chroma (Aeroluna/Heck, MIT)
+LUZES = {"BigMirrorEnvironment": (10, 60, 8, 8, 16), "OriginsEnvironment": (4, 60, 6, 6, 2), "TriangleEnvironment": (10, 60, 11, 11, 12), "KaleidoscopeEnvironment": (40, 40, 20, 20, 80),
+         "NiceEnvironment": (8, 40, 11, 11, 14), "FitBeatEnvironment": (30, 30, 8, 8, 2), "GreenDayEnvironment": (16, 60, 6, 6, 3), "GreenDayGrenadeEnvironment": (16, 60, 6, 6, 5),
+         "LinkinParkEnvironment": (2, 16, 20, 20, 1), "BTSEnvironment": (3, 20, 27, 27, 5), "DragonsEnvironment": (2, 62, 5, 5, 4), "PanicEnvironment": (2, 62, 7, 7, 8),
+         "TimbalandEnvironment": (20, 20, 10, 14, 8), "SkrillexEnvironment": (8, 66, 23, 23, 66), "BillieEnvironment": (4, 4, 4, 4, 5), "KDAEnvironment": (6, 5, 7, 9, 80),
+         "CrabRaveEnvironment": (8, 7, 5, 5, 14), "MonstercatEnvironment": (8, 7, 5, 5, 15), "DefaultEnvironment": (10, 60, 11, 11, 14)}
 # cenarios novos: que grupos de luzes fazem o papel de cada luz das deixas, e que grupos giram os lasers da esquerda e da direita (numeros dos grupos: tabela do bsmap)
 GRUPOS = {
     "TheSecondEnvironment": {FUNDO: (2, 3), ANEIS: (0, 1), ESQ: (6, 8, 10, 12), DIR: (7, 9, 11, 13), CENTRO: (4, 5), GIRO: ((6, 8, 10, 12), (7, 9, 11, 13))},
@@ -41,7 +56,8 @@ def deixas(an, pt=None, pc=None):
         pc = bateria(an)
     forca = np.maximum(an["forca"], an["forca_inst"].max(0)) if "forca_inst" in an else np.asarray(an["forca"], float)
     acento = float(np.percentile(forca[nivel == 2], 90)) if (nivel == 2).any() else 9e9
-    lado, escuros, D = 0, [], [(0.0, FUNDO, ACENDE, 1, 0.3)]  # antes do primeiro compasso: so o fundo, baixinho
+    lado, escuros, D = 0, [], [(0.0, FUNDO, ACENDE, 1, 0.0)]  # antes do primeiro compasso o fundo vem do escuro (transicao ate o primeiro compasso)
+    subiu = set()  # (comeco da subida, luz): a luz ja acendeu nesta subida, e dali em diante so muda por transicao
     for k, (a, b) in enumerate(zip(ic[:-1], ic[1:])):
         p, i, t0 = pt[k], float(it[k]), float(bat[a])
         muda = k == 0 or pt[k - 1] != p
@@ -60,14 +76,20 @@ def deixas(an, pt=None, pc=None):
             k1 = next(j for j in range(k, len(pt) + 1) if j == len(pt) or pt[j] != "subida")
             if muda:
                 D += [(t0, e, APAGA, 0, 0) for e in (ANEIS, ESQ, DIR, CENTRO)]
+            def sobe(t, e, c, f):  # acende uma vez; depois, transicao: o brilho e a cor sobem continuos de uma batida para a outra
+                D.append((t, e, TRANSICAO if (k0, e) in subiu else ACENDE, c, f))
+                subiu.add((k0, e))
             for j in range(a, b):
                 t, x = float(bat[j]), (j - ic[k0]) / (ic[k1] - ic[k0])
-                D += [(t, FUNDO, ACENDE, cor, 0.2 + 0.8 * x), (t, VEL_E, 1 + round(7 * x), 0, 0), (t, VEL_D, 1 + round(7 * x), 0, 0)]
-                D += [(t, ANEIS, PULSO, cor, 0.4 + 0.6 * x)] * (x >= 0.25) + [(t, ESQ, ACENDE, outra, x), (t, DIR, ACENDE, outra, x)] * (x >= 0.5)
+                sobe(t, FUNDO, cor, 0.2 + 0.8 * x)
+                D += [(t, VEL_E, 1 + round(7 * x), 0, 0), (t, VEL_D, 1 + round(7 * x), 0, 0)] + [(t, ANEIS, PULSO, cor, 0.4 + 0.6 * x)] * (x >= 0.25)
+                if x >= 0.5:
+                    sobe(t, ESQ, outra, x); sobe(t, DIR, outra, x)
                 if x >= 0.75:
-                    D += [(t, CENTRO, ACENDE, cor, x), (t, GIRO, 0, 0, 0)] + [((t + float(bat[j + 1])) / 2, GIRO, 0, 0, 0)] * (k + 1 == k1)  # no ultimo compasso os aneis giram em dobro
+                    sobe(t, CENTRO, cor, x)
+                    D += [(t, GIRO, 0, 0, 0)] + [((t + float(bat[j + 1])) / 2, GIRO, 0, 0, 0)] * (k + 1 == k1)  # no ultimo compasso os aneis giram em dobro
             continue
-        D.append((t0, FUNDO, CLARAO if queda else ACENDE, cor, 1.0 if queda else 0.35 + 0.4 * i))
+        D.append((t0, FUNDO, CLARAO if queda else TRANSICAO if k == 0 else ACENDE, cor, 1.0 if queda else 0.35 + 0.4 * i))  # a musica entra com o fundo subindo do escuro
         D += [(t0, VEL_E, 1 + round(i * (6 if queda else 3)), 0, 0), (t0, VEL_D, 1 + round(i * (6 if queda else 3)), 0, 0)]
         if queda:  # lasers dos dois lados, trocando de cor a cada compasso; aneis abrem e fecham a cada 4
             D += [(t0, ESQ, ACENDE, cor if k % 2 else outra, 0.8), (t0, DIR, ACENDE, outra if k % 2 else cor, 0.8)]
@@ -94,24 +116,40 @@ def deixas(an, pt=None, pc=None):
     return sorted(D, key=lambda d: d[0])  # a ordem de quem empata fica: a deixa posta depois vale
 
 
-def basicos(D, bt):
-    """Deixas -> eventos basicos do mapa (os dos cenarios classicos). Duas deixas na mesma luz e na mesma batida: vale a ultima."""
-    ev = {}
+def basicos(D, bt, amb=None):
+    """Deixas -> eventos basicos do mapa (os dos cenarios classicos). Duas deixas na mesma luz e na mesma batida: vale a ultima. Fica de fora o tipo que no
+    cenario `amb` quer dizer outra coisa (FORA)."""
+    ev, fora = {}, FORA.get(amb, ())
     for t, e, acao, cor, f in D:
-        ev[(round(bt(t), 3), e)] = (acao if e > CENTRO or acao == APAGA else (5, 1, 9)[cor] + acao - 1, round(f, 2) if e <= CENTRO else 1)
+        if e not in fora:
+            ev[(round(bt(t), 3), e)] = (acao if e > CENTRO or acao == APAGA else (5, 1, 9)[cor] + acao - 1, round(f, 2) if e <= CENTRO else 1)
     return [{"b": b, "et": e, "i": int(v), "f": f} for (b, e), (v, f) in sorted(ev.items())]
 
 
-def ambiente(clima, marca):
-    """O cenario de uma musica: um dos do clima dela, sempre o mesmo para a mesma musica (`marca` = o hash do audio)."""
-    return AMBIENTE[clima][int(marca[:4], 16) % len(AMBIENTE[clima])]
+def banda(artista):
+    """O palco da propria banda (BANDA) ou None. Vale qualquer um dos nomes do artista: "Linkin Park & Steve Aoki", "BTS (방탄소년단)", "Panic! At The Disco"."""
+    for nome in re.split(r",|&|\+|\b(?:x|e|and|feat\.?|ft\.?|featuring|vs\.?|with)\b", str(artista or ""), flags=re.I):
+        chave = re.sub(r"[^a-z0-9]", "", unicodedata.normalize("NFKD", nome).encode("ascii", "ignore").decode().lower())
+        if chave in BANDA:
+            return BANDA[chave]
+    return None
+
+
+def ambiente(clima, marca, artista=None, classico=False):
+    """O cenario de uma musica, sempre o mesmo para a mesma musica (`marca` = o hash do audio): o da banda, se a musica e dela, senao um dos do clima.
+    `classico` = so os que acendem com eventos basicos (o Chroma so pinta esses)."""
+    velhos, novos = AMBIENTE[clima]
+    pode = banda(artista) or (velhos if classico else velhos + novos)
+    return pode[int(marca[:4], 16) % len(pode)]
 
 
 def grupos(D, bt, amb):
     """Deixas -> (eventos de cor, eventos de rotacao) dos grupos de luzes do cenario `amb`, um dos de GRUPOS.
 
-    Acender e um evento seco; o clarao estoura e volta ao brilho pedido em 1/4 de batida; o pulso estoura e some em pouco mais de meia batida (menos, se a
-    proxima deixa da mesma luz vem antes). A cada giro os lasers abrem em leque e fecham, um lado espelhando o outro. Zoom e velocidade nao existem aqui.
+    Acender e um evento seco; a transicao vai do estado anterior ate o pedido; o clarao estoura e volta ao brilho pedido em 1/4 de batida; o pulso
+    estoura e some em pouco mais de meia batida (menos, se a proxima deixa da mesma luz vem antes). Clarao e pulso correm pelo grupo em onda, de uma
+    ponta a outra, no tempo que sobra ate a proxima deixa (no maximo meia batida), e a onda troca de sentido a cada vez. A cada giro os lasers abrem em
+    leque e fecham, um lado espelhando o outro, tambem em onda. Zoom e velocidade nao existem aqui.
     """
     tab, todos = GRUPOS[amb], {"f": 1, "p": 1, "t": 0, "r": 0, "c": 0, "n": 0, "s": 0, "l": 0, "d": 0}  # filtro: todas as luzes do grupo
     por, giros = {}, []
@@ -122,21 +160,25 @@ def grupos(D, bt, amb):
             giros.append(round(bt(t), 3))
     cor_ev, rot_ev = [], []
     for e, deixas_ in por.items():
-        bs = sorted(deixas_)
+        bs, volta = sorted(deixas_), 0  # o sentido da onda troca a cada onda desta luz
         for b, prox in zip(bs, bs[1:] + [bs[-1] + 9]):
             acao, cor, f = deixas_[b]
             um = lambda quando, como, brilho: {"b": round(quando, 3), "i": como, "c": cor, "s": round(brilho, 2), "f": 0}
+            onda = 0
             if acao == APAGA:
                 passos = [{"b": 0, "i": 0, "c": 0, "s": 0, "f": 0}]
-            elif acao == ACENDE or prox - b < 0.1:
-                passos = [um(0, 0, f)]
+            elif acao in (ACENDE, TRANSICAO) or prox - b < 0.1:
+                passos = [um(0, int(acao == TRANSICAO), f)]
             else:
                 passos = [um(0, 0, 1.4 * f), um(min(0.25, 0.9 * (prox - b)), 1, f) if acao == CLARAO else um(min(0.6, 0.9 * (prox - b)), 1, 0)]
-            cor_ev += [{"b": b, "g": g, "e": [{"f": todos, "w": 0, "d": 1, "r": 0, "t": 1, "b": 1, "i": 0, "e": passos}]} for g in tab[e]]
+                onda = round(min(0.5, max(0.0, 0.9 * (prox - b) - passos[-1]["b"])), 3)
+                volta += onda > 0
+            filtro = {**todos, "r": volta % 2} if onda else todos
+            cor_ev += [{"b": b, "g": g, "e": [{"f": filtro, "w": onda, "d": 1, "r": 0, "t": 1, "b": 1, "i": 0, "e": passos}]} for g in tab[e]]
     for n, b in enumerate(giros):
         # do angulo em que estava ate o novo em meia batida: aberto (30 graus de uma luz a outra do grupo) nos giros pares, fechado nos impares
         passos = [{"b": 0, "p": 1, "e": 0, "l": 0, "r": 0, "o": 0}, {"b": 0.5, "p": 0, "e": 2, "l": 0, "r": 0 if n % 2 else 35, "o": 0}]
-        rot_ev += [{"b": b, "g": g, "e": [{"f": todos, "w": 0, "d": 1, "s": 0 if n % 2 else 30, "t": 1, "b": 1, "i": 0, "a": 0, "r": lado, "l": passos}]} for lado in (0, 1) for g in tab[GIRO][lado]]
+        rot_ev += [{"b": b, "g": g, "e": [{"f": todos, "w": 0.25, "d": 1, "s": 0 if n % 2 else 30, "t": 1, "b": 1, "i": 0, "a": 0, "r": lado, "l": passos}]} for lado in (0, 1) for g in tab[GIRO][lado]]
     return sorted(cor_ev, key=lambda x: (x["b"], x["g"])), sorted(rot_ev, key=lambda x: (x["b"], x["g"]))
 
 
@@ -219,6 +261,10 @@ def demo():
     assert fundo == sorted(fundo) and fundo[0] == 0.2 and (ANEIS, PULSO, 0) in em(5, 5.1) and (ESQ, ACENDE, 1) not in em(5, 5.1) and (ESQ, ACENDE, 1) in em(6, 6.1), em(4, 7)
     assert sorted(em(7, 8)) == [(e, APAGA, 0) for e in range(5)] and (FUNDO, CLARAO, 2) in em(8, 8.1), em(7, 8.1)
     assert (ESQ, CLARAO, 1) in em(10, 10.1) and (DIR, CLARAO, 1) in em(14, 14.1), em(10, 15)
+    # na subida cada luz acende uma vez e depois sobe por transicao; a musica entra com o fundo subindo do escuro
+    assert [d[2] for d in D if d[1] == FUNDO and 4 <= d[0] < 7] == [ACENDE, TRANSICAO, TRANSICAO] and (ESQ, TRANSICAO, 1) not in em(6, 6.1)
+    assert D[0][1:] == (FUNDO, ACENDE, 1, 0.0) and (FUNDO, TRANSICAO, 1) in em(0, 0.1)
+    assert {e["i"] for e in basicos(D, lambda t: t) if e["et"] == FUNDO and 4 < e["b"] < 7} == {8}  # transicao vermelha (a cor 0)
     ev = basicos(D, lambda t: t * 2)  # 120 BPM
     assert {"b": 8.0, "et": ANEIS, "i": 0, "f": 0} in ev and {"b": 16.0, "et": CENTRO, "i": 10, "f": 1.0} in ev, [e for e in ev if e["b"] in (8.0, 16.0)]
     assert len({(e["b"], e["et"]) for e in ev}) == len(ev) and [e["b"] for e in ev] == sorted(e["b"] for e in ev)
@@ -229,7 +275,18 @@ def demo():
     assert len(pulso) == 2 and [(p["i"], p["c"], p["s"]) for p in pulso[0]["e"][0]["e"]] == [(0, 1, 1.05), (1, 1, 0)] and pulso[0]["e"][0]["e"][1]["b"] == 0.6, pulso
     assert [p["s"] for x in cor_ev if x["b"] == 16 and x["g"] == 4 for p in x["e"][0]["e"]] == [1.4, 1.0] and all(p["s"] == 0 for x in cor_ev if x["b"] == 8 for p in x["e"][0]["e"])
     assert len(rot_ev) == 16 and {x["e"][0]["l"][1]["r"] for x in rot_ev} == {35, 0} and {x["e"][0]["r"] for x in rot_ev if x["g"] in (7, 9, 11, 13)} == {1}, rot_ev[:2]
-    assert ambiente("pesado", "00ff") == "RockMixtapeEnvironment" and ambiente("pesado", "00fe") == "GreenDayEnvironment" and all(v[1] in GRUPOS for v in AMBIENTE.values())
+    # ondas: o pulso dos aneis (proxima deixa 2 batidas depois) corre pelo grupo em meia batida, e a onda seguinte vem no outro sentido; acender e seco
+    ondas = sorted({(x["b"], x["e"][0]["w"], x["e"][0]["f"]["r"]) for x in cor_ev if x["g"] in (0, 1) and x["e"][0]["w"]})
+    assert ondas[0] == (0, 0.5, 1) and ondas[1][2] == 0 and all(x["e"][0]["w"] == 0 for x in cor_ev if x["e"][0]["e"][0]["i"] == 0 and len(x["e"][0]["e"]) == 1)
+    assert all(x["e"][0]["w"] == 0.25 for x in rot_ev) and grupos([(0, FUNDO, ACENDE, 0, 0.2), (1, FUNDO, TRANSICAO, 0, 1)], lambda t: t, "WeaveEnvironment")[0][-1]["e"][0]["e"] == [{"b": 0, "i": 1, "c": 0, "s": 1, "f": 0}]
+    # cenario: um dos tres do clima (so os dois classicos com o Chroma); musica da banda vai para o palco dela; nenhum do sorteio tem nome de banda
+    assert [ambiente("pesado", m) for m in ("0000", "0001", "0002")] == ["TriangleEnvironment", "KaleidoscopeEnvironment", "RockMixtapeEnvironment"]
+    assert ambiente("pesado", "0002", classico=True) == "TriangleEnvironment" and all(set(v[1]) <= set(GRUPOS) and set(v[0]) <= set(LUZES) for v in AMBIENTE.values())
+    assert ambiente("calmo", "0001", "Green Day") == "GreenDayGrenadeEnvironment" and ambiente("pesado", "0000", "Linkin Park & Steve Aoki") == "LinkinParkEnvironment"
+    assert banda("Panic! At The Disco") == ("PanicEnvironment",) and banda("BTS (방탄소년단)") == ("BTSEnvironment",) and banda("K/DA") == ("KDAEnvironment",)
+    assert banda("Green Day Tribute Band") is None and banda("Desconhecido") is None and banda(None) is None and all(v[0] in LUZES for v in BANDA.values())
+    assert not {e for v in AMBIENTE.values() for x in v for e in x} & ({e for v in BANDA.values() for e in v} | {"MonstercatEnvironment"})
+    assert all(e["et"] != GIRO for e in basicos(D, lambda t: t * 2, "BillieEnvironment")) and any(e["et"] == GIRO for e in basicos(D, lambda t: t * 2))
     print("luzes ok")
 
 

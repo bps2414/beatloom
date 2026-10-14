@@ -11,7 +11,7 @@ Sai em saida\<nome>-v<etapa>.zip (o site manda ao Quest), saida\<nome>-v<etapa>.
   1 = notas no tempo + golpes do BeatKenja      2 = + intensidade por trecho, repeticoes, notas duplas nos sons fortes
   3 = + motor de golpes proprio (padroes humanos) 4 = + separacao de instrumentos (Demucs) e paredes
 """
-import argparse, json, re, shutil, subprocess, sys, unicodedata, zipfile
+import argparse, copy, json, re, shutil, subprocess, sys, unicodedata, zipfile
 from pathlib import Path
 
 import numpy as np
@@ -490,6 +490,102 @@ def salto_offset(njs, bpm, alvo):
     return round(max(alvo / (2 * njs * 60 / bpm), 0.25) - h, 2)
 
 
+def visual(an, bt, ambiente, pal, prefs):
+    """As luzes e as cores de um mapa -> (eventos basicos, grupos de cor, grupos de giro, reforco, _customData de cores de cada dificuldade, cores em hexa).
+    Cenario classico acende com eventos basicos; os novos, com grupos de luzes (neles os eventos basicos querem dizer outra coisa, entao nao vao).
+    Cores da capa (`pal`): as luzes sempre; sabres e notas so se a pessoa pediu e os dois tons forem bem diferentes. O SongCore le isto do _customData de cada dificuldade."""
+    deixas, boost = luzes.deixas(an), luzes.reforco(an, bt)
+    ev, (ev_cor, ev_rot) = ([], luzes.grupos(deixas, bt, ambiente)) if ambiente in luzes.GRUPOS else (luzes.basicos(deixas, bt, ambiente), ([], []))
+    rgb = lambda c: dict(zip("rgb", c))
+    cores_mapa = {}
+    if pal:
+        cores_mapa = {"_envColorLeft": rgb(pal[0][0]), "_envColorRight": rgb(pal[0][1]), "_envColorLeftBoost": rgb(pal[1][0]), "_envColorRightBoost": rgb(pal[1][1])}
+        if "sabres_capa" in prefs and luzes.contraste(*pal[0]):
+            cores_mapa.update(_colorLeft=rgb(pal[0][0]), _colorRight=rgb(pal[0][1]))
+    return ev, ev_cor, ev_rot, boost, cores_mapa, [["#%02x%02x%02x" % tuple(round(x * 255) for x in c) for c in par] for par in pal or ()]
+
+
+def relogio_do_mapa(bpm, ev):
+    """Os eventos de BPM de um mapa pronto -> funcao segundos -> batida, a conta do jogo ao contrario: luz refeita cai na mesma grade das notas."""
+    if not ev:
+        return lambda t: t * bpm / 60
+    B, T, m = [0.0], [0.0], bpm
+    for e in sorted(ev, key=lambda e: e["b"]):
+        T.append(T[-1] + (e["b"] - B[-1]) * 60 / m)
+        B.append(e["b"])
+        m = e["m"]
+    B.append(B[-1] + 1000 * m / 60); T.append(T[-1] + 1000)
+    return lambda t: float(np.interp(t, T, B))
+
+
+def so_luzes(zp, prefs=(), saida=None, generica=False):
+    """Refaz so o visual de um mapa pronto (zip) com o gerador e os gostos de agora: cenario, luzes, reforco, cores, Chroma, palco e o conjunto do Noodle.
+    Notas, arcos, correntes, bombas, paredes, eventos de BPM, nome, capa e audio ficam. `generica` = a capa e a generica (o mapa fica sem as cores dela).
+    -> (zip novo, com o mesmo nome, em `saida`; resumo; numeros do gerador)"""
+    zp = Path(zp)
+    saida = Path(saida or zp.parent)
+    pasta = saida / f"{zp.stem}-luzes"
+    shutil.rmtree(pasta, ignore_errors=True)
+    pasta.mkdir(parents=True)
+    with zipfile.ZipFile(zp) as z:
+        z.extractall(pasta)
+    info = json.loads((pasta / "Info.dat").read_text(encoding="utf-8-sig"))
+    etapa = int((re.search(r"auto v([1-4])", info.get("_songSubName", "")) or ["", "4"])[1])
+    print("[1/4] ouvindo a musica (a analise guardada, se ainda servir)...", flush=True)
+    an = analisar(pasta / info["_songFilename"], instrumentos=etapa >= 4)
+    sets = info["_difficultyBeatmapSets"]
+    normais = next(x for x in sets if x["_beatmapCharacteristicName"] == "Standard")["_difficultyBeatmaps"]
+    for x in sets:  # o conjunto do Noodle sai inteiro: o mods.aplicar faz de novo a partir das notas, se a chave estiver ligada
+        if x["_beatmapCharacteristicName"] == mods.CONJUNTO:
+            for b in x["_difficultyBeatmaps"]:
+                (pasta / b["_beatmapFilename"]).unlink(missing_ok=True)
+    info["_difficultyBeatmapSets"] = [x for x in sets if x["_beatmapCharacteristicName"] != mods.CONJUNTO]
+    d0 = json.loads((pasta / normais[0]["_beatmapFilename"]).read_text())
+    bt_ = relogio_do_mapa(float(info["_beatsPerMinute"]), d0.get("bpmEvents") or [])
+    bt = lambda t: round(bt_(t), 4)
+    artista = info.get("_songAuthorName")
+    ambiente = luzes.ambiente(clima(an), an["hash"], artista, "chroma" in prefs)
+    pal = None if generica else luzes.cores(pasta / info["_coverImageFilename"])
+    print(f"[2/4] luzes e cenario ({ambiente.removesuffix('Environment')})...", flush=True)
+    ev, ev_cor, ev_rot, boost, cores_mapa, hexa = visual(an, bt, ambiente, pal, prefs)
+    tira = ("_envColorLeft", "_envColorRight", "_envColorLeftBoost", "_envColorRightBoost", "_colorLeft", "_colorRight", "_suggestions")
+    for m in normais:
+        arq = pasta / m["_beatmapFilename"]
+        d = json.loads(arq.read_text())
+        d.pop("customData", None)  # o palco e as animacoes de antes
+        for o in d["obstacles"]:
+            o.get("customData", {}).pop("color", None)
+            if o.get("customData") == {}:
+                del o["customData"]
+        d.update(basicBeatmapEvents=copy.deepcopy(ev), colorBoostBeatmapEvents=boost, lightColorEventBoxGroups=ev_cor, lightRotationEventBoxGroups=ev_rot, lightTranslationEventBoxGroups=[])
+        arq.write_text(json.dumps(d))
+        cd = {k: v for k, v in m.get("_customData", {}).items() if k not in tira} | cores_mapa
+        m.pop("_customData", None)
+        if cd:
+            m["_customData"] = cd
+    info["_environmentName"] = ambiente
+    cd = info.get("_customData", {})
+    cd.get("_beatloom", {}).pop("letreiro", None)  # o mods.aplicar poe de novo, se fizer o letreiro
+    for k in [k for k in cd if cd[k] == {}]:
+        del cd[k]
+    if cd == {}:
+        info.pop("_customData", None)
+    (pasta / "Info.dat").write_text(json.dumps(info, ensure_ascii=False, indent=2), encoding="utf-8")
+    resumo = [f"visual refeito, notas iguais | cores " + (" ".join(hexa[0]) + ", na queda " + " ".join(hexa[1]) + (" (sabres tambem)" if "_colorLeft" in cores_mapa else "") if pal else "do jogo")
+              + f" | cenario {ambiente.removesuffix('Environment')} (musica de clima {clima(an)})"]
+    resumo += [f"mods: {x}" for x in [mods.aplicar(pasta, an, bt, pal, prefs)] if x]
+    print("[3/4] empacotando...", flush=True)
+    novo = saida / zp.name
+    tmp = novo.with_suffix(".tmp")
+    with zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED) as z:
+        for f in sorted(pasta.iterdir()):
+            z.write(f, f.name)
+    tmp.replace(novo)
+    shutil.rmtree(pasta)
+    print("[4/4] conferindo...", flush=True)
+    return novo, resumo, {"prefs": sorted(prefs), "cores": hexa, "sabres": "_colorLeft" in cores_mapa, "clima": clima(an), "ambiente": ambiente}
+
+
 def gerar(audio, nome=None, artista=None, etapa=4, tag="", saida=None, capa=None, difs=None, densidade=1.0, album=None, ano=None, link=None, prefs=(), ambiente=None):
     audio = Path(audio)
     if not audio.exists():
@@ -533,20 +629,11 @@ def gerar(audio, nome=None, artista=None, etapa=4, tag="", saida=None, capa=None
     casa_de = {round(float(t), 4): i for i, t in enumerate(an["grade"])}
     it_casa = np.asarray(an["intens"])[np.clip(np.searchsorted(an["ini_comp"] * CASAS, np.arange(len(an["grade"])), "right") - 1, 0, len(an["intens"]) - 1)]  # intensidade do compasso de cada casa
     bt = lambda t: round(bt_(t), 4)
-    # o cenario segue o clima da musica, a nao ser que venha escolhido (refazer uma dificuldade so); com Chroma, o classico do clima: so os eventos basicos aceitam cor por evento
-    ambiente = ambiente or (luzes.AMBIENTE[clima(an)][0] if "chroma" in prefs else luzes.ambiente(clima(an), an["hash"]))
-    # cenario classico acende com eventos basicos; os novos, com grupos de luzes (neles os eventos basicos querem dizer outra coisa, entao nao vao)
-    deixas, boost = luzes.deixas(an), luzes.reforco(an, bt)
-    ev, (ev_cor, ev_rot) = ([], luzes.grupos(deixas, bt, ambiente)) if ambiente in luzes.GRUPOS else (luzes.basicos(deixas, bt), ([], []))
-    # cores da capa: as luzes sempre; sabres e notas so se a pessoa pediu e os dois tons forem bem diferentes. O SongCore le isto do _customData de cada dificuldade
+    # o cenario e o da banda, se a musica e dela, senao um do clima da musica, a nao ser que venha escolhido (refazer uma dificuldade so); com Chroma, so os
+    # classicos: so os eventos basicos aceitam cor por evento
+    ambiente = ambiente or luzes.ambiente(clima(an), an["hash"], artista, "chroma" in prefs)
     pal = luzes.cores(arq_capa) if origem_capa != "generica" else None
-    rgb = lambda c: dict(zip("rgb", c))
-    cores_mapa = {}
-    if pal:
-        cores_mapa = {"_envColorLeft": rgb(pal[0][0]), "_envColorRight": rgb(pal[0][1]), "_envColorLeftBoost": rgb(pal[1][0]), "_envColorRightBoost": rgb(pal[1][1])}
-        if "sabres_capa" in prefs and luzes.contraste(*pal[0]):
-            cores_mapa.update(_colorLeft=rgb(pal[0][0]), _colorRight=rgb(pal[0][1]))
-    hexa = [["#%02x%02x%02x" % tuple(round(x * 255) for x in c) for c in par] for par in pal or ()]
+    ev, ev_cor, ev_rot, boost, cores_mapa, hexa = visual(an, bt, ambiente, pal, prefs)
     mapas, resumo = [], [f"capa {origem_capa} | densidade x{densidade:g} | cores " + (" ".join(hexa[0]) + ", na queda " + " ".join(hexa[1]) + (" (sabres tambem)" if "_colorLeft" in cores_mapa else "") if pal else "do jogo") + f" | cenario {ambiente.removesuffix('Environment')} (musica de clima {clima(an)})"]
     # ataque seco (pede corrente): forte, sem outro ataque na meia batida seguinte e sem voz segurando a nota
     seco, alt = None, None
@@ -647,6 +734,8 @@ def demo():
     volta = lambda b: sum((min(b, z["b"]) - a["b"]) * 60 / a["m"] for a, z in zip(ev, ev[1:] + [{"b": 9e9}]) if b > a["b"])
     assert all(abs(volta(bt(t)) - t) < 0.001 for t in (0.25, 3.0, 4.25, 6.65, 9.05)), [volta(bt(t)) for t in (0.25, 4.25, 9.05)]
     assert relogio({"bpm_fixo": True}, 120)[1](2.0) == 4 and relogio({"bpm_fixo": True}, 120)[0] == []
+    # o relogio lido de volta de um mapa pronto (refazer so as luzes) da a mesma batida que o da analise
+    assert all(abs(relogio_do_mapa(120, ev)(t) - bt(t)) < 0.002 for t in (0.25, 3.0, 4.25, 6.65, 9.05)) and relogio_do_mapa(100, [])(3) == 5
     # 200 notas, uma por segundo, vermelha desce embaixo e sobe em cima; a do segundo 50 e a mais forte, depois a do 100. Expert: cota de 2 pilhas, a primeira vira torre
     ns = [(float(t), 1, 0 if t % 2 == 0 else 2, 0, 1 if t % 2 == 0 else 0) for t in range(200)]
     com, p, tr = empilhar(ns, lambda t: {50: 9, 100: 8}.get(t, 0), "Expert", 0.5)
@@ -674,7 +763,9 @@ if __name__ == "__main__":
     if sys.argv[1:] == ["--demo"]:
         sys.exit(demo())
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("audio")
+    ap.add_argument("audio", nargs="?")
+    ap.add_argument("--so-luzes", metavar="ZIP", help="refaz so o visual de um mapa pronto (cenario, luzes, cores, Chroma, palco, Noodle); as notas ficam")
+    ap.add_argument("--capa-generica", action="store_true", help="com --so-luzes: a capa do mapa e a generica (sem cores da capa)")
     ap.add_argument("--nome"); ap.add_argument("--artista"); ap.add_argument("--tag", default="")
     ap.add_argument("--capa", help="imagem para a capa (jpg, png...); e cortada em quadrado")
     ap.add_argument("--difs", help="dificuldades separadas por virgula, ex.: Normal,Hard (padrao: todas)")
@@ -685,8 +776,26 @@ if __name__ == "__main__":
     ap.add_argument("--ambiente", help="cenario do jogo (ex.: BigMirrorEnvironment); sem isto, o do clima da musica")
     ap.add_argument("--saida"); ap.add_argument("--humano", help="pasta de um mapa humano da mesma musica, para comparar os tempos")
     a = ap.parse_args()
+    prefs = {p for p in a.prefs.split(",") if p in ("sem_topo", "sem_fila", "cruzar_nunca", "cruzar_livre", "sabres_capa", "chroma", "noodle")}
+    if a.so_luzes:
+        import report
+        velho = Path(a.so_luzes).with_suffix(".relatorio.json")
+        antes = json.loads(velho.read_text(encoding="utf-8")) if velho.exists() else {}
+        zp, resumo, ger = so_luzes(a.so_luzes, prefs, a.saida, a.capa_generica)
+        R = report.conferir(zp)
+        for D in R["difs"]:  # os numeros das notas sao os de quando o mapa foi feito
+            D["gerador"] = next((x.get("gerador") for x in antes.get("difs", []) if x.get("nome") == D["nome"]), None)
+        R["gerador"] = {**(antes.get("gerador") or {}), **ger}
+        report.gravar_json(zp, R)
+        txt = report.texto(R) + "\n\nGERADOR (so o visual)\n  " + "\n  ".join(resumo)
+        zp.with_suffix(".relatorio.txt").write_text(txt, encoding="utf-8")
+        print(txt)
+        print(f"\nMapa: {zp}\nRelatorio: {zp.with_suffix('.relatorio.txt')}")
+        sys.exit(0 if R["passou"] else 1)
+    if not a.audio:
+        ap.error("falta o audio")
     zp, resumo, ger = gerar(a.audio, a.nome, a.artista, a.etapa, a.tag, a.saida, a.capa, a.difs and a.difs.split(","), min(max(a.densidade, 0.5), 1.6),
-                       a.album, a.ano, a.link, {p for p in a.prefs.split(",") if p in ("sem_topo", "sem_fila", "cruzar_nunca", "cruzar_livre", "sabres_capa", "chroma", "noodle")}, a.ambiente)
+                       a.album, a.ano, a.link, prefs, a.ambiente)
     import report
     R = report.conferir(zp, a.humano)
     for D in R["difs"]:
