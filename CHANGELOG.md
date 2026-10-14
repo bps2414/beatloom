@@ -4,6 +4,10 @@ O que mudou em cada versão, para quem usa. A seção de uma versão vira o text
 
 ## Próxima versão
 
+## v1.3.0
+
+Mapas feitos antes desta versão não mudam sozinhos: use "Novo visual em todos" (só o visual, as notas ficam como estão) ou "Refazer todos os mapas".
+
 ### Visual dos mapas
 
 - **Sem nome de banda no fundo.** Os cenários sorteados pelo clima da música não têm mais nome de banda ou gravadora escrito (antes uma música pesada podia cair no palco do Green Day, com "GREEN DAY" no fundo). Música da própria banda vai para o palco dela: Green Day, Linkin Park, BTS, Imagine Dragons, Panic! at the Disco, Timbaland, Skrillex, Billie Eilish, K/DA.
@@ -14,6 +18,11 @@ O que mudou em cada versão, para quem usa. A seção de uma versão vira o text
 - **Refazer só as luzes.** Na ficha (menu "⋯"), nos marcados e em "Novo visual em todos": cenário, luzes, cores e mods de agora, com as notas exatamente como estão. Renomear um mapa com letreiro refaz o visual dele sozinho.
 
 Nada disso foi visto no jogo ainda. `tools\prova_visual.py` grava mapas de prova para conferir no Quest.
+
+### Outras mudanças
+
+- **Envio ao Quest em segundo plano.** "Mandar ao Quest" volta na hora: os mapas vão um de cada vez, com um cartão no alto da lista (barra geral, o mapa de agora com a porcentagem, falhas com o detalhe, Cancelar) e uma barra fina na linha de cada mapa. As playlists vão no fim.
+- **Servidor Linux.** O Beatloom roda como serviço num servidor Linux de casa, e a porta não fica mais presa por um minuto depois de reiniciar.
 
 ## v1.2.0
 
