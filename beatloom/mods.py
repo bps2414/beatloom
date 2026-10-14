@@ -106,7 +106,8 @@ def luz_por_luz(ev, sec, pal, amb, col_e=(), col_d=()):
         elif e["et"] in (2, 3) and p == "queda" and e["i"] in (2, 6, 10):
             lado, nl = e["et"] - 2, n[e["et"]]
             cols = (col_e, col_d)[lado]
-            e.setdefault("customData", {})["lightID"] = [i for i in range(1, nl + 1) if i % 3 == caixa[lado] % 3] + [c for j, c in enumerate(cols) if j % 3 == caixa[lado] % 3]
+            terco = [i for i in range(1, nl + 1) if i % 3 == caixa[lado] % 3] or list(range(1, nl + 1))  # cenario com 1 ou 2 lasers do lado: todos
+            e.setdefault("customData", {})["lightID"] = terco + [c for j, c in enumerate(cols) if j % 3 == caixa[lado] % 3]
             caixa[lado] += 1
             mudou += 1
         elif e["et"] == 8 and p == "queda":

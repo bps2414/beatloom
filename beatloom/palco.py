@@ -157,7 +157,7 @@ def coreografia(ev, sec, pal, ids_a, ids_m, n4, fim):
     cor_de = lambda p, q, k: (par.get(p) or par.get(pt[k - 1] if k else "", None) or par.get("verso") or (None, None))[q] if par else None
     brilho = {"intro": 0.6, "verso": 0.75, "subida": 0.45, "queda": 1.0, "pausa": 0.15}
     L = []  # (batida, ids, acao, cor (None = a da familia), brilho, branco?)
-    um = lambda b, ids, acao, cor, f, branco=False: L.append((round(b, 3), ids, acao, cor, round(f, 2), branco))
+    um = lambda b, ids, acao, cor, f, branco=False: ids and L.append((round(b, 3), ids, acao, cor, round(f, 2), branco))  # sem pecas (musica sem letra desenhavel): nada
     um(0, todos_a + todos_m, 0, None, 0)
     base = []  # (batida, ids, cor, brilho): o estado de base do letreiro, para voltar depois de um clarao branco
     t1 = bs[0]
@@ -290,6 +290,11 @@ def demo():
     assert ya > ym and min(q["position"][1] - q["scale"][1] / 2 for q in pecas) >= ONDE[1] - 0.01  # o artista em cima da musica, nada abaixo da base
     assert len({q["components"]["ILightWithId"]["lightID"] for q in pecas}) == len(pecas) and all(q["components"]["ILightWithId"]["type"] == CENTRO for q in pecas)
     assert letreiro("Desconhecido", "x") == ([], [], []) and letreiro("", "x") == ([], [], [])
+    p2, ia2, im2 = letreiro("BTS", "봄날")
+    ev2 = [{"b": 0, "et": 4, "i": 1, "f": 1}]
+    assert im2 == [] and coreografia(ev2, [(0, "verso"), (4, "queda")], None, ia2, im2, 5, 8) > 0
+    vazios = [e["b"] for e in ev2 if e.get("customData", {}).get("lightID") == []]
+    assert len(vazios) == len(set(vazios)) and 0 not in vazios  # musica sem letra desenhavel: so os eventos de estado do centro ficam sem alvo, um por batida
     assert len(letreiro("A" * 200, "B" * 200)[0]) <= TETO
     cd, a, m, ce, cdir = montar("GreenDayEnvironment", "Green Day", "Basket Case")
     assert a == [] and len(ce) == 5 and len(cd["environment"]) == 10  # palco da propria banda: so as colunas
