@@ -11,6 +11,8 @@ vale o ultimo da mesma batida, entao quem joga sem o mod ve as luzes de sempre.
 """
 import re, sys, unicodedata
 
+import numpy as np
+
 from beatloom.luzes import CENTRO, DIR, ESQ, LUZES
 
 LETREIRO, COLUNAS = 1001, 1501  # IDs de luz das pecas; os do proprio cenario vao no maximo ate 80
@@ -172,9 +174,15 @@ def coreografia(ev, sec, pal, ids_a, ids_m, n4, fim):
             x = (k - k0 + 1) / (k1 - k0)
             de, ate = (par.get(pt[k0 - 1] if k0 else "", par.get("verso")), par.get("queda")) if par else (None, None)
             ca, cm = (mistura(de[0], ate[0], x), mistura(de[1], ate[1], x)) if par else (None, None)
-            acao, f = (1 if k == k0 else 4), 0.45 + 0.55 * x
-            um(b, todos_a, acao, ca, f); um(b, todos_m, acao, cm, 0.3 + 0.4 * x)
-            base += [(b, todos_a, ca, f), (b, todos_m, cm, 0.3 + 0.4 * x)]
+            fim_k = bs[k + 1] if k + 1 < len(bs) else b + 4
+            for j in range(4):  # o artista carrega: a cada batida mais letras acesas, da esquerda para a direita, ate todas na ultima batida antes da queda
+                xb = (k - k0 + (j + 1) / 4) / (k1 - k0)
+                cb, nl = (mistura(de[0], ate[0], xb) if par else None), max(1, int(np.ceil(xb * len(ids_a) - 1e-9)))
+                um(b + j * (fim_k - b) / 4, [i for l in ids_a[:nl] for i in l], 1, cb, 0.45 + 0.55 * xb)
+                if nl < len(ids_a):
+                    um(b + j * (fim_k - b) / 4, [i for l in ids_a[nl:] for i in l], 1, cb, 0.08)
+            um(b, todos_m, 1 if k == k0 else 4, cm, 0.3 + 0.4 * x)
+            base += [(b, todos_a, ca, 0.45 + 0.55 * x), (b, todos_m, cm, 0.3 + 0.4 * x)]
             continue
         f = brilho.get(p, 0.7)
         if k == 0 and p != "pausa":  # a entrada: as letras do artista uma a uma, e a musica aparece devagar
@@ -249,9 +257,10 @@ def vanilla(ev, et=CENTRO):
 
 def montar(amb, artista, musica):
     """O palco do cenario `amb` -> (customData do mapa: environment e materials, IDs das letras do artista e da musica, IDs das colunas da esquerda e da
-    direita). Palco da propria banda (luzes.BANDA) ou cenario fora das tabelas de luz: sem letreiro (o nome certo ja esta la, ou nao da para mirar)."""
-    from beatloom.luzes import BANDA
-    da_banda = any(amb in v for v in BANDA.values())
+    direita). Sem letreiro: no palco da propria banda (o nome certo ja esta la), num palco com nome de banda cujo letreiro nao se sabe esconder
+    (ESCONDE) e em cenario fora das tabelas de luz (nao da para mirar)."""
+    from beatloom.luzes import BANDA, banda
+    da_banda = amb in (banda(artista) or ()) or any(amb in v for v in BANDA.values()) and amb not in ESCONDE
     pecas, ids_a, ids_m = ([], [], []) if da_banda or amb not in LUZES else letreiro(artista, musica)
     col, ce, cd = colunas() if amb in LUZES else ([], [], [])
     if not pecas and not col:
@@ -281,6 +290,13 @@ def demo():
     assert len(letreiro("A" * 200, "B" * 200)[0]) <= TETO
     cd, a, m, ce, cdir = montar("GreenDayEnvironment", "Green Day", "Basket Case")
     assert a == [] and len(ce) == 5 and len(cd["environment"]) == 10  # palco da propria banda: so as colunas
+    assert montar("GreenDayEnvironment", "Daft Punk", "x")[1] == []  # palco com nome de banda que nao se sabe esconder: sem letreiro por cima
+    ESCONDE["GreenDayEnvironment"] = [("Logo", "Contains")]
+    try:
+        cd, a, *_ = montar("GreenDayEnvironment", "Daft Punk", "x")
+        assert a and cd["environment"][0] == {"id": "Logo", "lookupMethod": "Contains", "active": False} and montar("GreenDayEnvironment", "Green Day", "x")[1] == []
+    finally:
+        del ESCONDE["GreenDayEnvironment"]
     cd, a, m, ce, cdir = montar("NiceEnvironment", "Daft Punk", "One More Time")
     assert len(a) == 8 and cd["materials"] == MATERIAIS and montar("WeaveEnvironment", "Daft Punk", "x")[0] == {}
     # coreografia: 120 BPM, compassos de 4 batidas: intro, verso, subida, subida, queda, queda, pausa. Bumbo nos aneis na queda, um acento branco no verso
@@ -306,7 +322,9 @@ def demo():
     assert {e["b"] for e in br} >= {6, 16, 16.125} and all(e["i"] == 10 for e in br)  # acento e a corrida branca da queda
     cores = {e["b"]: e["customData"].get("color") for e in meus if alvo(e) == [i for l in ia for i in l] and e["i"] in (5, 8)}
     assert cores[4] == [0, 0, 1] and cores[17] == [1, 0, 0] and cores[24] == [0, 0, 1], cores  # verso: B; queda: A; pausa: a segunda cor da queda
-    assert [round(e["f"], 2) for e in meus if alvo(e) == [i for l in ia for i in l] and e["b"] in (8, 12)] == [0.73, 1.0]  # a subida clareia
+    acesas = [len(alvo(e)) for e in meus if 8 <= e["b"] < 16 and e["f"] > 0.1 and set(alvo(e)) <= {i for l in ia for i in l}]
+    assert acesas == sorted(acesas) and acesas[0] == len(ia[0]) and acesas[-1] == sum(map(len, ia)) and len(acesas) == 8, acesas  # a subida acende o artista letra a letra
+    assert [e["f"] for e in meus if e["b"] == 15 and alvo(e) == [i for l in ia for i in l]] == [1.0]  # ... e na ultima batida ele esta inteiro, no brilho cheio
     assert ev == sorted(ev, key=lambda e: e["b"]) and any(e["b"] == 28 and e["i"] == 7 for e in meus)  # o fim some devagar
     print("palco ok")
 

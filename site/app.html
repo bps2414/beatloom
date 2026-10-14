@@ -33,13 +33,13 @@
       <input class="campo" id="busca" type="search" data-tp="buscar" autocomplete="off" aria-keyshortcuts="/">
       <select class="campo" id="ordem" data-ta="ordem_por"><option value="recentes" data-t="o_recentes"></option><option value="nome" data-t="o_nome"></option><option value="artista" data-t="o_artista"></option><option value="bpm" data-t="o_bpm"></option><option value="falhou" data-t="o_falhou"></option></select>
     </div>
-    <div class="barra" id="barra-lista"><button type="button" class="quieto" id="marcar-todos" data-t="marcar_todos"></button><button type="button" class="quieto" id="refazer-todos" data-t="refazer_todos"></button><button type="button" class="quieto" id="q-novos" hidden></button></div>
+    <div class="barra" id="barra-lista"><button type="button" class="quieto" id="marcar-todos" data-t="marcar_todos"></button><button type="button" class="quieto" id="refazer-todos" data-t="refazer_todos"></button><button type="button" class="quieto" id="luzes-todos" data-t="luzes_todos"></button><button type="button" class="quieto" id="q-novos" hidden></button></div>
     <div id="playlists"></div>
     <ul class="mapas" id="mapas"></ul>
     <p class="fraco" id="sem-mapas" data-t="sem_mapas" hidden></p><p class="fraco" id="sem-achado" data-t="sem_achado" hidden></p>
     <div class="lote" id="lote" hidden>
       <div><span id="lote-n"></span><button type="button" class="quieto" id="lote-limpar" data-t="cancelar"></button></div>
-      <div class="meio"><button type="button" class="sec" id="lote-lista" data-t="pl_adicionar"></button><button type="button" class="sec" id="lote-tirar" data-t="pl_tirar_mapas" hidden></button><button type="button" class="sec" id="lote-regerar" data-t="regerar_marcados"></button></div>
+      <div class="meio"><button type="button" class="sec" id="lote-lista" data-t="pl_adicionar"></button><button type="button" class="sec" id="lote-tirar" data-t="pl_tirar_mapas" hidden></button><button type="button" class="sec" id="lote-luzes" data-t="luzes_marcados"></button><button type="button" class="sec" id="lote-regerar" data-t="regerar_marcados"></button></div>
       <div><button type="button" class="quieto" id="lote-apagar" data-t="apagar_marcados"></button><span></span><button type="button" class="acao" id="lote-enviar" data-t="quest"></button></div></div>
   </aside>
 
@@ -63,6 +63,7 @@
             <details class="mais" id="mais"><summary class="quieto" data-ta="mais"><svg class="ic"><use href="#i-mais"/></svg></summary>
               <div class="menu">
                 <button type="button" class="quieto" id="regerar" data-t="regerar"></button>
+                <button type="button" class="quieto" id="luzes" data-t="luzes_um"></button>
                 <button type="button" class="quieto" id="renomear" data-t="renomear"></button>
                 <button type="button" class="quieto" id="q-apagar" data-t="q_apagar" hidden></button>
                 <button type="button" class="quieto" id="apagar" data-t="apagar"></button>

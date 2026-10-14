@@ -149,7 +149,7 @@ const vistos = new Set(), linhas = new Map(), marcados = new Set();
 let primeira = true;
 const ETAPAS = ["ouvindo", "golpes", "empacotando", "conferindo"];
 function trilha(tr, passo, qual) {  // um trecho por etapa: as feitas cheias, a de agora enchendo (separacao em %, golpes por dificuldade) ou pulsando quando nao ha medida
-  const nomes = tr.passos.includes("baixando") ? ["baixando", ...ETAPAS] : ETAPAS, agora = Math.max(nomes.indexOf(passo), 0), g = /\((\d+)\/(\d+)\)/.exec(qual || "");
+  const nomes = tr.passos.includes("baixando") ? ["baixando", ...ETAPAS] : tr.so_luzes ? ETAPAS.map((x) => x === "golpes" ? "luzes" : x) : ETAPAS, agora = Math.max(nomes.indexOf(passo), 0), g = /\((\d+)\/(\d+)\)/.exec(qual || "");
   const p = tr.progresso != null ? tr.progresso : passo === "golpes" && g ? ((g[1] - 1) / g[2]) * 100 : null, c = el("div", "trilha"); c.setAttribute("aria-hidden", "true");
   nomes.forEach((_, i) => { const b = el("i", i < agora ? "feito" : i > agora ? "falta" : p == null ? "agora corre" : "agora"); if (i === agora && p != null) b.style.setProperty("--p", p + "%"); c.append(b); });
   return c;
@@ -331,6 +331,14 @@ $("lote-regerar").onclick = async () => {  // refaz os marcados por inteiro com 
   if (!await confirmar("confirma_regerar", "regerar_marcados")) return;
   try { await api("/api/regerar", { zips: [...marcados] }); marcados.clear(); pintarLista(); atualizar(); } catch (x) { falhou(x); }
 };
+$("lote-luzes").onclick = async () => {  // so o visual dos marcados (cenario, luzes, cores, Chroma, letreiro, Noodle): as notas ficam como estao
+  if (!await confirmar("confirma_luzes", "luzes_marcados")) return;
+  try { await api("/api/regerar", { zips: [...marcados], so_luzes: true }); marcados.clear(); pintarLista(); atualizar(); } catch (x) { falhou(x); }
+};
+$("luzes-todos").onclick = async () => {  // depois de uma melhoria das luzes: o visual novo em todos os mapas da lista, sem tocar nas notas
+  if (!await confirmar("confirma_luzes_todos", "luzes_todos")) return;
+  try { await api("/api/regerar", { zips: listadas.map((m) => m.zip), so_luzes: true }); atualizar(); } catch (x) { falhou(x); }
+};
 $("refazer-todos").onclick = async () => {  // depois de uma melhoria do gerador: todos os mapas da lista entram na fila para serem refeitos por inteiro
   if (!await confirmar("confirma_refazer_todos", "refazer_todos")) return;
   try { await api("/api/regerar", { zips: listadas.map((m) => m.zip) }); atualizar(); } catch (x) { falhou(x); }
@@ -424,7 +432,7 @@ function pintarMapa() {
   if ($("f-capa").getAttribute("src") !== capa) $("f-capa").src = capa;
   $("f-nome").textContent = mapa.nome; $("f-artista").textContent = mapa.artista;
   const info = $("f-info"); info.textContent = "";
-  for (const x of [mapa.album, mapa.ano, num(mapa.bpm) + " BPM", R && tempo(R.dur), (mapa.mods || []).length && t("feito_com", { mods: mapa.mods.map((m) => t("mod_" + m)).join(", ") })]) if (x) info.append(el("span", "", x));
+  for (const x of [mapa.album, mapa.ano, num(mapa.bpm) + " BPM", R && tempo(R.dur), (mapa.mods || []).length && t("feito_com", { mods: [...mapa.mods, ...(mapa.letreiro ? ["letreiro"] : [])].map((m) => t("mod_" + m)).join(", ") })]) if (x) info.append(el("span", "", x));
   if (/^https?:\/\//.test(mapa.link || "")) { const a = el("a", "", t("fonte")); a.href = mapa.link; a.target = "_blank"; a.rel = "noopener"; info.append(a); }
 
   // abas: so sao refeitas quando o mapa muda, para o foco do teclado ficar na aba clicada
@@ -490,6 +498,9 @@ $("renomear").onclick = () => { $("n-nome").value = mapa.nome; $("n-artista").va
 $("d-nome").onclose = async () => {
   if ($("d-nome").returnValue !== "sim") return;
   try { await api("/api/renomear", { zip: atual, nome: $("n-nome").value, artista: $("n-artista").value }); await abrir(atual); await atualizar(); } catch (x) { falhou(x); }
+};
+$("luzes").onclick = async () => {  // o visual deste mapa, pela fila; as notas ficam
+  try { await api("/api/regerar", { zips: [atual], so_luzes: true }); avisar(t("luzes_na_fila")); atualizar(); } catch (x) { falhou(x); }
 };
 $("regerar").onclick = () => {  // so a dificuldade que esta aberta; as outras ficam como estao
   $("r-titulo").textContent = t("regerar_titulo", { dif: NOMES[dif] }); $("r-dens").value = 1; dens("r-dens"); $("d-regerar").returnValue = ""; $("d-regerar").showModal();

@@ -61,9 +61,10 @@ def deixas(an, pt=None, pc=None):
     for k, (a, b) in enumerate(zip(ic[:-1], ic[1:])):
         p, i, t0 = pt[k], float(it[k]), float(bat[a])
         muda = k == 0 or pt[k - 1] != p
-        if p == "pausa":
+        if p == "pausa":  # tudo apaga; so o fundo respira, fraco, a cada compasso, na cor da parte que acabou
             if muda:
                 D += [(t0, e, APAGA, 0, 0) for e in range(5)]
+            D.append((t0, FUNDO, PULSO, COR.get(pt[k - 1] if k and pt[k - 1] != "pausa" else "verso", 1) if muda else D[-1][3], 0.3))
             continue
         cor, queda = COR[p], p == "queda"
         outra = 1 - cor
@@ -252,7 +253,7 @@ def demo():
     D = deixas(an, ["verso", "pausa", "queda", "queda"], pc)
     em = lambda a, b: [d[1:4] for d in D if a <= d[0] < b]
     assert (ANEIS, PULSO, 1) in em(0, 1) and not any(e in (GIRO, ZOOM) for e, _, _ in em(0, 4)), em(0, 4)
-    assert sorted(em(4, 8)) == [(e, APAGA, 0) for e in range(5)], em(4, 8)  # a pausa apaga tudo e nada acende dentro dela
+    assert sorted(em(4, 8)) == sorted([(e, APAGA, 0) for e in range(5)] + [(FUNDO, PULSO, 1)]), em(4, 8)  # a pausa apaga tudo e so o fundo respira
     assert (CENTRO, CLARAO, 2) in em(8, 8.1) and (ZOOM, 0, 0) in em(8, 8.1) and [d[0] for d in D if d[1] == GIRO] == [8, 12], em(8, 9)  # os aneis giram no bumbo
     # verso, subida, queda, queda, com silencio na ultima batida da subida: o fundo sobe de brilho, as luzes entram uma a uma e a batida 7 fica no escuro
     an["nivel"] = np.where((np.arange(65) > 28) & (np.arange(65) < 32), 0, 2)
@@ -273,7 +274,7 @@ def demo():
     cor_ev, rot_ev = grupos(deixas(an, ["verso", "pausa", "queda", "queda"], pc), lambda t: t * 2, "TheSecondEnvironment")
     pulso = [x for x in cor_ev if x["b"] == 0 and x["g"] in (0, 1)]
     assert len(pulso) == 2 and [(p["i"], p["c"], p["s"]) for p in pulso[0]["e"][0]["e"]] == [(0, 1, 1.05), (1, 1, 0)] and pulso[0]["e"][0]["e"][1]["b"] == 0.6, pulso
-    assert [p["s"] for x in cor_ev if x["b"] == 16 and x["g"] == 4 for p in x["e"][0]["e"]] == [1.4, 1.0] and all(p["s"] == 0 for x in cor_ev if x["b"] == 8 for p in x["e"][0]["e"])
+    assert [p["s"] for x in cor_ev if x["b"] == 16 and x["g"] == 4 for p in x["e"][0]["e"]] == [1.4, 1.0] and all(p["s"] == 0 for x in cor_ev if x["b"] == 8 and x["g"] not in GRUPOS["TheSecondEnvironment"][FUNDO] for p in x["e"][0]["e"])
     assert len(rot_ev) == 16 and {x["e"][0]["l"][1]["r"] for x in rot_ev} == {35, 0} and {x["e"][0]["r"] for x in rot_ev if x["g"] in (7, 9, 11, 13)} == {1}, rot_ev[:2]
     # ondas: o pulso dos aneis (proxima deixa 2 batidas depois) corre pelo grupo em meia batida, e a onda seguinte vem no outro sentido; acender e seco
     ondas = sorted({(x["b"], x["e"][0]["w"], x["e"][0]["f"]["r"]) for x in cor_ev if x["g"] in (0, 1) and x["e"][0]["w"]})

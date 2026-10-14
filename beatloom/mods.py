@@ -41,7 +41,12 @@ def chroma(ev, sec, pal):
     n, aceso = 0, {}
     for e in sorted(ev, key=lambda e: e["b"]):
         k = max(int(np.searchsorted(bs, e["b"] + 0.01)) - 1, 0)
-        if e["et"] > 4 or not 1 <= e["i"] <= 8 or pt[k] == "pausa":
+        if e["et"] > 4 or not 1 <= e["i"] <= 8:
+            continue
+        if pt[k] == "pausa":  # a respiracao do fundo na pausa: a cor principal da parte que acabou
+            antes = next((pt[j] for j in range(k - 1, -1, -1) if pt[j] != "pausa"), "verso")
+            e["customData"] = {**e.get("customData", {}), "color": list(par.get("queda" if antes == "subida" else antes, par["verso"])[0])}
+            n += 1
             continue
         qual = 0 if (e["i"] > 4) == (COR.get(pt[k], 1) == 0) else 1  # 5 a 8 e a cor 0 do mapa, 1 a 4 a cor 1; a principal da parte e COR[parte]
         if pt[k] == "subida":
@@ -177,15 +182,35 @@ def noodle(d, sec, mel, fim=None, letreiro=False):
     enfeite = [{"b": b, "d": dur, "x": x, "y": 0, "w": 1, "h": 1, "customData": {"coordinates": [cx, round(0.5 + 2.5 * h, 2)], "size": [0.15, 0.15], "uninteractable": True, "color": [1, 1, 1, 0.5]}}
                for b, dur, h in mel for x, cx in ((0, -3.6), (3, 3.45))]
     d["obstacles"] = sorted(d["obstacles"] + enfeite, key=lambda o: o["b"])
+    pecas = d.get("customData", {}).get("environment", [])
+    colunas = sec and any(p.get("geometry", {}).get("material") == "beatloom_coluna" for p in pecas)
+    ce = []
+    if colunas:  # o corredor de colunas: sobe do chao na entrada, pula a cada compasso da queda, afunda na pausa
+        for peca in pecas:
+            if peca.get("geometry", {}).get("material") == "beatloom_coluna":
+                peca["track"] = "beatloom_colunas"
+        anima_c = lambda b, dur, **kw: {"b": round(b, 3), "t": "AnimateTrack", "d": {"track": "beatloom_corredor", "duration": dur, **kw}}
+        ce += [{"b": 0, "t": "AssignTrackParent", "d": {"childrenTracks": ["beatloom_colunas"], "parentTrack": "beatloom_corredor"}},
+               anima_c(0, 0, position=[[0, -16, 0, 0]]), anima_c(sec[0][0], 4, position=[[0, -16, 0, 0], [0, 0, 0, 1, "easeOutBack"]])]
+        for k, (b, p) in enumerate(sec):
+            if p == "queda":
+                ce.append(anima_c(b, min(2, (sec[k + 1][0] if k + 1 < len(sec) else b + 4) - b), position=[[0, 0, 0, 0], [0, 1.5, 0, 0.12, "easeOutQuad"], [0, 0, 0, 1, "easeOutBounce"]]))
+            elif p == "pausa" and sec[k - 1][1] != "pausa":
+                volta = next((x for x, q in sec[k:] if q != "pausa"), None)
+                ce.append(anima_c(b, 2, position=[[0, 0, 0, 0], [0, -10, 0, 1, "easeInOutSine"]]))
+                if volta:
+                    ce.append(anima_c(volta, 1, position=[[0, -10, 0, 0], [0, 0, 0, 1, "easeOutBack"]]))
+        if fim:
+            ce.append(anima_c(fim, 6, position=[[0, 0, 0, 0], [0, -20, 0, 1, "easeInCubic"]]))
     if letreiro and sec:
         trilha, pai = "beatloom_letreiro", "beatloom_palco"
-        for peca in d.get("customData", {}).get("environment", []):
+        for peca in pecas:
             if peca.get("geometry", {}).get("material") == "beatloom_letreiro":
                 peca["track"] = trilha
         anima = lambda b, dur, **kw: {"b": round(b, 3), "t": "AnimateTrack", "d": {"track": pai, "duration": dur, **kw}}
         t1 = sec[0][0]
-        ce = [{"b": 0, "t": "AssignTrackParent", "d": {"childrenTracks": [trilha], "parentTrack": pai}}, anima(0, 0, position=[[0, -30, 0, 0]]),
-              anima(t1, 6, position=[[0, -30, 0, 0], [0, 0, 0, 1, "easeOutCubic"]])]
+        ce += [{"b": 0, "t": "AssignTrackParent", "d": {"childrenTracks": [trilha], "parentTrack": pai}}, anima(0, 0, position=[[0, -30, 0, 0]]),
+               anima(t1, 6, position=[[0, -30, 0, 0], [0, 0, 0, 1, "easeOutCubic"]])]
         for k, (b, p) in enumerate(sec):
             if k == 0 or sec[k - 1][1] == p:
                 continue
@@ -197,6 +222,7 @@ def noodle(d, sec, mel, fim=None, letreiro=False):
                 ce += [anima(b, 2, position=[[0, 0, 0, 0], [0, -4, 0, 1, "easeInOutSine"]]), anima(ate, 2, position=[[0, -4, 0, 0], [0, 0, 0, 1, "easeOutBack"]])]
         if fim:
             ce.append(anima(fim, 8, position=[[0, 0, 0, 0], [0, 40, 0, 1, "easeInCubic"]]))
+    if ce:
         d.setdefault("customData", {})["customEvents"] = sorted(ce, key=lambda e: e["b"])
     return d, n, len(enfeite)
 
@@ -282,12 +308,14 @@ def demo():
     ev = [{"b": 0, "et": 0, "i": 1, "f": 0.5}, {"b": 0, "et": 2, "i": 5, "f": 0.5}, {"b": 1, "et": 4, "i": 9, "f": 1}, {"b": 2, "et": 8, "i": 0, "f": 1},
           {"b": 4, "et": 0, "i": 5, "f": 0.2}, {"b": 8, "et": 0, "i": 5, "f": 0.6}, {"b": 8, "et": 1, "i": 7, "f": 0.6}, {"b": 12, "et": 0, "i": 6, "f": 1}, {"b": 12, "et": 2, "i": 1, "f": 1}, {"b": 16, "et": 0, "i": 0, "f": 0}]
     antes = copy.deepcopy(ev)
-    assert chroma(ev, sec, ((A, B), (A2, B2))) == 7
+    assert chroma(ev, sec, ((A, B), (A2, B2))) == 7  # o apagar da pausa (valor 0) fica sem cor
     cor = lambda k: ev[k].get("customData", {}).get("color")
     assert cor(0) == list(B) and cor(1) == list(A2) and [cor(k) for k in (2, 3, 9)] == [None] * 3 and ev[2] == antes[2] and ev[3] == antes[3]  # verso: B e A2; branco, anel e apagar ficam
     assert cor(4) == list(B) and ev[4]["i"] == 5 and ev[5]["i"] == 8 and ev[5]["customData"]["lerpType"] == "HSV" and cor(5) == mistura(B, A, 0.5), ev[4:6]  # subida: acende em B e vai a A por transicao
     assert ev[6]["i"] == 7 and cor(6) == mistura(B, A, 0.5) and cor(7) == list(A) and cor(8) == list(B)  # o pulso continua pulso; queda: A e B
     assert all({k: v for k, v in e.items() if k != "customData"} == o for e, o in zip(ev, antes) if e["i"] == o["i"])  # fora a transicao, so entra o customData
+    resp = [{"b": 17, "et": 0, "i": 3, "f": 0.3}]
+    assert chroma(resp, sec, ((A, B), (A2, B2))) == 1 and resp[0]["customData"]["color"] == list(A)  # a pausa respira na cor da queda que acabou
     # noodle: a nota da cabeca da queda (batida 12) ganha chegada, a vermelha vindo da esquerda; a do meio do verso nao; a ponta de arco tambem nao
     d = {"colorNotes": [{"b": 2, "x": 1, "y": 0, "c": 0, "d": 1, "a": 0}, {"b": 12, "x": 1, "y": 0, "c": 0, "d": 1, "a": 0}, {"b": 12, "x": 2, "y": 0, "c": 1, "d": 1, "a": 0}],
          "sliders": [{"b": 12, "x": 2, "y": 0, "tb": 14, "tx": 2, "ty": 1}], "burstSliders": [], "obstacles": [{"b": 1, "d": 1, "x": 0, "y": 0, "w": 1, "h": 5}]}
@@ -359,7 +387,10 @@ def demo():
             assert sum(p_.get("geometry", {}).get("material") == "beatloom_letreiro" for p_ in env) > 50 and sum(p_.get("geometry", {}).get("material") == "beatloom_coluna" for p_ in env) == 10
             assert d["obstacles"][0]["customData"]["color"] == [1.0, 0.0, 0.0, 0.6] and nd["customData"]["customEvents"][0]["t"] == "AssignTrackParent"
             assert all(p_.get("track") == "beatloom_letreiro" for p_ in nd["customData"]["environment"] if p_["geometry"]["material"] == "beatloom_letreiro")
-            assert [e["b"] for e in nd["customData"]["customEvents"] if "position" in e["d"]][-1] == 20 and "track" not in str(env)  # sobe ao ceu no fim; o Standard sem trilha
+            sobe = [e for e in nd["customData"]["customEvents"] if e["d"].get("track") == "beatloom_palco" and "position" in e["d"]]
+            assert sobe[-1]["b"] == 20 and sobe[-1]["d"]["position"][-1][1] == 40 and "track" not in str(env)  # o letreiro sobe ao ceu no fim; o Standard sem trilha
+            corr = [e for e in nd["customData"]["customEvents"] if e["d"].get("track") == "beatloom_corredor"]
+            assert [e["b"] for e in corr] == [0, 0, 12, 16, 20] and corr[-2]["d"]["position"][-1][1] == -10 and all(p_["track"] == "beatloom_colunas" for p_ in nd["customData"]["environment"] if p_["geometry"]["material"] == "beatloom_coluna")
     finally:
         partes = real_p
     print("mods ok")

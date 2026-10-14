@@ -240,6 +240,8 @@ def rodar(trab):
                      **info.get("_customData", {}).get("_beatloom", {})}
             cmd = [PY, "-u", str(RAIZ / "generate.py"), str(tmp / "song.egg"), "--etapa", etapa, "--densidade", str(ger.get("densidade") or 1), "--difs", ",".join(difs),
                    "--saida", str(tmp), "--prefs", prefs(), *capa, *[f"--{k}={dados[k]}" for k in ("nome", "artista", "tag", "album", "ano", "link") if dados.get(k)]]
+            if trab.get("so_luzes"):  # so o visual (cenario, luzes, cores, Chroma, palco, Noodle): as notas ficam como estao
+                cmd = [PY, "-u", str(RAIZ / "generate.py"), "--so-luzes", str(zp), "--saida", str(tmp), "--prefs", prefs(), *["--capa-generica"] * (not capa)]
         else:
             if trab.get("link"):
                 passo("baixando")
@@ -270,7 +272,9 @@ def rodar(trab):
             cauda = (cauda + [linha.rstrip()])[-6:]
             for k, v in rotulos.items():
                 if linha.startswith(k):
-                    if k == "[2/4]":  # "golpes|Hard (2/4)": qual dificuldade esta sendo feita
+                    if k == "[2/4]" and trab.get("so_luzes"):
+                        v = "luzes"
+                    elif k == "[2/4]":  # "golpes|Hard (2/4)": qual dificuldade esta sendo feita
                         v += f"|{linha.split()[1].rstrip(':')} ({1 + sum(x.startswith('golpes') for x in trab['passos'])}/{len(trab.get('difs') or DIFS)})"
                     if not trab["passos"] or trab["passos"][-1] != v:
                         passo(v)
@@ -681,9 +685,9 @@ class H(BaseHTTPRequestHandler):
         if u.path == "/api/fila":  # pausar ou continuar
             pausada[0] = bool(d.get("pausar"))
             return self.manda({"pausada": pausada[0]})
-        if u.path == "/api/regerar" and isinstance(d.get("zips"), list):  # refaz varios mapas inteiros: um trabalho na fila para cada
-            nomes = {m["zip"]: m["nome"] for m in lista_de_mapas()}
-            novos = [{"id": int(time.time() * 1000) + i, "estado": "na fila", "passos": [], "progresso": None, "regerar": z, "titulo": nomes[z], "capa": "/api/capa?zip=" + quote(z)}
+        if u.path == "/api/regerar" and isinstance(d.get("zips"), list):  # refaz varios mapas inteiros (ou so o visual, "so_luzes"): um trabalho na fila para cada
+            nomes, luz = {m["zip"]: m["nome"] for m in lista_de_mapas()}, bool(d.get("so_luzes"))
+            novos = [{"id": int(time.time() * 1000) + i, "estado": "na fila", "passos": [], "progresso": None, "regerar": z, "titulo": nomes[z], "capa": "/api/capa?zip=" + quote(z), **({"so_luzes": True} if luz else {})}
                      for i, z in enumerate(d["zips"]) if z in nomes]
             with trava:
                 trabalhos.extend(novos); fila.extend(novos); guardar_fila()
