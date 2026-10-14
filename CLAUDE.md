@@ -35,12 +35,15 @@ python -m beatloom.audio --demo
 python -m beatloom.engine --demo
 python -m beatloom.luzes --demo
 python -m beatloom.mods --demo
+python -m beatloom.palco --demo
 python -m beatloom.quest --demo
 python -m beatloom.discord --demo
 python tools/extract_patterns.py --demo
 python report.py --demo
 python tools/timing.py --demo               (tools/timing.py <audio> mede cada etapa da geração)
 python tools/check_i18n.py                   frases: mesmas chaves nos dois idiomas, nenhuma faltando ou sobrando
+python tools/fixture.py --demo              (tools/fixture.py --gerar [args do generate.py]: musica de mentira, gera sem detector, Demucs nem padroes)
+python tools/prova_visual.py --demo         (sem argumentos: mapas de prova do visual em saida/; --previa <zip>: desenha o palco)
 ```
 
 Em Linux (sessão na nuvem) veja "Ambiente na nuvem" em [docs/plan/README.md](docs/plan/README.md): lá não existem os padrões, as músicas, os mapas gerados nem o Quest.

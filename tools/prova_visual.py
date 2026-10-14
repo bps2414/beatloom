@@ -30,7 +30,7 @@ PLACA = r"(?i)(text|sign|letter|title)"
 NOME = r"(?i)(green ?day|monstercat)(?!environment)"
 PALPITES = [("nada escondido", []), ("logo", [(LOGO, "Regex")]), ("texto ou placa", [(PLACA, "Regex")]), ("nome da banda", [(NOME, "Regex")]), ("os tres", [(LOGO, "Regex"), (PLACA, "Regex"), (NOME, "Regex")])]
 NEBLINA = [None, 0.00001, 0.002, None, None]  # attenuation do BloomFogEnvironment em cada dificuldade
-COPIAS = [0, 0, 0, 2, 4]  # letreiros a mais em cada dificuldade
+COPIAS = [0, 0, 0, 5, 10]  # letreiros a mais em cada dificuldade (uns 500 e uns 900 pecas)
 
 
 def acende(d, amb, ids):

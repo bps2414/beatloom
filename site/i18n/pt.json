@@ -76,6 +76,7 @@
   "luzes_todos": "Novo visual em todos",
   "luzes_um": "Refazer só as luzes",
   "luzes_na_fila": "O visual deste mapa entrou na fila. As notas ficam como estão.",
+  "renomear_luzes": "Nome trocado. O visual do mapa entrou na fila para o letreiro do palco escrever o nome novo; as notas ficam como estão.",
   "confirma_luzes": "Refazer só o visual dos mapas marcados? Cenário, luzes, cores, Chroma, letreiro e o conjunto do Noodle saem do gerador e das preferências de agora; notas, arcos, correntes, bombas e paredes ficam exatamente como estão. A versão anterior de cada um fica guardada na pasta saida\\versoes.",
   "confirma_luzes_todos": "Dar o visual novo a todos os mapas da lista? Cenário, luzes, cores, Chroma, letreiro e o conjunto do Noodle saem do gerador e das preferências de agora; notas, arcos, correntes, bombas e paredes ficam exatamente como estão. Eles entram na fila, um de cada vez, e cada um leva segundos se a análise guardada ainda servir. A versão anterior de cada um fica guardada na pasta saida\\versoes.",
   "passo_luzes": "Refazendo as luzes e o cenário…",

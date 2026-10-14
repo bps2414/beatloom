@@ -62,7 +62,7 @@ Envio ao Quest em segundo plano (a pedido do dono, 10/10/2026): `POST /api/quest
 
 Num servidor Linux de casa (a pedido do dono, 11/10/2026): o Beatloom roda sem mudança como serviço de usuário do systemd (`.venv/bin/python app.py --sem-navegador`, com `uv pip install --torch-backend cpu -r requirements.txt`, `npm ci` em `check/`, `adb` no `PATH` e a biblioteca de padrões copiada do PC), sempre só em `127.0.0.1`. Um painel da própria casa, fora deste repositório, chama `/api/previa` e `/api/gerar` de tempos em tempos para vigiar uma playlist e `/api/quest` quando o Quest aparece; nada disso virou recurso do Beatloom. Para isso `/api/previa` passou a devolver `dur` em cada faixa da playlist. Medido num i5-7200U (2 núcleos, sem placa), música de 3:06: completo 220 s, rápido 44 s, pico de 2,4 GB. Todos os `--demo` passam no Linux. Não contraria "só app local": o gerador continua sem atender a rede. **Não verificado:** o envio ao Quest a partir do Linux.
 
-Visual dos mapas (a pedido do dono, 14/10/2026): **só planejado, aguarda as respostas do dono e a aprovação do nível 0.** Cenário da própria banda e nada de letreiro de banda no sorteio, o nome do artista em luz no fundo com Chroma, mais luz sem mod, luz por luz no Chroma e animação com Noodle, um nível por vez, começando por um mapa de prova no Quest. Plano e perguntas em [visual.md](visual.md).
+Visual dos mapas (a pedido do dono, 14/10/2026): **feito, os quatro níveis de uma vez (o dono pediu tudo até o final), nada visto no jogo; aguarda o dono jogar os mapas de prova no Quest.** Sorteio de cenários sem nome de banda escrito e música da banda no palco dela; com Chroma, um letreiro de luz no fundo com o artista grande e a música embaixo, colunas de luz, luz por luz e paredes coloridas; sem mod, transições, ondas, pausa que respira e o centro cantando com a voz; no Lawless, letreiro e colunas animados e notas que surgem e caem; e "Refazer só as luzes" (um mapa, os marcados, todos) sem mexer nas notas. Quem não tem o Chroma lê as mesmas luzes de antes (conferido evento a evento). O que foi feito, o que foi conferido, o roteiro do Quest e os ajustes em [visual.md](visual.md).
 
 O que vem depois está em [../ROADMAP.md](../ROADMAP.md).
 
@@ -91,7 +91,7 @@ A tela de preparo trava no passo 2 enquanto faltar item obrigatório. `preparo.t
 mkdir -p dados && for d in Easy Normal Hard Expert ExpertPlus; do : > dados/padroes_$d.pkl; done
 ```
 
-Mapas para a página mostrar: `tools/fixture.py` (mapa de mentira com áudio sintético, especificado em [slice-2.md](slice-2.md), passo 0) não foi criado, porque a fatia 2 foi feita na máquina do dono, que tem mapas de verdade. Crie-o se for trabalhar na nuvem.
+Mapas para a página mostrar: `tools/fixture.py` (criado em 14/10/2026) sintetiza uma música de 90 s por instrumento, com partes conhecidas, e põe no cache da análise o que o detector de batidas e o Demucs dariam, então a análise de verdade roda sem eles. `python tools/fixture.py --gerar --etapa 4 --prefs chroma,noodle --saida saida` gera o mapa; sem a biblioteca de padrões entra um motor de golpes simples (serve para luzes, cenário e mods, não para a qualidade das notas). Na nuvem o `download.pytorch.org`, o BeatSaver e o modelo do Demucs estão bloqueados; o PyPI e o npm não.
 
 O que só o dono consegue testar, na máquina dele (Windows, RX 6600, Quest): geração real de ponta a ponta, `start.bat`, downloads reais do preparo, envio ao Quest, visualizador ArcViewer com mapa real. Liste isso no relatório final de cada fatia como "não verificado aqui".
 

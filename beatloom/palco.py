@@ -141,9 +141,9 @@ def coreografia(ev, sec, pal, ids_a, ids_m, n4, fim):
 
     sec = [(batida, parte)] de cada compasso; pal = paleta da capa (luzes.paleta) ou None; n4 = luzes do centro do cenario; fim = batida do fim da musica.
     Comeca apagado; na entrada da musica as letras do artista acendem uma a uma e a musica aparece devagar embaixo. Cada parte tem a sua cor e o seu
-    brilho (os mesmos pares do Chroma nas luzes); na subida o letreiro clareia e muda de cor compasso a compasso; na entrada da queda um clarao branco
-    corre pelas letras; na queda o artista pisca no bumbo e a musica na caixa; o acento branco do centro passa tambem pelo letreiro; na pausa fica so uma
-    brasa; no fim some devagar."""
+    brilho (os mesmos pares do Chroma nas luzes); no verso a musica pisca com a voz; na subida o artista carrega, mais letras acesas a cada batida, e
+    muda de cor ate a da queda; na entrada da queda um clarao branco corre pelas letras; na queda o artista pisca no bumbo e a musica na caixa; o acento
+    branco do centro passa tambem pelo letreiro; na pausa fica so uma brasa; no fim some devagar."""
     if not ids_a or not sec:
         return 0
     todos_a, todos_m = [i for l in ids_a for i in l], [i for l in ids_m for i in l]
@@ -209,6 +209,9 @@ def coreografia(ev, sec, pal, ids_a, ids_m, n4, fim):
             c, f = agora(e["b"], todos_a)
             um(e["b"], todos_a, 2, c, f)
         elif p == "queda" and e["et"] in (2, 3) and e["i"] in (2, 6, 10):  # caixa
+            c, f = agora(e["b"], todos_m)
+            um(e["b"], todos_m, 2, c, f)
+        elif p in ("intro", "verso") and e["et"] == CENTRO and e["i"] in (2, 6):  # o centro cantando: a musica pisca junto com a voz
             c, f = agora(e["b"], todos_m)
             um(e["b"], todos_m, 2, c, f)
         elif e["et"] == CENTRO and e["i"] in (10, 11) and not any(abs(e["b"] - b) < 0.01 and q == "queda" for b, q in sec):  # acento: clarao branco e volta a cor
@@ -302,7 +305,8 @@ def demo():
     # coreografia: 120 BPM, compassos de 4 batidas: intro, verso, subida, subida, queda, queda, pausa. Bumbo nos aneis na queda, um acento branco no verso
     sec = [(0, "intro"), (4, "verso"), (8, "subida"), (12, "subida"), (16, "queda"), (20, "queda"), (24, "pausa")]
     ev = [{"b": 0, "et": 4, "i": 1, "f": 0.4}, {"b": 4, "et": 4, "i": 1, "f": 0.4}, {"b": 6, "et": 4, "i": 11, "f": 1}, {"b": 16, "et": 4, "i": 10, "f": 1},
-          {"b": 16, "et": 1, "i": 6, "f": 1}, {"b": 18, "et": 1, "i": 6, "f": 1}, {"b": 17, "et": 2, "i": 2, "f": 1}, {"b": 24, "et": 4, "i": 0, "f": 0}, {"b": 28, "et": 4, "i": 3, "f": 0.6}]
+          {"b": 16, "et": 1, "i": 6, "f": 1}, {"b": 18, "et": 1, "i": 6, "f": 1}, {"b": 17, "et": 2, "i": 2, "f": 1}, {"b": 24, "et": 4, "i": 0, "f": 0}, {"b": 28, "et": 4, "i": 3, "f": 0.6},
+          {"b": 5, "et": 4, "i": 2, "f": 0.4}]  # o centro cantando no verso
     antes = vanilla(ev)
     pal = (((1, 0, 0), (0, 0, 1)), ((0, 1, 0), (1, 1, 0)))
     n = coreografia(ev, sec, pal, ia, im, 14, 28)
@@ -318,6 +322,7 @@ def demo():
     assert letras == [0.375 * j for j in range(8)], letras  # a entrada: uma letra a cada 3/8 de batida
     assert any(e["b"] == 18 and alvo(e) == [i for l in ia for i in l] and e["i"] == 6 for e in meus)  # bumbo na queda: o artista pisca
     assert any(e["b"] == 17 and alvo(e) == [i for l in im for i in l] and e["i"] == 2 for e in meus)  # caixa: a musica pisca
+    assert any(e["b"] == 5 and alvo(e) == [i for l in im for i in l] and e["i"] == 2 for e in meus)  # voz no verso: a musica pisca
     br = [e for e in meus if e["customData"].get("color") == [1, 1, 1]]
     assert {e["b"] for e in br} >= {6, 16, 16.125} and all(e["i"] == 10 for e in br)  # acento e a corrida branca da queda
     cores = {e["b"]: e["customData"].get("color") for e in meus if alvo(e) == [i for l in ia for i in l] and e["i"] in (5, 8)}

@@ -497,7 +497,11 @@ $("apagar").onclick = () => apagar([atual]);
 $("renomear").onclick = () => { $("n-nome").value = mapa.nome; $("n-artista").value = mapa.artista; $("d-nome").returnValue = ""; $("d-nome").showModal(); };
 $("d-nome").onclose = async () => {
   if ($("d-nome").returnValue !== "sim") return;
-  try { await api("/api/renomear", { zip: atual, nome: $("n-nome").value, artista: $("n-artista").value }); await abrir(atual); await atualizar(); } catch (x) { falhou(x); }
+  try {
+    const r = await api("/api/renomear", { zip: atual, nome: $("n-nome").value, artista: $("n-artista").value });
+    if (r.luzes) avisar(t("renomear_luzes"));  // o letreiro do palco escrevia o nome antigo: o visual foi para a fila
+    await abrir(atual); await atualizar();
+  } catch (x) { falhou(x); }
 };
 $("luzes").onclick = async () => {  // o visual deste mapa, pela fila; as notas ficam
   try { await api("/api/regerar", { zips: [atual], so_luzes: true }); avisar(t("luzes_na_fila")); atualizar(); } catch (x) { falhou(x); }

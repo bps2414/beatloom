@@ -24,6 +24,7 @@ Antes de qualquer item novo. Cada linha é uma coisa que passa na conferência m
 - Eventos de BPM em música de andamento variável (a grade no jogo e no ArcViewer).
 - Chroma: cor nos eventos de transição. Noodle Extensions: a posição das barras, se 120 paredes pesam no Quest.
 - Torre (uma por mapa no Expert e no Expert+) e refrão espelhado: se incomodam ou se o refrão continua reconhecível.
+- Visual novo (14/10/2026): os mapas de prova (`tools/prova_visual.py`: o nome da peça do letreiro de banda, neblina, quantas peças o Quest aguenta), o letreiro do artista e as colunas com o Chroma, os cenários do sorteio novo (Origins, Triangle, Kaleidoscope, Nice, FitBeat), a pausa que respira, o centro cantando, as ondas nos cenários novos e o Lawless animado. Roteiro em [plan/visual.md](plan/visual.md), "Como conferir no Quest".
 
 ## 2. Gerador: o que falta
 
@@ -31,8 +32,8 @@ Antes de qualquer item novo. Cada linha é uma coisa que passa na conferência m
 - **Um Sabre, Sem Setas, 360 e 90 graus (1.3 item 8).** Sem Setas é o mais barato. Só se o dono jogar esses modos.
 - **Velocidade por trecho (1.3 item 9).**
 - **Escolher o que vai no mapa (1.3 item 11).** No diálogo de mapa novo: modos de jogo e chaves para bombas, paredes, luzes. Só aparece o que o gerador já sabe fazer.
-- **Chroma, o que ficou de fora.** Acender luzes uma a uma, cor por nota, mexer no cenário. Só depois de ver o Chroma atual no jogo.
-- **Visual dos mapas** (pedido do dono, 14/10/2026): letreiro do Green Day e do Monstercat no lugar do artista, mais luz para todos, Chroma e Noodle de verdade. Planejado em [plan/visual.md](plan/visual.md), começa por um mapa de prova no Quest.
+- **Chroma, o que ficou de fora.** Cor por nota e mexer em peças do cenário (ver "Visual dos mapas"). Luz por luz e geometria nova foram feitos.
+- **Visual dos mapas** (pedido do dono, 14/10/2026): **feito, não visto no jogo.** Ver [plan/visual.md](plan/visual.md). Falta: o nome da peça do letreiro do Green Day e do Monstercat (mapa de prova) para eles voltarem ao sorteio do Chroma com o letreiro do artista por cima; cor por nota (de fora de propósito: arrisca a leitura do mapa); esconder ou duplicar peças do cenário (precisa dos nomes delas).
 - **Ficha do mapa.** Mostrar arcos, correntes, bombas e paredes, as cores do mapa, o conjunto Lawless e o resultado da conferência dele.
 
 ### 1.4 Ferramentas de terceiros a aproveitar

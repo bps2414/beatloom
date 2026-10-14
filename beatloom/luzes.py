@@ -12,7 +12,7 @@ import colorsys, re, subprocess, sys, unicodedata
 
 import numpy as np
 
-from beatloom.audio import CASAS, bateria, partes
+from beatloom.audio import CASAS, bateria, partes, voz
 
 FUNDO, ANEIS, ESQ, DIR, CENTRO, GIRO, ZOOM, VEL_E, VEL_D = 0, 1, 2, 3, 4, 8, 9, 12, 13
 APAGA, ACENDE, CLARAO, PULSO, TRANSICAO = 0, 1, 2, 3, 4  # transicao: vai do estado anterior da luz ate este, aos poucos, desde a deixa anterior
@@ -41,19 +41,41 @@ GRUPOS = {
 COR = {"intro": 1, "verso": 1, "subida": 0, "queda": 0}  # a cor de cada parte da musica; a pausa fica no escuro
 
 
-def deixas(an, pt=None, pc=None):
-    """A musica analisada -> as deixas, na ordem do tempo. `pt` (parte de cada compasso) e `pc` (peca da bateria de cada casa) so vem de fora no demo.
+def cantadas(alt):
+    """Altura da voz em cada casa (voz()["altura"], None sem voz) -> {casa onde comeca: altura de 0 a 1} das notas de meia batida ou mais."""
+    tem = [v for v in alt if v is not None]
+    if not tem:
+        return {}
+    lo, hi = np.percentile(tem, 5), np.percentile(tem, 95)
+    out, i = {}, 0
+    while i < len(alt):
+        j = i
+        while j + 1 < len(alt) and alt[j + 1] == alt[i]:
+            j += 1
+        if alt[i] is not None and j + 1 - i >= CASAS // 2:
+            out[i] = float(np.clip((alt[i] - lo) / max(hi - lo, 1), 0, 1))
+        i = j + 1
+    return out
+
+
+def deixas(an, pt=None, pc=None, alt=None):
+    """A musica analisada -> as deixas, na ordem do tempo. `pt` (parte de cada compasso), `pc` (peca da bateria de cada casa) e `alt` (altura da voz em
+    cada casa) so vem de fora no demo.
 
     Cada parte tem a sua cor e o seu jeito, que volta quando a parte volta: introducao e verso com o fundo aceso e os aneis pulsando no bumbo, queda com
     tudo aceso, aneis girando no bumbo e lasers batendo na caixa, pausa no escuro. A subida comeca quase apagada e acende uma luz depois da outra ate a
-    queda; se a musica cala logo antes da queda, apaga tudo de uma vez nesse silencio. Prato de ataque da um clarao branco no centro.
-    Sem a bateria separada (modo rapido) o pulso vai na batida.
+    queda; se a musica cala logo antes da queda, apaga tudo de uma vez nesse silencio. Prato de ataque da um clarao branco no centro. Na introducao e no
+    verso o centro canta junto: um clarao a cada nota cantada de meia batida ou mais, mais forte quanto mais aguda. Na pausa o fundo respira.
+    Sem a bateria e a voz separadas (modo rapido) o pulso vai na batida e o centro nao canta.
     """
     bat, ic, it = np.asarray(an["batidas"], float), [int(i) for i in an["ini_comp"]], np.asarray(an["intens"], float)
     g, nivel = np.asarray(an["grade"], float), np.asarray(an["nivel"])
     pt = partes(an) if pt is None else pt
     if pc is None and "nivel_drums" in an:
         pc = bateria(an)
+    if alt is None and "forca_inst" in an:
+        alt = voz(an)["altura"]
+    canto = cantadas(alt) if alt is not None else {}
     forca = np.maximum(an["forca"], an["forca_inst"].max(0)) if "forca_inst" in an else np.asarray(an["forca"], float)
     acento = float(np.percentile(forca[nivel == 2], 90)) if (nivel == 2).any() else 9e9
     lado, escuros, D = 0, [], [(0.0, FUNDO, ACENDE, 1, 0.0)]  # antes do primeiro compasso o fundo vem do escuro (transicao ate o primeiro compasso)
@@ -110,6 +132,8 @@ def deixas(an, pt=None, pc=None):
             elif peca == 2 and queda:  # caixa: um lado dos lasers de cada vez
                 D.append((t, (ESQ, DIR)[lado], CLARAO, outra, 1.0))
                 lado ^= 1
+            if c in canto and p in ("intro", "verso") and peca != 4:  # o centro canta: clarao na cor da parte, e volta ao aceso de antes
+                D.append((t, CENTRO, CLARAO, cor, round(0.35 + 0.45 * canto[c], 2)))
             if peca == 4 or (pc is None and pos == 0 and c == a * CASAS and forca[c] >= acento):
                 D.append((t, CENTRO, PULSO if not queda else CLARAO, 2, 1.0))  # acento: clarao branco
     D += [(float(bat[ic[-1]]), e, PULSO, 1, 0.6) for e in (FUNDO, CENTRO)] + [(float(bat[ic[-1]]), e, APAGA, 0, 0) for e in (ANEIS, ESQ, DIR)]  # o fim da musica some devagar
@@ -255,6 +279,12 @@ def demo():
     assert (ANEIS, PULSO, 1) in em(0, 1) and not any(e in (GIRO, ZOOM) for e, _, _ in em(0, 4)), em(0, 4)
     assert sorted(em(4, 8)) == sorted([(e, APAGA, 0) for e in range(5)] + [(FUNDO, PULSO, 1)]), em(4, 8)  # a pausa apaga tudo e so o fundo respira
     assert (CENTRO, CLARAO, 2) in em(8, 8.1) and (ZOOM, 0, 0) in em(8, 8.1) and [d[0] for d in D if d[1] == GIRO] == [8, 12], em(8, 9)  # os aneis giram no bumbo
+    # a voz: nota 60 de uma batida no verso (casa 4), 72 de meia batida (casa 9), 64 de uma casa so (curta: nao conta), e uma nota na queda (nao conta)
+    alt = [None] * 4 + [60.0] * 4 + [None] + [72.0] * 2 + [None, 64.0] + [None] * 30 + [67.0] * 4 + [None] * 30
+    can = cantadas(alt)
+    assert sorted(can) == [4, 9, 43] and can[4] == 0 and can[9] == 1, can
+    Dv = deixas(an, ["verso", "pausa", "queda", "queda"], pc, alt)
+    assert [d[1:] for d in Dv if d[1] == CENTRO and d[2] == CLARAO and d[3] != 2] == [(CENTRO, CLARAO, 1, 0.35), (CENTRO, CLARAO, 1, 0.8)]  # so as do verso
     # verso, subida, queda, queda, com silencio na ultima batida da subida: o fundo sobe de brilho, as luzes entram uma a uma e a batida 7 fica no escuro
     an["nivel"] = np.where((np.arange(65) > 28) & (np.arange(65) < 32), 0, 2)
     D = deixas(an, ["verso", "subida", "queda", "queda"], pc)

@@ -44,7 +44,8 @@ A página abre em http://localhost:8777, em português ou inglês, e só respond
 - **Seu jeito de jogar** (em Configuração). Sem notas na linha de cima, sem nota escondida atrás de outra, quanto os braços podem cruzar (nunca, pouco, livre) e sabres e notas com as cores da capa.
 - **Refazer os mapas.** Marque mapas na lista e refaça com o gerador e as preferências de agora, ou use "Refazer todos os mapas". Nome, artista, capa e dificuldades ficam; a versão anterior vai para `saida\versoes`. Com a análise guardada leva uns 10 segundos por mapa.
 - **Modo rápido.** Umas 6 vezes mais rápido, sem separar os instrumentos, então sem notas seguradas e sem paredes.
-- **Mods, opcionais.** "Tenho Chroma" põe a paleta da capa nas luzes. "Tenho Noodle Extensions" acrescenta um conjunto de dificuldades à parte (Lawless) com efeitos leves. Desligadas, o mapa sai sem depender de mod nenhum.
+- **Mods, opcionais.** "Tenho Chroma" põe a paleta da capa nas luzes, luz por luz, e um letreiro de luz no fundo com o artista e a música, mais colunas de luz. "Tenho Noodle Extensions" acrescenta um conjunto de dificuldades à parte (Lawless) com notas que surgem e caem e o letreiro animado. Desligadas, o mapa sai sem depender de mod nenhum; ligadas, quem não tem o mod vê as luzes de sempre.
+- **Refazer só as luzes.** Cenário, luzes, cores e mods de agora, com as notas exatamente como estão: num mapa (menu "⋯"), nos marcados ou em "Novo visual em todos".
 
 ### Quest
 
@@ -72,7 +73,7 @@ Sem exagero. Em 18 músicas de estilos diferentes (indie pop, rock, metal, eletr
 Limites conhecidos:
 
 - Só grade de 1/4: sem tercinas nem swing. Sem notas de ponto.
-- Ainda não vistos no jogo: correntes, bombas, paredes de desviar, as luzes dos cenários novos e os efeitos do Chroma e do Noodle Extensions. O formato é validado, o resultado na tela não.
+- Ainda não vistos no jogo: correntes, bombas, paredes de desviar, as luzes dos cenários novos e os efeitos do Chroma e do Noodle Extensions (o letreiro do artista, as colunas, o luz por luz, o Lawless animado). O formato é validado, o resultado na tela não.
 - Música lenta ganha muitas notas duplas no Expert+ para chegar à densidade alvo.
 - O instalador ainda não foi testado numa máquina limpa.
 - Feito e testado no Windows. Outros sistemas não são alvo.
@@ -144,7 +145,7 @@ start.bat            instala o que falta e abre a página
 app.py               servidor local e as rotas /api
 generate.py          gera um mapa (linha de comando)
 report.py            confere um mapa e escreve o relatório
-beatloom\            o miolo: ouvir (audio.py), escolher golpes (engine.py), luzes (luzes.py), mods (mods.py),
+beatloom\            o miolo: ouvir (audio.py), escolher golpes (engine.py), luzes (luzes.py), mods (mods.py), letreiro e colunas (palco.py),
                      conferir (checks.py), downloads da primeira vez (preparo.py), Quest por ADB (quest.py)
 site\                a página: app.html, app.css, app.js, as frases em i18n\, as fontes
 check\               validação de formato com o bsmap (Node)

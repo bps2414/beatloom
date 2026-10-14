@@ -4,6 +4,17 @@ O que mudou em cada versão, para quem usa. A seção de uma versão vira o text
 
 ## Próxima versão
 
+### Visual dos mapas
+
+- **Sem nome de banda no fundo.** Os cenários sorteados pelo clima da música não têm mais nome de banda ou gravadora escrito (antes uma música pesada podia cair no palco do Green Day, com "GREEN DAY" no fundo). Música da própria banda vai para o palco dela: Green Day, Linkin Park, BTS, Imagine Dragons, Panic! at the Disco, Timbaland, Skrillex, Billie Eilish, K/DA.
+- **Letreiro do artista** (com "Tenho Chroma"). O artista grande e a música embaixo, em letras de luz no fundo do cenário: acendem letra por letra na entrada, carregam na subida, piscam com a bateria e com a voz, um clarão branco corre por elas na queda. E colunas de luz dos dois lados, que acendem com os lasers.
+- **Chroma luz por luz.** Os anéis enchem na subida e, na queda, acendem com as quatro cores da capa espalhadas a cada bumbo; os lasers acendem um terço de cada vez na caixa; paredes na cor da parte da música.
+- **Mais luz sem mod.** A subida acende em transição contínua, os cenários novos ganham luz correndo em onda, a pausa respira em vez de ficar no escuro e, no verso, o centro dá um clarão a cada nota cantada longa.
+- **Lawless animado** (com "Tenho Noodle Extensions"). O letreiro sobe do horizonte, pula a cada queda e sobe para o céu no fim; as colunas pulam no ritmo; as notas surgem do nada e, na entrada da queda, caem de cima.
+- **Refazer só as luzes.** Na ficha (menu "⋯"), nos marcados e em "Novo visual em todos": cenário, luzes, cores e mods de agora, com as notas exatamente como estão. Renomear um mapa com letreiro refaz o visual dele sozinho.
+
+Nada disso foi visto no jogo ainda. `tools\prova_visual.py` grava mapas de prova para conferir no Quest.
+
 ## v1.2.0
 
 - **Selecionar arrastando.** Aperte a caixa de uma música e arraste: o trecho até onde o mouse está fica marcado (ou desmarcado, se a primeira estava marcada). Voltar com o mouse, sem soltar, desfaz.

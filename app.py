@@ -11,7 +11,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, quote, unquote, urlparse
 
-from beatloom import discord, mods, preparo, quest
+from beatloom import discord, luzes, mods, preparo, quest
 from generate import DIFS, dados_da_musica, fazer_capa, limpar_titulo
 
 mimetypes.add_type('application/wasm', '.wasm')
@@ -474,17 +474,22 @@ def conferir(zp):
 
 
 def renomear(zp, nome, artista):
-    """Troca nome e artista dentro do Info.dat do zip (o arquivo zip continua com o mesmo nome)."""
-    novo = zp.with_suffix(".tmp")
+    """Troca nome e artista dentro do Info.dat do zip (o arquivo zip continua com o mesmo nome). -> o visual precisa ser refeito? (o letreiro do palco
+    escreve o nome antigo, ou o artista novo tem palco proprio, ou o antigo tinha)"""
+    novo, refaz = zp.with_suffix(".tmp"), False
     with zipfile.ZipFile(zp) as z, zipfile.ZipFile(novo, "w", zipfile.ZIP_DEFLATED) as out:
         for n in z.namelist():
             dado = z.read(n)
             if n == "Info.dat":
                 info = json.loads(dado.decode("utf-8-sig"))
+                antes = (info["_songName"], info["_songAuthorName"])
                 info["_songName"], info["_songAuthorName"] = nome or info["_songName"], artista or info["_songAuthorName"]
+                mudou = antes != (info["_songName"], info["_songAuthorName"])
+                refaz = mudou and (info.get("_customData", {}).get("_beatloom", {}).get("letreiro") or luzes.banda(antes[1]) != luzes.banda(info["_songAuthorName"]))
                 dado = json.dumps(info, ensure_ascii=False, indent=2).encode()
             out.writestr(n, dado)
     novo.replace(zp)
+    return bool(refaz)
 
 
 def trocar_dificuldade(zp, novo, dif):
@@ -785,9 +790,14 @@ class H(BaseHTTPRequestHandler):
             mods.conjunto(zp, novo, [d["dif"]])  # a mesma dificuldade no conjunto do Noodle Extensions: entra, troca ou sai
             subprocess.run([PY, str(RAIZ / "report.py"), str(zp)], capture_output=True, cwd=RAIZ)  # relatorio do mapa inteiro, de novo
             return self.manda({"ok": True})
-        if u.path == "/api/renomear":
-            renomear(zp, (d.get("nome") or "").strip(), (d.get("artista") or "").strip())
-            return self.manda({"ok": True})
+        if u.path == "/api/renomear":  # se o letreiro escreve o nome antigo (ou o palco da banda muda), o visual e refeito pela fila; as notas ficam
+            luz = renomear(zp, (d.get("nome") or "").strip(), (d.get("artista") or "").strip())
+            if luz:
+                with trava:
+                    t_ = {"id": int(time.time() * 1000), "estado": "na fila", "passos": [], "progresso": None, "regerar": zp.name, "titulo": (d.get("nome") or "").strip() or zp.stem,
+                          "capa": "/api/capa?zip=" + quote(zp.name), "so_luzes": True}
+                    trabalhos.append(t_); fila.append(t_); guardar_fila()
+            return self.manda({"ok": True, "luzes": luz})
         if u.path == "/api/quest/apagar":  # tira o mapa do Quest; o zip daqui fica
             erro = quest.apagar(config()["quest_ip"], zp.stem)
             return self.manda({"erro": "adb|" + erro}, cod=500) if erro else self.manda({"ok": True})

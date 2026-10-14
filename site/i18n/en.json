@@ -76,6 +76,7 @@
   "luzes_todos": "New look for all maps",
   "luzes_um": "Redo only the lights",
   "luzes_na_fila": "This map's look is in the queue. The notes stay as they are.",
+  "renomear_luzes": "Name changed. The map's look is in the queue so the stage sign shows the new name; the notes stay as they are.",
   "confirma_luzes": "Redo only the look of the selected maps? Environment, lights, colors, Chroma, sign and the Noodle set come from the current generator and preferences; notes, arcs, chains, bombs and walls stay exactly as they are. The previous version of each one is kept in the saida\\versoes folder.",
   "confirma_luzes_todos": "Give the new look to every map in the list? Environment, lights, colors, Chroma, sign and the Noodle set come from the current generator and preferences; notes, arcs, chains, bombs and walls stay exactly as they are. They go into the queue one at a time, and each takes seconds if the saved analysis is still valid. The previous version of each one is kept in the saida\\versoes folder.",
   "passo_luzes": "Redoing the lights and the environment…",

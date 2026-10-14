@@ -44,7 +44,8 @@ The page opens at http://localhost:8777, in English or Portuguese, and only answ
 - **The way you play** (in Settings). No notes on the top row, no note hidden behind another, how much the arms may cross (never, a little, free), and sabers and notes in the cover colors.
 - **Redo the maps.** Select maps in the list and redo them with the current generator and preferences, or use "Redo all maps". Name, artist, cover and difficulties stay; the previous version goes to `saida\versoes`. With the saved analysis it takes about 10 seconds per map.
 - **Fast mode.** About 6 times faster, without separating the instruments, so no held notes and no walls.
-- **Mods, optional.** "I have Chroma" puts the cover palette in the lights. "I have Noodle Extensions" adds a separate difficulty set (Lawless) with light effects. With both off, the map depends on no mod.
+- **Mods, optional.** "I have Chroma" puts the cover palette in the lights, light by light, plus a light sign in the back with the artist and the song, and light pillars. "I have Noodle Extensions" adds a separate difficulty set (Lawless) with notes that appear and fall and the sign animated. With both off, the map depends on no mod; with them on, players without the mod see the usual lights.
+- **Redo only the lights.** Current environment, lights, colours and mods, with the notes exactly as they are: for one map ("⋯" menu), the selected ones or "New look for all maps".
 
 ### Quest
 
@@ -72,7 +73,7 @@ Be realistic about this. On 18 songs of different styles (indie pop, rock, metal
 Known limits:
 
 - 1/4 grid only: no triplets or swing. No dot notes.
-- Not yet seen in the game: chains, bombs, dodge walls, the lights of the newer environments, and the Chroma and Noodle Extensions effects. The format is validated, the result on screen is not.
+- Not yet seen in the game: chains, bombs, dodge walls, the lights of the newer environments, and the Chroma and Noodle Extensions effects (the artist sign, the pillars, light by light, the animated Lawless set). The format is validated, the result on screen is not.
 - Slow songs get many double notes on Expert+ to reach the target density.
 - The installer has not been tested on a clean machine yet.
 - Built and tested on Windows. Other systems are not a target.
@@ -146,7 +147,7 @@ start.bat            installs what is missing and opens the page
 app.py               local server and the /api routes
 generate.py          generates a map (command line)
 report.py            checks a map and writes the report
-beatloom\            the core: listening (audio.py), choosing swings (engine.py), lights (luzes.py), mods (mods.py),
+beatloom\            the core: listening (audio.py), choosing swings (engine.py), lights (luzes.py), mods (mods.py), sign and pillars (palco.py),
                      checking (checks.py), first-run downloads (preparo.py), Quest over ADB (quest.py)
 site\                the web page: app.html, app.css, app.js, the phrases in i18n\, the fonts
 check\               schema validation with bsmap (Node)
