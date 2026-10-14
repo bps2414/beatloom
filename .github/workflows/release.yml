@@ -1,11 +1,19 @@
 # Ao subir uma tag v*, monta o instalador (Inno Setup) e publica a release com as notas do CHANGELOG.md e a lista dos commits desde a tag anterior.
 #   git tag v1.0.1 && git push origin v1.0.1
+# Sem como subir tag (sessao na nuvem, celular): Actions > release > Run workflow, com a versao; a tag e criada aqui, no commit da branch escolhida.
 name: release
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      versao:
+        description: "Versao nova, com o v (ex.: v1.3.0)"
+        required: true
 permissions:
   contents: write
+env:
+  TAG: ${{ inputs.versao || github.ref_name }}
 jobs:
   instalador:
     runs-on: windows-latest
@@ -13,20 +21,27 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - name: Tag (so quando rodado a mao)
+        if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        run: |
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "versao invalida: $TAG"; exit 1; }
+          # com o token do Actions: subir esta tag nao dispara a release de novo
+          git tag "$TAG" && git push origin "$TAG"
       - name: Instalador
         shell: pwsh
         run: |
           $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
           if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress }
-          & $iscc "/DVersao=$($env:GITHUB_REF_NAME.TrimStart('v'))" installer\beatloom.iss
+          & $iscc "/DVersao=$($env:TAG.TrimStart('v'))" installer\beatloom.iss
           if ($LASTEXITCODE) { exit 1 }
       - name: Notas e release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          ant=$(git describe --tags --abbrev=0 "$GITHUB_REF_NAME^" 2>/dev/null || true)
+          ant=$(git describe --tags --abbrev=0 "$TAG^" 2>/dev/null || true)
           # o resumo escrito a mao vem do CHANGELOG.md (a secao "## vX.Y.Z"); a lista crua dos commits fica recolhida embaixo
-          awk -v t="## $GITHUB_REF_NAME" '$0==t{p=1;next} /^## /{p=0} p' CHANGELOG.md > notas.md
-          { echo; echo "<details><summary>Commits</summary>"; echo; git log --pretty='- %s' ${ant:+$ant..}"$GITHUB_REF_NAME"; echo; echo "</details>"; } >> notas.md
-          gh release create "$GITHUB_REF_NAME" .cache/beatloom-setup.exe --title "Beatloom $GITHUB_REF_NAME" --notes-file notas.md
+          awk -v t="## $TAG" '$0==t{p=1;next} /^## /{p=0} p' CHANGELOG.md > notas.md
+          { echo; echo "<details><summary>Commits</summary>"; echo; git log --pretty='- %s' ${ant:+$ant..}"$TAG"; echo; echo "</details>"; } >> notas.md
+          gh release create "$TAG" .cache/beatloom-setup.exe --title "Beatloom $TAG" --notes-file notas.md
